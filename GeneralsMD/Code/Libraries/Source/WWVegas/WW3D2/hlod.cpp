@@ -143,6 +143,9 @@
 */
 HLodLoaderClass			_HLodLoader;
 
+// GeneralsX @performance OpenAI 02/10/2026 Defaults to retail behavior; Android GLES changes it at runtime only under render pressure.
+float HLodClass::RuntimeScreenSizeScale = 1.0f;
+
 
 /**
 ** ProxyRecordClass
@@ -1652,6 +1655,17 @@ void HLodClass::Set_LOD_Bias(float bias)
 	}
 }
 
+// GeneralsX @performance OpenAI 02/10/2026 Runtime-only mobile HLOD pressure control.
+void HLodClass::Set_Runtime_Screen_Size_Scale(float scale)
+{
+	RuntimeScreenSizeScale = MIN(1.0f, MAX(0.35f, scale));
+}
+
+float HLodClass::Get_Runtime_Screen_Size_Scale()
+{
+	return RuntimeScreenSizeScale;
+}
+
 
 /***********************************************************************************************
  * HLodClass::Get_Lod_Model_Count -- number of sub-objs in a given level of detail             *
@@ -2843,8 +2857,11 @@ void HLodClass::Prepare_LOD(CameraClass &camera)
 		return;
 	}
 
-	// Find the maximum screen dimension of the object in pixels
-	float norm_area = Get_Screen_Size(camera);
+	// Find the maximum screen dimension of the object in pixels.
+	// GeneralsX @performance OpenAI 02/10/2026 Scale only the render-side LOD decision. This never changes
+	// game logic, collision, object existence, or simulation state. A scale below 1 makes lower-detail W3D
+	// levels become eligible earlier on constrained mobile renderers.
+	float norm_area = Get_Screen_Size(camera) * RuntimeScreenSizeScale;
 
 	/*
 	** Set texture reduction factor for the (non-additional) subobjects:
@@ -2858,7 +2875,14 @@ void HLodClass::Prepare_LOD(CameraClass &camera)
 		** Prepare cost and value arrays (and ensure current LOD doesn't violate clamping):
 		*/
 		int minlod = Calculate_Cost_Value_Arrays(norm_area, Value, Cost);
-		if (CurLod < minlod) Set_LOD_Level(minlod);
+		if (CurLod < minlod) {
+			Set_LOD_Level(minlod);
+		} else if (RuntimeScreenSizeScale <= 0.75f && CurLod > minlod) {
+			// GeneralsX @performance OpenAI 02/10/2026 The predictive optimizer is disabled in the game
+			// display path, so it cannot lower an already-selected HLOD when the device enters an emergency
+			// render tier. Explicitly drop to the clamped level only under Medium/Low mobile pressure.
+			Set_LOD_Level(minlod);
+		}
 
 
 		/*
