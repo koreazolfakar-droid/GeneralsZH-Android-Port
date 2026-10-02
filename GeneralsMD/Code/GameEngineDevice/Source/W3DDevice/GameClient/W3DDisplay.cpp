@@ -41,6 +41,9 @@ static void drawFramerateBar();
 // GeneralsX @build Android port GLES experiment - see gxTraceDisplayDrawPhase
 // in W3DDisplay::draw() below.
 #include "GXTrace.h"
+#if defined(__ANDROID__)
+#include "d3d8gles.h"
+#endif
 // GeneralsX @bugfix BenderAI 13/02/2026 - io.h is Windows-specific, use unistd.h on Linux
 #ifdef _WIN32
 #include <io.h>
@@ -2270,6 +2273,40 @@ void W3DDisplay::draw()
 	else
 	{	//if dynamic LOD is turned off, force highest LOD
 		TheGameLODManager->setDynamicLODLevel(DYNAMIC_GAME_LOD_VERY_HIGH);
+	}
+
+	// GeneralsX @performance OpenAI 02/10/2026 Apply render-only HLOD pressure on Android's
+	// native GLES/ANGLE path. The game/simulation stays untouched: this only changes which W3D
+	// detail level an already-visible render object selects. Vulkan/DXVK and desktop paths keep
+	// retail HLOD behavior until they are measured independently.
+	{
+		float mobileHLODScale = 1.0f;
+#if defined(__ANDROID__)
+		if (!d3d8gles_ShouldUseVulkanBackend())
+		{
+			switch (TheGameLODManager->getDynamicLODLevel())
+			{
+				case DYNAMIC_GAME_LOD_LOW:       mobileHLODScale = 0.55f; break;
+				case DYNAMIC_GAME_LOD_MEDIUM:    mobileHLODScale = 0.72f; break;
+				case DYNAMIC_GAME_LOD_HIGH:      mobileHLODScale = 0.90f; break;
+				case DYNAMIC_GAME_LOD_VERY_HIGH: mobileHLODScale = 1.00f; break;
+				default:                         mobileHLODScale = 1.00f; break;
+			}
+		}
+#endif
+		if (HLodClass::Get_Runtime_Screen_Size_Scale() != mobileHLODScale)
+		{
+			HLodClass::Set_Runtime_Screen_Size_Scale(mobileHLODScale);
+			GX_PERF_TRACE("[GX-HLOD] dynamic=%s renderScreenScale=%.2f backend=%s\n",
+				TheGameLODManager->getDynamicGameLODLevelName(TheGameLODManager->getDynamicLODLevel()),
+				(double)mobileHLODScale,
+#if defined(__ANDROID__)
+				d3d8gles_ShouldUseVulkanBackend() ? "Vulkan" : "GLES"
+#else
+				"desktop"
+#endif
+			);
+		}
 	}
 
 	if (TheGlobalData->m_terrainLOD == TERRAIN_LOD_AUTOMATIC && TheTerrainRenderObject)
