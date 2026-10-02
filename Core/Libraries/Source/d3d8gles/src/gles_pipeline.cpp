@@ -2115,6 +2115,25 @@ enum GeneralsXDrawCategory {
 static int s_gxDrawCategory = GX_DRAWCAT_OTHER;
 static unsigned s_gxDrawsByCategory[GX_DRAWCAT_COUNT] = {0, 0, 0, 0, 0, 0, 0};
 
+// GeneralsX @performance OpenAI 02/10/2026 Geometry and peak-frame counters distinguish
+// call pressure from actual vertex/primitive pressure. The old draw count alone could not tell
+// whether a 14 fps battle was driver-submission bound or simply feeding too much geometry.
+static unsigned long long s_gxVerticesByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned long long s_gxPrimitivesByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxDrawsThisFrameByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxPeakDrawsByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxPeakDrawsThisWindow = 0;
+
+// GeneralsX @performance OpenAI 02/10/2026 Upload pressure is measured separately because
+// previous real-device stalls scaled with buffer update calls, not with draw count.
+static unsigned long long s_gxVBUploadBytes = 0;
+static unsigned long long s_gxIBUploadBytes = 0;
+static unsigned long long s_gxUPUploadBytes = 0;
+static unsigned s_gxVBUploadCalls = 0;
+static unsigned s_gxIBUploadCalls = 0;
+static unsigned s_gxUPUploadCalls = 0;
+static unsigned s_gxUploadMapFallbacks = 0;
+
 // GeneralsX @perf Android port 09/05/2026 UI cost buckets, filled by engine
 // code that times itself (see d3d8gles_AddUiTiming's callers). Reported next to
 // the draw split so one log line shows both where the draws and where the CPU
@@ -2175,6 +2194,9 @@ void WebGLPipeline::drawCommon(WebGLDevice *dev, unsigned primType, unsigned pri
 	// per window, so it costs nothing.
 	m_perfDrawsThisFrame++;
 	s_gxDrawsByCategory[s_gxDrawCategory]++;
+	s_gxDrawsThisFrameByCategory[s_gxDrawCategory]++;
+	s_gxVerticesByCategory[s_gxDrawCategory] += count;
+	s_gxPrimitivesByCategory[s_gxDrawCategory] += primCount;
 }
 
 // Buffer objects (device-side shadow -> GL) helpers.
@@ -2241,6 +2263,8 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 			// First use, or an update with no recorded range: full upload,
 			// which also (re)allocates the GL storage.
 			glBufferData(GL_COPY_WRITE_BUFFER, vb->m_bits.size(), vb->m_bits.data(), GL_DYNAMIC_DRAW);
+			s_gxVBUploadBytes += vb->m_bits.size();
+			s_gxVBUploadCalls++;
 			vb->m_gl.allocated = true;
 		} else {
 			// GeneralsX @perf Android port 09/05/2026 This is the
@@ -2256,6 +2280,8 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 			// bytes the GPU may still read, so no wait is needed.
 			const GLintptr off = (GLintptr)vb->m_gl.dirtyBegin;
 			const GLsizeiptr len = (GLsizeiptr)(vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin);
+			s_gxVBUploadBytes += (unsigned long long)len;
+			s_gxVBUploadCalls++;
 			void *mapped = glMapBufferRange(GL_COPY_WRITE_BUFFER, off, len,
 				GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
 			if (mapped) {
@@ -2264,6 +2290,7 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 			} else {
 				// Mapping can legitimately fail (driver refusal, lost
 				// context); the synchronizing path is slower but correct.
+				s_gxUploadMapFallbacks++;
 				glBufferSubData(GL_COPY_WRITE_BUFFER, off, len,
 					vb->m_bits.data() + vb->m_gl.dirtyBegin);
 			}
@@ -2302,6 +2329,8 @@ void WebGLPipeline::ensureIBUploaded(WebGLIndexBuffer *ib)
 		const bool fullUpload = !ib->m_gl.allocated || !haveRange || ib->m_gl.pendingDiscard;
 		if (fullUpload) {
 			glBufferData(GL_COPY_WRITE_BUFFER, ib->m_bits.size(), ib->m_bits.data(), GL_DYNAMIC_DRAW);
+			s_gxIBUploadBytes += ib->m_bits.size();
+			s_gxIBUploadCalls++;
 			ib->m_gl.allocated = true;
 		} else {
 			// GeneralsX @perf Android port 09/05/2026 This is the
@@ -2317,6 +2346,8 @@ void WebGLPipeline::ensureIBUploaded(WebGLIndexBuffer *ib)
 			// bytes the GPU may still read, so no wait is needed.
 			const GLintptr off = (GLintptr)ib->m_gl.dirtyBegin;
 			const GLsizeiptr len = (GLsizeiptr)(ib->m_gl.dirtyEnd - ib->m_gl.dirtyBegin);
+			s_gxIBUploadBytes += (unsigned long long)len;
+			s_gxIBUploadCalls++;
 			void *mapped = glMapBufferRange(GL_COPY_WRITE_BUFFER, off, len,
 				GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
 			if (mapped) {
@@ -2325,6 +2356,7 @@ void WebGLPipeline::ensureIBUploaded(WebGLIndexBuffer *ib)
 			} else {
 				// Mapping can legitimately fail (driver refusal, lost
 				// context); the synchronizing path is slower but correct.
+				s_gxUploadMapFallbacks++;
 				glBufferSubData(GL_COPY_WRITE_BUFFER, off, len,
 					ib->m_bits.data() + ib->m_gl.dirtyBegin);
 			}
@@ -2354,6 +2386,8 @@ static void orphanAndUpload(GLenum target, GLuint buffer, size_t size, const voi
 	glBindBuffer(target, buffer);
 	glBufferData(target, size, nullptr, usage);
 	glBufferData(target, size, data, usage);
+	s_gxUPUploadBytes += size;
+	s_gxUPUploadCalls++;
 }
 
 void WebGLPipeline::drawIndexed(WebGLDevice *dev, unsigned primType, unsigned /*minIndex*/,
@@ -2704,6 +2738,13 @@ void WebGLPipeline::present()
 	// are available from a device log instead of judging smoothness by feel.
 	m_perfFrameCount++;
 	m_perfDrawAccum += m_perfDrawsThisFrame;
+	if (m_perfDrawsThisFrame > s_gxPeakDrawsThisWindow) {
+		s_gxPeakDrawsThisWindow = m_perfDrawsThisFrame;
+		for (int i = 0; i < GX_DRAWCAT_COUNT; ++i)
+			s_gxPeakDrawsByCategory[i] = s_gxDrawsThisFrameByCategory[i];
+	}
+	for (int i = 0; i < GX_DRAWCAT_COUNT; ++i)
+		s_gxDrawsThisFrameByCategory[i] = 0;
 	m_perfDrawsThisFrame = 0;
 	{
 		const unsigned nowMs = SDL_GetTicks();
@@ -2727,7 +2768,7 @@ void WebGLPipeline::present()
 			// averaged over the same window as draws/frame above.
 			{
 				const float f = m_perfFrameCount > 0 ? (float)m_perfFrameCount : 1.0f;
-				fprintf(stderr, "[d3d8gles] perf-draws/frame by source: models=%.1f sorted(particles)=%.1f "
+				fprintf(stderr, "[d3d8gles] perf-draws/frame by source: models=%.1f sorted-alpha=%.1f "
 					"2d-ui=%.1f terrain=%.1f shadows=%.1f skin=%.1f other=%.1f\n",
 					s_gxDrawsByCategory[GX_DRAWCAT_MODELS] / f,
 					s_gxDrawsByCategory[GX_DRAWCAT_SORTED] / f,
@@ -2736,12 +2777,55 @@ void WebGLPipeline::present()
 					s_gxDrawsByCategory[GX_DRAWCAT_SHADOWS] / f,
 					s_gxDrawsByCategory[GX_DRAWCAT_SKIN] / f,
 					s_gxDrawsByCategory[GX_DRAWCAT_OTHER] / f);
+				fprintf(stderr, "[d3d8gles] perf-geometry kverts/frame: models=%.1f sorted-alpha=%.1f "
+					"2d-ui=%.1f terrain=%.1f shadows=%.1f skin=%.1f other=%.1f\n",
+					s_gxVerticesByCategory[GX_DRAWCAT_MODELS] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_SORTED] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_2D] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_TERRAIN] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_SHADOWS] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_SKIN] / f / 1000.0,
+					s_gxVerticesByCategory[GX_DRAWCAT_OTHER] / f / 1000.0);
+				fprintf(stderr, "[d3d8gles] perf-primitives kprim/frame: models=%.1f sorted-alpha=%.1f "
+					"2d-ui=%.1f terrain=%.1f shadows=%.1f skin=%.1f other=%.1f\n",
+					s_gxPrimitivesByCategory[GX_DRAWCAT_MODELS] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_SORTED] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_2D] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_TERRAIN] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_SHADOWS] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_SKIN] / f / 1000.0,
+					s_gxPrimitivesByCategory[GX_DRAWCAT_OTHER] / f / 1000.0);
+				fprintf(stderr, "[d3d8gles] perf-peak frame: draws=%u models=%u sorted-alpha=%u "
+					"2d-ui=%u terrain=%u shadows=%u skin=%u other=%u\n",
+					s_gxPeakDrawsThisWindow,
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_MODELS],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_SORTED],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_2D],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_TERRAIN],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_SHADOWS],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_SKIN],
+					s_gxPeakDrawsByCategory[GX_DRAWCAT_OTHER]);
+				fprintf(stderr, "[d3d8gles] perf-buffer-upload/frame: vb=%.1fKB/%0.1fcalls ib=%.1fKB/%0.1fcalls "
+					"up=%.1fKB/%0.1fcalls map-fallback=%.2f\n",
+					s_gxVBUploadBytes / f / 1024.0, s_gxVBUploadCalls / f,
+					s_gxIBUploadBytes / f / 1024.0, s_gxIBUploadCalls / f,
+					s_gxUPUploadBytes / f / 1024.0, s_gxUPUploadCalls / f,
+					s_gxUploadMapFallbacks / f);
 				fprintf(stderr, "[d3d8gles] perf-ui ms/frame: text-raster=%.2f text-texture=%.2f 2d-submit=%.2f\n",
 					s_gxUiTimeUs[0] / 1000.0 / f,
 					s_gxUiTimeUs[1] / 1000.0 / f,
 					s_gxUiTimeUs[2] / 1000.0 / f);
 				for (int i = 0; i < 3; i++) s_gxUiTimeUs[i] = 0.0;
-				for (int i = 0; i < GX_DRAWCAT_COUNT; i++) s_gxDrawsByCategory[i] = 0;
+				for (int i = 0; i < GX_DRAWCAT_COUNT; i++) {
+					s_gxDrawsByCategory[i] = 0;
+					s_gxVerticesByCategory[i] = 0;
+					s_gxPrimitivesByCategory[i] = 0;
+					s_gxPeakDrawsByCategory[i] = 0;
+				}
+				s_gxPeakDrawsThisWindow = 0;
+				s_gxVBUploadBytes = s_gxIBUploadBytes = s_gxUPUploadBytes = 0;
+				s_gxVBUploadCalls = s_gxIBUploadCalls = s_gxUPUploadCalls = 0;
+				s_gxUploadMapFallbacks = 0;
 			}
 			fprintf(stderr, "[d3d8gles] perf: %.1f fps, %.1f draws/frame, "
 				"state-cache %.0f%% hit (%d/%d), vao-cache %.0f%% hit (%d/%d, %zu cached, "
