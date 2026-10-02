@@ -811,6 +811,12 @@ void OpenALAudioManager::playAudioEvent(AudioEventRTS* event)
 			}
 		}
 
+		// GeneralsX @diagnostic OpenAI 02/10/2026 Associate FFmpeg warnings with the actual
+		// music/stream asset. libavcodec prints malformed-MP3 warnings without the game filename,
+		// which made repeated "invalid concatenated file" reports impossible to repair precisely.
+		fprintf(stderr, "[audio-stream] open event=%s file=%s\n",
+			event->getEventName().str(), fileToPlay.str());
+
 		File* file = TheFileSystem->openFile(fileToPlay.str());
 		if (!file) {
 			DEBUG_LOG(("Failed to open file: %s\n", fileToPlay.str()));
