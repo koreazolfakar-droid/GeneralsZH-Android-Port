@@ -42,7 +42,9 @@ static void drawFramerateBar();
 // in W3DDisplay::draw() below.
 #include "GXTrace.h"
 #if defined(__ANDROID__)
-#include "d3d8gles.h"
+// GeneralsX @performance OpenAI 02/10/2026 Avoid coupling GameEngineDevice include paths
+// to the GLES implementation header; the Android executable already exports this backend selector.
+extern "C" bool d3d8gles_ShouldUseVulkanBackend();
 #endif
 // GeneralsX @bugfix BenderAI 13/02/2026 - io.h is Windows-specific, use unistd.h on Linux
 #ifdef _WIN32
