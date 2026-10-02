@@ -167,6 +167,9 @@ public:
 	virtual int						Get_LOD_Level() const override;
 	virtual int						Get_LOD_Count() const override;
 	virtual void					Set_LOD_Bias(float bias) override;
+	// GeneralsX @performance OpenAI 02/10/2026 Runtime-only HLOD pressure control for mobile rendering.
+	static void					Set_Runtime_Screen_Size_Scale(float scale);
+	static float					Get_Runtime_Screen_Size_Scale();
 	virtual int						Calculate_Cost_Value_Arrays(float screen_area, float *values, float *costs) const override;
 	virtual RenderObjClass *	Get_Current_LOD() override;
 
@@ -258,6 +261,9 @@ protected:
 
 	// Current LOD Bias (affects recalculation of the Value array)
 	float								LODBias;
+
+	// GeneralsX @performance OpenAI 02/10/2026 Global render-only screen-size scale.
+	static float					RuntimeScreenSizeScale;
 };
 
 
