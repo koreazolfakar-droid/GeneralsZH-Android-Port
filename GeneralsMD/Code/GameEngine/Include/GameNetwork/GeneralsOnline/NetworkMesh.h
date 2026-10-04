@@ -5,7 +5,6 @@
 #include <ws2ipdef.h>
 #endif
 #include <steam/steamnetworkingsockets.h>
-#include <chrono>
 #include <utility>
 #include <vector>
 // GeneralsX @bugfix Android port 12/07/2026 - EConnectionState used to be
@@ -220,6 +219,5 @@ private:
 	void ReleaseDeferredSignalling();
 
 	bool m_bAwaitingTurnCredentials = false;
-	std::chrono::steady_clock::time_point m_timeAwaitingTurnSince;
 	std::vector<std::pair<int64_t, uint16_t>> m_vecDeferredSignalling;
 };
