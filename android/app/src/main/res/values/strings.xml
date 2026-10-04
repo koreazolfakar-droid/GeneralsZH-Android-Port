@@ -352,4 +352,31 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Apply Interface Size</string>
     <string name="setup_interface_scale_help">Makes the in-game interface bigger, without touching the game\'s files: the control bar with the radar grows up from the bottom, and the generals\' powers bar, chat, event messages, player list, in-game menu with Save/Load and Options, and the main menu\'s buttons grow from where they sit. Nothing is pushed off the screen: each part grows only as far as it fits, so the control bar gets taller rather than wider on a wide phone, and the battlefield above it gets shorter. Works together with Menu Text Size. Takes effect the next time you launch the game.</string>
+
+    <!-- Mod Manager Phase 1 -->
+    <string name="mods_title">Mods</string>
+    <string name="mods_card_title">Mods</string>
+    <string name="mods_open_manager">Open Mod Manager</string>
+    <string name="mods_status_title">Active Mod</string>
+    <string name="mods_active_vanilla">Vanilla Zero Hour</string>
+    <string name="mods_active_mod">Active: %1$s</string>
+    <string name="mods_folder_path">Mods folder: %1$s</string>
+    <string name="mods_vanilla_title">Vanilla Zero Hour</string>
+    <string name="mods_vanilla_desc">Launch the base game without a selected -mod path.</string>
+    <string name="mods_use_vanilla">Use Vanilla</string>
+    <string name="mods_active_button">Active</string>
+    <string name="mods_activate_button">Activate</string>
+    <string name="mods_type_folder">Mod folder</string>
+    <string name="mods_type_big">BIG archive mod</string>
+    <string name="mods_empty_title">No managed mods yet</string>
+    <string name="mods_empty_message">Create a folder for each mod inside:\n%1$s\n\nA direct .big file is also supported. Import and delete controls are coming in the next phase.</string>
+    <string name="mods_no_game_title">Game folder required</string>
+    <string name="mods_no_game_message">Choose your Zero Hour game folder on the Home page before managing mods.</string>
+    <string name="mods_storage_error_title">Mods folder unavailable</string>
+    <string name="mods_storage_error_message">Could not create or read:\n%1$s</string>
+    <string name="mods_legacy_warning">Legacy data mod detected in the main game folder: %1$s. It is loaded independently of this manager and can conflict with a managed mod. Move it into its own Mods subfolder before using managed activation.</string>
+    <string name="mods_toast_vanilla">Vanilla mode selected.</string>
+    <string name="mods_toast_activated">Activated %1$s. It will load on the next game launch.</string>
+    <string name="mods_toast_activate_failed">Could not activate that mod.</string>
+
 </resources>
