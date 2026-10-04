@@ -146,6 +146,13 @@
             </intent-filter>
         </activity>
 
+        <!-- GeneralsX @feature Android port 04/10/2026 Mod Manager Phase 1. -->
+        <activity
+            android:name=".ModManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GeneralsZHSettings"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <activity
             android:name=".FolderPickerActivity"
             android:exported="false"
