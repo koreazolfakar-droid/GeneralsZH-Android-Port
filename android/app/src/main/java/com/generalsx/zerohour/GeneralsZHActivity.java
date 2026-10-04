@@ -166,6 +166,19 @@ public class GeneralsZHActivity extends SDLActivity {
             args.add("-gxSafeInsets");
             args.add(safeInsets);
         }
+
+        // GeneralsX @feature Android port 04/10/2026 Mod Manager Phase 1.
+        // The retail command-line parser already owns mod semantics; the launcher
+        // only supplies the validated absolute child selected under GameData/Mods.
+        // Keeping this in getArguments() means both 30 Hz and 60 Hz engines receive
+        // the exact same mod without any gameplay-side Android special case.
+        String activeMod = ModManager.getActiveModPath(this);
+        if (activeMod != null) {
+            args.add("-mod");
+            args.add(activeMod);
+            Log.i(TAG, "Launching with mod: " + activeMod);
+        }
+
         Intent intent = getIntent();
         String replay = intent != null ? intent.getStringExtra(EXTRA_REPLAY) : null;
         if (replay == null || replay.isEmpty()) {
