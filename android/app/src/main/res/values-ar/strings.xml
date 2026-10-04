@@ -362,7 +362,7 @@
     <string name="mods_type_folder">مجلد مود</string>
     <string name="mods_type_big">مود بأرشيف BIG</string>
     <string name="mods_empty_title">لا توجد مودات مُدارة بعد</string>
-    <string name="mods_empty_message">أنشئ مجلدًا لكل مود داخل:\n%1$s\n\nيمكن أيضًا وضع ملف .big مباشر. الاستيراد والحذف سنضيفهما في المرحلة التالية.</string>
+    <string name="mods_empty_message">لا توجد مودات مثبتة داخل:\n%1$s\n\nاستخدم خيارات الاستيراد أعلاه لإضافة مجلد أو أرشيف .big أو حزمة .zip.</string>
     <string name="mods_no_game_title">يجب تحديد مجلد اللعبة</string>
     <string name="mods_no_game_message">اختر مجلد لعبة Zero Hour من الصفحة الرئيسية قبل إدارة المودات.</string>
     <string name="mods_storage_error_title">مجلد المودات غير متاح</string>
@@ -371,5 +371,22 @@
     <string name="mods_toast_vanilla">تم اختيار الوضع الأصلي بدون مود.</string>
     <string name="mods_toast_activated">تم تفعيل %1$s. سيتم تحميله عند تشغيل اللعبة في المرة القادمة.</string>
     <string name="mods_toast_activate_failed">تعذر تفعيل هذا المود.</string>
+
+
+    <!-- Mod Manager Phase 2: transactional import -->
+    <string name="mods_import_title">استيراد مود</string>
+    <string name="mods_import_desc">استورد مود موجود بدون الكتابة داخل ملفات اللعبة الأساسية. يدعم المجلدات وملفات .big وحزم .zip.</string>
+    <string name="mods_import_folder">استيراد مجلد</string>
+    <string name="mods_import_file">استيراد .BIG / .ZIP</string>
+    <string name="mods_import_safety">يتم نسخ المود أولًا إلى منطقة مؤقتة، ثم فحص المسارات غير الآمنة وأرشيفات BIG التالفة، وبعد النجاح فقط يُنقل إلى Mods. أي استيراد فاشل يُحذف من المنطقة المؤقتة ولا يستبدل مودًا مثبتًا.</string>
+    <string name="mods_import_picker_missing">لا يوجد منتقي ملفات متوافق في هذا الجهاز.</string>
+    <string name="mods_import_working_title">جارٍ استيراد المود</string>
+    <string name="mods_import_working_message">جارٍ نسخ المود المحدد والتحقق منه. لن تتغير المودات المثبتة حتى ينجح الفحص بالكامل.</string>
+    <string name="mods_import_done_title">تم استيراد المود</string>
+    <string name="mods_import_done_message">تم تثبيت %1$s بنجاح.\n\nأرشيفات BIG: %2$d\nالملفات: %3$d\nالحجم المنسوخ: %4$s</string>
+    <string name="mods_import_activate">تفعيل</string>
+    <string name="mods_import_later">لاحقًا</string>
+    <string name="mods_import_failed_title">فشل الاستيراد</string>
+    <string name="mods_import_failed_message">لم يتم تثبيت أي شيء.\n\n%1$s</string>
 
 </resources>
