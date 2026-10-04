@@ -403,4 +403,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">جاهز</string>
+    <string name="launcher_setup_needed">الإعداد مطلوب</string>
+    <string name="launcher_quick_access">الوصول السريع</string>
+    <string name="launcher_game_data">بيانات اللعبة</string>
+    <string name="launcher_engine_build">إصدار المحرك</string>
+    <string name="launcher_account">الحساب</string>
+    <string name="launcher_play_now">العب الآن</string>
+    <string name="launcher_settings">الإعدادات</string>
+    <string name="launcher_build_value">الإصدار %1$d</string>
+    <string name="launcher_search_mods">البحث عن مود</string>
+    <string name="launcher_no_matches">لا توجد مودات مثبتة تطابق بحثك.</string>
+    <string name="launcher_signed_out">غير مسجل</string>
+    <string name="launcher_play_options">خيارات التشغيل</string>
+    <string name="launcher_mods_hint">إدارة المودات المثبتة</string>
+    <string name="launcher_graphics_hint">إعدادات اللعبة</string>
+    <string name="launcher_data_hint">الإعداد والملفات</string>
+    <string name="launcher_tools_hint">السجلات والتشخيص</string>
 </resources>

@@ -359,4 +359,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">BEREIT</string>
+    <string name="launcher_setup_needed">EINRICHTUNG ERFORDERLICH</string>
+    <string name="launcher_quick_access">Schnellzugriff</string>
+    <string name="launcher_game_data">Spieldaten</string>
+    <string name="launcher_engine_build">Engine-Build</string>
+    <string name="launcher_account">Konto</string>
+    <string name="launcher_play_now">Jetzt spielen</string>
+    <string name="launcher_settings">Einstellungen</string>
+    <string name="launcher_build_value">Build %1$d</string>
+    <string name="launcher_search_mods">Mods suchen</string>
+    <string name="launcher_no_matches">Keine installierten Mods entsprechen deiner Suche.</string>
+    <string name="launcher_signed_out">Nicht angemeldet</string>
+    <string name="launcher_play_options">Spieloptionen</string>
+    <string name="launcher_mods_hint">Installierte Mods</string>
+    <string name="launcher_graphics_hint">Spieleinstellungen</string>
+    <string name="launcher_data_hint">Einrichtung und Dateien</string>
+    <string name="launcher_tools_hint">Logs und Diagnose</string>
 </resources>

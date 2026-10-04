@@ -359,4 +359,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">준비 완료</string>
+    <string name="launcher_setup_needed">설정 필요</string>
+    <string name="launcher_quick_access">빠른 접근</string>
+    <string name="launcher_game_data">게임 데이터</string>
+    <string name="launcher_engine_build">엔진 빌드</string>
+    <string name="launcher_account">계정</string>
+    <string name="launcher_play_now">지금 플레이</string>
+    <string name="launcher_settings">설정</string>
+    <string name="launcher_build_value">빌드 %1$d</string>
+    <string name="launcher_search_mods">모드 검색</string>
+    <string name="launcher_no_matches">검색과 일치하는 설치된 모드가 없습니다.</string>
+    <string name="launcher_signed_out">로그인 안 됨</string>
+    <string name="launcher_play_options">플레이 옵션</string>
+    <string name="launcher_mods_hint">설치된 모드 관리</string>
+    <string name="launcher_graphics_hint">게임 설정</string>
+    <string name="launcher_data_hint">설정 및 파일</string>
+    <string name="launcher_tools_hint">로그 및 진단</string>
 </resources>

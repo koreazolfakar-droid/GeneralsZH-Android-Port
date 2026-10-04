@@ -359,4 +359,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">已就绪</string>
+    <string name="launcher_setup_needed">需要设置</string>
+    <string name="launcher_quick_access">快捷入口</string>
+    <string name="launcher_game_data">游戏数据</string>
+    <string name="launcher_engine_build">引擎版本</string>
+    <string name="launcher_account">账户</string>
+    <string name="launcher_play_now">立即游玩</string>
+    <string name="launcher_settings">设置</string>
+    <string name="launcher_build_value">构建 %1$d</string>
+    <string name="launcher_search_mods">搜索模组</string>
+    <string name="launcher_no_matches">没有已安装的模组符合搜索条件。</string>
+    <string name="launcher_signed_out">未登录</string>
+    <string name="launcher_play_options">游玩选项</string>
+    <string name="launcher_mods_hint">管理已安装的模组</string>
+    <string name="launcher_graphics_hint">游戏设置</string>
+    <string name="launcher_data_hint">设置与文件</string>
+    <string name="launcher_tools_hint">日志与诊断</string>
 </resources>

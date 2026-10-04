@@ -359,4 +359,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">GOTOVO</string>
+    <string name="launcher_setup_needed">TRĚBA NASTAVJENJA</string>
+    <string name="launcher_quick_access">Bystry pristup</string>
+    <string name="launcher_game_data">Dane igry</string>
+    <string name="launcher_engine_build">Verzija motora</string>
+    <string name="launcher_account">Konto</string>
+    <string name="launcher_play_now">Igrati sejčas</string>
+    <string name="launcher_settings">Nastavjenja</string>
+    <string name="launcher_build_value">Sbor %1$d</string>
+    <string name="launcher_search_mods">Iskati mody</string>
+    <string name="launcher_no_matches">Žadne instalovane mody ne odgovarjajut iskanju.</string>
+    <string name="launcher_signed_out">Ne prijavjen</string>
+    <string name="launcher_play_options">Opcije igranja</string>
+    <string name="launcher_mods_hint">Upravjati modami</string>
+    <string name="launcher_graphics_hint">Nastavjenja igry</string>
+    <string name="launcher_data_hint">Nastavjenje i fajly</string>
+    <string name="launcher_tools_hint">Žurnaly i diagnostika</string>
 </resources>

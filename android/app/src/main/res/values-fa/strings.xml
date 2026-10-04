@@ -359,4 +359,24 @@
     <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
     <string name="mods_brand_generals" translatable="false">GENERALS</string>
     <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">آماده</string>
+    <string name="launcher_setup_needed">نیاز به راه‌اندازی</string>
+    <string name="launcher_quick_access">دسترسی سریع</string>
+    <string name="launcher_game_data">داده‌های بازی</string>
+    <string name="launcher_engine_build">نسخهٔ موتور</string>
+    <string name="launcher_account">حساب</string>
+    <string name="launcher_play_now">شروع بازی</string>
+    <string name="launcher_settings">تنظیمات</string>
+    <string name="launcher_build_value">ساخت %1$d</string>
+    <string name="launcher_search_mods">جستجوی مودها</string>
+    <string name="launcher_no_matches">هیچ مود نصب‌شده‌ای با جستجوی شما مطابقت ندارد.</string>
+    <string name="launcher_signed_out">وارد نشده</string>
+    <string name="launcher_play_options">گزینه‌های بازی</string>
+    <string name="launcher_mods_hint">مدیریت مودها</string>
+    <string name="launcher_graphics_hint">تنظیمات بازی</string>
+    <string name="launcher_data_hint">راه‌اندازی و فایل‌ها</string>
+    <string name="launcher_tools_hint">گزارش‌ها و عیب‌یابی</string>
 </resources>

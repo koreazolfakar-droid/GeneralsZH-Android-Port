@@ -256,6 +256,58 @@ public class ModManagerUiTest {
         setup.pause().stop().destroy();
     }
 
+    @Test public void searchFiltersOnlyCachedCardsAndCancelPreservesChoice() throws Exception {
+        File first = new File(mods, "ExistingFixture.big");
+        File second = new File(mods, "OtherInstalled.big");
+        Files.write(first.toPath(), new byte[] {1,2,3});
+        Files.write(second.toPath(), new byte[] {4,5,6});
+        assertTrue(ModManager.setActiveMod(context, first));
+        open();
+        View search = null;
+        for (View view : views(activity.getWindow().getDecorView())) {
+            if (activity.getString(R.string.launcher_search_mods).equals(view.getContentDescription())) search = view;
+        }
+        assertNotNull(search);
+        search.performClick();
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        android.widget.EditText input = null;
+        for (View view : views(dialog.getWindow().getDecorView())) {
+            if (view instanceof android.widget.EditText) input = (android.widget.EditText)view;
+        }
+        assertNotNull(input);
+        input.setText("OTHER");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        label(second.getName());
+        for (View view : views(activity.getWindow().getDecorView())) {
+            if (view instanceof TextView) assertNotEquals(first.getName(), ((TextView)view).getText().toString());
+        }
+        search.performClick();
+        ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        label(second.getName());
+        assertEquals(first, ModManager.getActiveMod(context));
+        assertEquals(2, ModManager.listMods(context).size());
+        assertArrayEquals(new byte[]{1,2,3}, Files.readAllBytes(first.toPath()));
+    }
+
+    @Test public void libraryNavigationReturnsToExistingGraphicsTabWithoutChangingMod() throws Exception {
+        File installed = new File(mods, "Existing.big");
+        Files.write(installed.toPath(), new byte[] {1,2,3});
+        assertTrue(ModManager.setActiveMod(context, installed));
+        open();
+        com.google.android.material.bottomnavigation.BottomNavigationView nav = null;
+        for (View view : views(activity.getWindow().getDecorView())) {
+            if (view instanceof com.google.android.material.bottomnavigation.BottomNavigationView)
+                nav = (com.google.android.material.bottomnavigation.BottomNavigationView)view;
+        }
+        assertNotNull(nav);
+        nav.setSelectedItemId(SetupActivity.TAB_GRAPHICS);
+        Intent intent = shadowOf(activity).getNextStartedActivity();
+        assertEquals(SetupActivity.class.getName(), intent.getComponent().getClassName());
+        assertEquals(SetupActivity.TAB_GRAPHICS, intent.getIntExtra(SetupActivity.EXTRA_OPEN_TAB, -1));
+        assertEquals(installed, ModManager.getActiveMod(context));
+    }
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     public void longNamesFitSmallScreenAndCaptureActualViews() throws Exception {
         String name = new String(new char[220]).replace('\0', 'M');
