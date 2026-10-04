@@ -422,7 +422,7 @@ final class ModImportService {
     }
 
     private static String normalizeZipPath(String raw) throws IOException {
-        if (raw == null || raw.indexOf('\u0000') >= 0) {
+        if (raw == null || raw.indexOf(0) >= 0) {
             throw new IOException("ZIP contains an invalid path");
         }
         String path = raw.replace('\\', '/');
@@ -436,7 +436,7 @@ final class ModImportService {
     }
 
     private static File resolveSafeRelative(File root, String relative) throws IOException {
-        if (relative == null || relative.indexOf('\u0000') >= 0) {
+        if (relative == null || relative.indexOf(0) >= 0) {
             throw new IOException("Invalid mod path");
         }
 
@@ -473,7 +473,7 @@ final class ModImportService {
         String value = segment.trim();
         if (value.isEmpty() || ".".equals(value) || "..".equals(value)
                 || value.indexOf('/') >= 0 || value.indexOf('\\') >= 0
-                || value.indexOf('\u0000') >= 0) {
+                || value.indexOf(0) >= 0) {
             throw new IOException("Mod contains an unsafe file name");
         }
         if (value.length() > 255) {
