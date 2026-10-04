@@ -908,14 +908,17 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 //
 // The mesh cannot be built later instead (the service's START_SIGNALLING arrives before the HTTP
 // response, see JoinLobby), so it waits: outbound signalling is queued, inbound signals stay in
-// the WebSocket's buffer, and both resume once ApplyTurnCredentials() has set the relay. A
-// missing response releases them after kTurnCredentialWaitMs without a relay, as before.
-static const int64_t kTurnCredentialWaitMs = 5000;
-
+// the WebSocket's buffer, and both resume only once ApplyTurnCredentials() has handled the join
+// response.
+//
+// Do not add a local timeout here. The previous Android-only 5 s fallback released signalling
+// without TURN credentials if the HTTP response was merely slow. That recreated the original
+// "mesh is not fully connected" bug on CGNAT/filtered networks: the first P2P negotiation was
+// created with no relay and could time out at game start. Upstream waits for the join response;
+// the HTTP request lifecycle owns failure/timeout handling.
 void NetworkMesh::AwaitTurnCredentials()
 {
 	m_bAwaitingTurnCredentials = true;
-	m_timeAwaitingTurnSince = std::chrono::steady_clock::now();
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Mesh holding signalling until the join response brings TURN credentials");
 }
 
@@ -1174,16 +1177,6 @@ void NetworkMesh::Tick()
 		fflush(stderr);
 	}
 
-	if (m_bAwaitingTurnCredentials)
-	{
-		const int64_t waitedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_timeAwaitingTurnSince).count();
-		if (waitedMs >= kTurnCredentialWaitMs)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] No TURN credentials after %lld ms, releasing %zu deferred signalling request(s) without a relay",
-				(long long)waitedMs, m_vecDeferredSignalling.size());
-			ReleaseDeferredSignalling();
-		}
-	}
 
 	// Check for incoming signals, and dispatch them. While the TURN credentials are awaited they
 	// stay buffered in the WebSocket: an inbound connection is configured when it is created.
