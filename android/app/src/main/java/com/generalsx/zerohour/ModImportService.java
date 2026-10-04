@@ -19,6 +19,7 @@ import android.provider.OpenableColumns;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -357,14 +358,57 @@ final class ModImportService {
         if (!file.isFile() || file.length() < 16) {
             return false;
         }
-        try (FileInputStream in = new FileInputStream(file)) {
+
+        // Do more than check the four-byte magic: walk the BIG file table
+        // without reading payload data, and reject impossible header lengths,
+        // runaway names, or entries pointing outside the archive. This catches
+        // truncated/corrupt downloads before the native loader ever sees them.
+        try (DataInputStream in = new DataInputStream(new BufferedInputStream(
+                new FileInputStream(file), BUFFER_SIZE))) {
             byte[] magic = new byte[4];
-            int read = in.read(magic);
-            return read == 4
-                && magic[0] == 'B'
-                && magic[1] == 'I'
-                && magic[2] == 'G'
-                && (magic[3] == 'F' || magic[3] == '4');
+            in.readFully(magic);
+            if (magic[0] != 'B' || magic[1] != 'I' || magic[2] != 'G'
+                    || (magic[3] != 'F' && magic[3] != '4')) {
+                return false;
+            }
+
+            in.readInt(); // archive-size field is little-endian; not needed here
+            int count = in.readInt();      // file count is big-endian
+            int headerSize = in.readInt(); // header size is big-endian
+            if (count < 0 || count > 200000 || headerSize < 16
+                    || headerSize > file.length()) {
+                return false;
+            }
+
+            long tableBytes = 16;
+            for (int i = 0; i < count; i++) {
+                if (tableBytes + 9 > headerSize) {
+                    return false;
+                }
+                long offset = Integer.toUnsignedLong(in.readInt());
+                long size = Integer.toUnsignedLong(in.readInt());
+                tableBytes += 8;
+
+                int nameBytes = 0;
+                int c;
+                do {
+                    c = in.read();
+                    if (c < 0) {
+                        return false;
+                    }
+                    tableBytes++;
+                    nameBytes++;
+                    if (nameBytes > 4096 || tableBytes > headerSize) {
+                        return false;
+                    }
+                } while (c != 0);
+
+                if (offset > file.length() || size > file.length()
+                        || offset + size < offset || offset + size > file.length()) {
+                    return false;
+                }
+            }
+            return tableBytes <= headerSize;
         } catch (IOException e) {
             return false;
         }
