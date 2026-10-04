@@ -369,7 +369,7 @@
     <string name="mods_type_folder">Mod folder</string>
     <string name="mods_type_big">BIG archive mod</string>
     <string name="mods_empty_title">No managed mods yet</string>
-    <string name="mods_empty_message">Create a folder for each mod inside:\n%1$s\n\nA direct .big file is also supported. Import and delete controls are coming in the next phase.</string>
+    <string name="mods_empty_message">No mods are installed in:\n%1$s\n\nUse the import controls above to add a folder, .big archive or .zip package.</string>
     <string name="mods_no_game_title">Game folder required</string>
     <string name="mods_no_game_message">Choose your Zero Hour game folder on the Home page before managing mods.</string>
     <string name="mods_storage_error_title">Mods folder unavailable</string>
@@ -378,5 +378,22 @@
     <string name="mods_toast_vanilla">Vanilla mode selected.</string>
     <string name="mods_toast_activated">Activated %1$s. It will load on the next game launch.</string>
     <string name="mods_toast_activate_failed">Could not activate that mod.</string>
+
+
+    <!-- Mod Manager Phase 2: transactional import -->
+    <string name="mods_import_title">Import Mod</string>
+    <string name="mods_import_desc">Import an existing mod without writing into the live game files. Folders, .big archives and .zip packages are supported.</string>
+    <string name="mods_import_folder">Import Folder</string>
+    <string name="mods_import_file">Import .BIG / .ZIP</string>
+    <string name="mods_import_safety">Imports are staged first, checked for unsafe paths and corrupt BIG archives, and only then moved into Mods. Failed imports are removed from staging and do not replace installed mods.</string>
+    <string name="mods_import_picker_missing">No compatible Android file picker is available on this device.</string>
+    <string name="mods_import_working_title">Importing mod</string>
+    <string name="mods_import_working_message">Copying and validating the selected mod. The installed mods are not changed until validation succeeds.</string>
+    <string name="mods_import_done_title">Mod imported</string>
+    <string name="mods_import_done_message">%1$s was installed successfully.\n\nBIG archives: %2$d\nFiles: %3$d\nCopied: %4$s</string>
+    <string name="mods_import_activate">Activate</string>
+    <string name="mods_import_later">Later</string>
+    <string name="mods_import_failed_title">Import failed</string>
+    <string name="mods_import_failed_message">Nothing was installed.\n\n%1$s</string>
 
 </resources>
