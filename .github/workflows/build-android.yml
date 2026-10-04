@@ -16,7 +16,7 @@ permissions:
   actions: write
 
 on:
-  # One-shot CI branch trigger used to build the TURN-timeout test APK.
+  # One-shot CI branch trigger used to build the TURN-timeout test APK (retry).
   push:
     branches:
       - ci/build-online-turn-timeout-b21ec5d
