@@ -130,7 +130,6 @@ public class SetupActivity extends Activity {
 
     private TextView statusText;
     // GeneralsX @feature Android port 04/10/2026 Current Mod Manager selection shown on Home.
-    private TextView modStatusView;
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
@@ -425,7 +424,6 @@ public class SetupActivity extends Activity {
         heroReady = heroMod = homeModSummary = homeEngineSummary = homeAccountSummary = null;
         homeGameSummary = homeOnlineSummary = homeUpdatesSummary = null;
         homeGameData = homeOnlineDetails = homeUpdateDetails = null;
-        modStatusView = null;
         onlineStatusView = null;
         updatesStatusView = null;
         gameLanguageStatusView = null;
@@ -490,20 +488,9 @@ public class SetupActivity extends Activity {
         homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
         homeAccountSummary = homeMetric(metrics, R.drawable.ic_gzh_account, R.string.launcher_account);
 
-        TextView quick = LauncherUi.text(this, page, getString(R.string.launcher_quick_access),
-            21, LauncherUi.TEXT, true);
-        quick.setPadding(0, dp(8), 0, dp(2));
-        LinearLayout first = UiKit.buttonRow(page);
-        quickTile(first, R.drawable.ic_gzh_folder, R.string.mods_title, () -> openLauncherTab(TAB_MODS));
-        quickTile(first, R.drawable.ic_gzh_display, R.string.nav_tab_graphics, () -> openLauncherTab(TAB_GRAPHICS));
-        LinearLayout second = UiKit.buttonRow(page);
-        quickTile(second, R.drawable.ic_gzh_folder, R.string.launcher_game_data, () -> expandHome(homeGameData));
-        quickTile(second, R.drawable.ic_gzh_wrench, R.string.nav_tab_tools, () -> openLauncherTab(TAB_TOOLS));
-
+        // GeneralsX @tweak Android port 04/10/2026 Keep one navigation entry per destination.
         homeGameSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_check,
             R.string.setup_card_game_folder, "", () -> expandHome(homeGameData));
-        modStatusView = LauncherUi.row(this, page, R.drawable.ic_gzh_folder,
-            R.string.mods_status_title, "", () -> openLauncherTab(TAB_MODS));
         homeOnlineSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_account,
             R.string.setup_card_online, "", () -> expandHome(homeOnlineDetails));
         homeUpdatesSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_refresh,
@@ -528,11 +515,8 @@ public class SetupActivity extends Activity {
     private void showPlayOptions(View anchor) {
         android.widget.PopupMenu menu = new android.widget.PopupMenu(this, anchor);
         menu.getMenu().add(0, TAB_GRAPHICS, 0, R.string.setup_card_sim_rate);
-        menu.getMenu().add(0, TAB_MODS, 1, R.string.mods_title);
-        menu.getMenu().add(0, 7, 2, R.string.launcher_game_data);
         menu.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 7) expandHome(homeGameData);
-            else openLauncherTab(item.getItemId());
+            openLauncherTab(item.getItemId());
             return true;
         });
         menu.show();
@@ -554,37 +538,6 @@ public class SetupActivity extends Activity {
         value.setCompoundDrawablePadding(dp(5));
         LauncherUi.text(this, cell, getString(caption), 10, LauncherUi.MUTED, false);
         return value;
-    }
-
-    private void quickTile(LinearLayout row, int icon, int title, Runnable action) {
-        LinearLayout tile = new LinearLayout(this);
-        tile.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        tile.setPadding(dp(10), dp(8), dp(10), dp(8));
-        android.widget.ImageView glyph = new android.widget.ImageView(this);
-        glyph.setImageResource(icon);
-        glyph.setImageTintList(android.content.res.ColorStateList.valueOf(LauncherUi.PURPLE));
-        glyph.setPadding(dp(6), dp(6), dp(6), dp(6));
-        glyph.setBackground(LauncherUi.shape(this, 0xff242035, 0xff30283f, 8));
-        LinearLayout.LayoutParams glyphLp = new LinearLayout.LayoutParams(dp(34), dp(34));
-        glyphLp.setMarginEnd(dp(8));
-        tile.addView(glyph, glyphLp);
-        LinearLayout labels = LauncherUi.column(this);
-        tile.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        LauncherUi.text(this, labels, getString(title), 14, LauncherUi.TEXT, true);
-        int subtitle = title == R.string.mods_title ? R.string.launcher_mods_hint
-            : title == R.string.nav_tab_graphics ? R.string.launcher_graphics_hint
-            : title == R.string.launcher_game_data ? R.string.launcher_data_hint : R.string.launcher_tools_hint;
-        LauncherUi.text(this, labels, getString(subtitle), 10, LauncherUi.MUTED, false);
-        tile.setBackground(LauncherUi.shape(this, LauncherUi.SURFACE, LauncherUi.OUTLINE, 10));
-        tile.setForeground(new android.graphics.drawable.RippleDrawable(
-            android.content.res.ColorStateList.valueOf(0x33b48afa), null,
-            LauncherUi.shape(this, 0xffffffff, 0xffffffff, 10)));
-        tile.setClickable(true);
-        tile.setFocusable(true);
-        tile.setOnClickListener(v -> action.run());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(64), 1);
-        if (row.getChildCount() > 0) lp.setMarginStart(dp(8));
-        row.addView(tile, lp);
     }
 
     private void expandHome(LinearLayout section) {
@@ -618,16 +571,13 @@ public class SetupActivity extends Activity {
     }
 
     private void refreshModStatus() {
-        if (modStatusView == null) {
+        if (heroMod == null && homeModSummary == null) {
             return;
         }
         File active = ModManager.getActiveMod(this);
         CharSequence name = active == null ? getString(R.string.mods_active_vanilla) : active.getName();
         if (heroMod != null) heroMod.setText(name);
         if (homeModSummary != null) homeModSummary.setText(name);
-        modStatusView.setText(active == null
-            ? getString(R.string.mods_active_vanilla)
-            : getString(R.string.mods_active_mod, active.getName()));
     }
 
     // ------------------------------------------------------------ Updates

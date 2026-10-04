@@ -127,7 +127,6 @@ final class LauncherUi {
         PopupMenu menu = new PopupMenu(a, anchor);
         menu.getMenu().add(0, SetupActivity.TAB_INTERFACE, 0, R.string.nav_tab_interface);
         menu.getMenu().add(0, SetupActivity.TAB_HELP, 1, R.string.nav_tab_help);
-        menu.getMenu().add(0, SetupActivity.TAB_TOOLS, 2, R.string.setup_button_view_logs);
         menu.setOnMenuItemClickListener(item -> { navigate.accept(item.getItemId()); return true; });
         menu.show();
     }

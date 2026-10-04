@@ -131,7 +131,7 @@ public class LauncherHomeUiTest {
     @Test public void missingGameDataNeverReportsReadyAndOriginalFolderActionsRemain() {
         open();
         assertEquals(activity.getString(R.string.launcher_setup_needed), ((TextView)field("heroReady")).getText().toString());
-        click(R.string.launcher_game_data);
+        click(R.string.setup_card_game_folder);
         assertEquals(View.VISIBLE, ((LinearLayout)field("homeGameData")).getVisibility());
         label(R.string.setup_button_select_game_folder);
         label(R.string.setup_button_select_base_generals);
@@ -146,24 +146,46 @@ public class LauncherHomeUiTest {
         label(R.string.setup_card_interface_scale);
         settings(SetupActivity.TAB_HELP);
         label(R.string.setup_card_how_it_works);
-        settings(SetupActivity.TAB_TOOLS);
+        ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_TOOLS);
         label(R.string.setup_card_diagnostics);
         click(R.string.setup_button_view_logs);
         assertEquals(LogViewerActivity.class.getName(), shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
     }
-    @Test public void quickAccessPreservesGraphicsToolsAndModManagerRoutes() {
+    @Test public void navigationPreservesGraphicsToolsAndModManagerRoutes() {
         open();
-        click(R.string.nav_tab_graphics);
+        ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_GRAPHICS);
         label(R.string.setup_card_sim_rate);
         label(R.string.setup_card_render_backend);
         BottomNavigationView nav = (BottomNavigationView)field("bottomNav");
         nav.setSelectedItemId(SetupActivity.TAB_TOOLS);
         label(R.string.setup_card_diagnostics);
         nav.setSelectedItemId(SetupActivity.TAB_HOME);
-        click(R.string.mods_title);
+        nav.setSelectedItemId(SetupActivity.TAB_MODS);
         assertEquals(ModManagerActivity.class.getName(), shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
         assertEquals(game.getAbsolutePath(), SetupActivity.getSavedGamePath(context));
     }
+    // GeneralsX @tweak Android port 04/10/2026 Guard against duplicate visible destinations.
+    @Test public void homeOffersSingleVisibleEntryForEachNavigationDestination() {
+        open();
+        int[] destinations = {R.string.mods_title, R.string.nav_tab_graphics, R.string.nav_tab_tools};
+        for (int id : destinations) {
+            int matches = 0;
+            for (View v : views(activity.getWindow().getDecorView())) {
+                if (v instanceof TextView && v.isShown()
+                        && activity.getString(id).contentEquals(((TextView)v).getText())) matches++;
+            }
+            assertEquals("Only the bottom navigation should offer this destination", 1, matches);
+        }
+        assertEquals(activity.getString(R.string.mods_active_vanilla),
+            ((TextView)field("heroMod")).getText().toString());
+        click(R.string.setup_card_game_folder);
+        assertEquals(View.VISIBLE, ((LinearLayout)field("homeGameData")).getVisibility());
+        label(R.string.setup_button_select_game_folder);
+        settings(SetupActivity.TAB_INTERFACE);
+        assertEquals(2, ShadowPopupMenu.getLatestPopupMenu().getMenu().size());
+        assertNull(ShadowPopupMenu.getLatestPopupMenu().getMenu().findItem(SetupActivity.TAB_TOOLS));
+    }
+
     @Test public void onlineAndSignedUpdateControlsRemainReachable() {
         open();
         click(R.string.setup_card_online);
@@ -209,6 +231,7 @@ public class LauncherHomeUiTest {
             if (activity.getString(R.string.launcher_play_options).equals(view.getContentDescription())) {
                 view.performClick();
                 PopupMenu popup = ShadowPopupMenu.getLatestPopupMenu();
+                assertEquals(1, popup.getMenu().size());
                 assertTrue(popup.getMenu().performIdentifierAction(SetupActivity.TAB_GRAPHICS, 0));
                 label(R.string.setup_card_sim_rate);
                 assertEquals(originalHz, SetupActivity.getSimHz(context));
