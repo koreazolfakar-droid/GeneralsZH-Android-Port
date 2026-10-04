@@ -41,6 +41,7 @@ static void drawFramerateBar();
 // GeneralsX @build Android port GLES experiment - see gxTraceDisplayDrawPhase
 // in W3DDisplay::draw() below.
 #include "GXTrace.h"
+#include "rts/profile.h" // Observation-only Tracy zone; no-op unless RTS_PROFILE_TRACY is enabled.
 // GeneralsX @bugfix BenderAI 13/02/2026 - io.h is Windows-specific, use unistd.h on Linux
 #ifdef _WIN32
 #include <io.h>
@@ -2246,6 +2247,7 @@ static void gxTraceDisplayDrawPhase(double preRTTUs, double waterShadowRTTUs,
 //DECLARE_PERF_TIMER(W3DDisplay_draw)
 void W3DDisplay::draw()
 {
+	PROFILER_SECTION_NAMECOLOR("W3DDisplay::draw", 0x9C27B0);
 	//USE_PERF_TIMER(W3DDisplay_draw)
 	const bool gxPerfTrace = GXTrace::isPerfEnabled();
 	std::chrono::steady_clock::time_point gxdT0, gxdT1, gxdT2, gxdT3, gxdT3b;
