@@ -257,6 +257,11 @@
     <string name="online_button_datapacks_delete">حذف</string>
     <string name="online_switch_datapacks">استخدام حزمة بيانات المجتمع</string>
     <string name="online_switch_datapacks_desc">الإيقاف يُبقي الملفات المنزَّلة لكن اللعبة تعود إلى قراءة بيانات النسخة الأصلية، فترفض مباريات الحاسوب هذا الجهاز. يسري عند تشغيل اللعبة في المرة القادمة.</string>
+    <string name="online_switch_datapacks_mods">استخدام الرقعة مع التعديلات أيضًا</string>
+    <string name="online_switch_datapacks_mods_desc">افتراضيًا لا تُحمَّل الرقعة إذا كان في مجلد اللعبة تعديل يغيّر بيانات اللعبة (مثل Contra): ستختلط ملفاتهما. فعّله فقط لتعديل مصنوع لرقعة GeneralsOnline.</string>
+    <string name="online_datapacks_mod_found_skipped">عُثر على تعديل: %1$s. لا تُستخدم رقعة المجتمع معه.</string>
+    <string name="online_datapacks_mod_found_forced">عُثر على تعديل: %1$s. تُستخدم رقعة المجتمع معه.</string>
+    <string name="online_datapacks_mod_none">لا يوجد في مجلد اللعبة تعديل يغيّر بيانات اللعبة.</string>
     <string name="online_datapacks_chip_sign_in_first">سجّل الدخول أولاً</string>
     <string name="online_datapacks_chip_required">مطلوب للعب عبر الإنترنت — اضغط «تحديث»</string>
     <string name="online_datapacks_chip_off">منزَّل لكنه متوقف</string>
@@ -322,4 +327,66 @@
     <string name="online_network_settings">إعدادات الشبكة (الخوادم، التوافق مع الحاسوب): بتاريخ %1$s، تُحدَّث تلقائيًا من GitHub المشروع وموقّعة.</string>
     <string name="online_network_settings_builtin">إعدادات الشبكة (الخوادم، التوافق مع الحاسوب): مدمجة في هذا الإصدار؛ ستصل الأحدث تلقائيًا من GitHub المشروع.</string>
     <string name="online_datapacks_chip_update">يتوفر تحديث</string>
+    <string name="setup_card_upscale">رفع الدقة (Snapdragon GSR)</string>
+    <string name="setup_upscale_off_short">إيقاف</string>
+    <string name="setup_upscale_ultra_short">فائق</string>
+    <string name="setup_upscale_quality_short">الجودة</string>
+    <string name="setup_upscale_balanced_short">متوازن</string>
+    <string name="setup_upscale_performance_short">الأداء</string>
+    <string name="setup_upscale_ultra">جودة فائقة</string>
+    <string name="setup_upscale_quality">الجودة</string>
+    <string name="setup_upscale_balanced">متوازن</string>
+    <string name="setup_upscale_performance">الأداء</string>
+    <string name="setup_upscale_status_off">متوقف: العرض بالدقة الكاملة %1$d×%2$d</string>
+    <string name="setup_upscale_status">%1$s: يُعرض الـ3D بدقة %2$d×%3$d ويُرفع إلى %4$d×%5$d</string>
+    <string name="setup_upscale_help">تُرسم ساحة المعركة بدقة أقل ثم تكبّرها Snapdragon GSR بوضوح إلى ملء الشاشة: إطارات أكثر وتبقى الواجهة واضحة. لـ GLES و ANGLE فقط. يسري عند التشغيل التالي.</string>
+    <string name="setup_toast_render_scale_saved">تم الحفظ. يسري عند تشغيل اللعبة في المرة القادمة.</string>
+    <string name="setup_card_interface_scale">حجم الواجهة</string>
+    <string name="setup_interface_scale_label">%1$d%%</string>
+    <string name="setup_button_apply_interface_scale">تطبيق حجم الواجهة</string>
+    <string name="setup_interface_scale_help">يكبّر واجهة اللعبة دون تعديل ملفاتها: يكبر شريط التحكم مع الرادار صعودًا من الحافة السفلية، وتكبر قدرات الجنرال والدردشة ورسائل الأحداث وقائمة اللاعبين وقائمة اللعب مع الحفظ/التحميل والخيارات وأزرار القائمة الرئيسية من أماكنها. لا يخرج شيء من الشاشة: يكبر كل جزء بقدر ما يتسع فقط، لذا على الهاتف العريض يصبح شريط التحكم أطول بدلًا من أعرض، وتصبح ساحة المعركة فوقه أقصر. يعمل مع حجم نص القائمة. يسري عند تشغيل اللعبة في المرة القادمة.</string>
+
+    <!-- Mod Manager Phase 1 -->
+    <string name="mods_title">المودات</string>
+    <string name="mods_card_title">المودات</string>
+    <string name="mods_open_manager">فتح مدير المودات</string>
+    <string name="mods_status_title">المود النشط</string>
+    <string name="mods_active_vanilla">Zero Hour الأصلية بدون مود</string>
+    <string name="mods_active_mod">النشط: %1$s</string>
+    <string name="mods_folder_path">مجلد المودات: %1$s</string>
+    <string name="mods_vanilla_title">Zero Hour الأصلية</string>
+    <string name="mods_vanilla_desc">تشغيل اللعبة الأساسية بدون مسار -mod محدد.</string>
+    <string name="mods_use_vanilla">استخدام النسخة الأصلية</string>
+    <string name="mods_active_button">نشط</string>
+    <string name="mods_activate_button">تفعيل</string>
+    <string name="mods_type_folder">مجلد مود</string>
+    <string name="mods_type_big">مود بأرشيف BIG</string>
+    <string name="mods_empty_title">لا توجد مودات مُدارة بعد</string>
+    <string name="mods_empty_message">لا توجد مودات مثبتة داخل:\n%1$s\n\nاستخدم خيارات الاستيراد أعلاه لإضافة مجلد أو أرشيف .big أو حزمة .zip.</string>
+    <string name="mods_no_game_title">يجب تحديد مجلد اللعبة</string>
+    <string name="mods_no_game_message">اختر مجلد لعبة Zero Hour من الصفحة الرئيسية قبل إدارة المودات.</string>
+    <string name="mods_storage_error_title">مجلد المودات غير متاح</string>
+    <string name="mods_storage_error_message">تعذر إنشاء أو قراءة:\n%1$s</string>
+    <string name="mods_legacy_warning">تم العثور على مود بيانات قديم داخل مجلد اللعبة الرئيسي: %1$s. يتم تحميله بشكل مستقل عن هذا المدير وقد يتعارض مع مود مُدار. انقله إلى مجلد خاص به داخل Mods قبل استخدام التفعيل المُدار.</string>
+    <string name="mods_toast_vanilla">تم اختيار الوضع الأصلي بدون مود.</string>
+    <string name="mods_toast_activated">تم تفعيل %1$s. سيتم تحميله عند تشغيل اللعبة في المرة القادمة.</string>
+    <string name="mods_toast_activate_failed">تعذر تفعيل هذا المود.</string>
+
+
+    <!-- Mod Manager Phase 2: transactional import -->
+    <string name="mods_import_title">استيراد مود</string>
+    <string name="mods_import_desc">استورد مود موجود بدون الكتابة داخل ملفات اللعبة الأساسية. يدعم المجلدات وملفات .big وحزم .zip.</string>
+    <string name="mods_import_folder">استيراد مجلد</string>
+    <string name="mods_import_file">استيراد .BIG / .ZIP</string>
+    <string name="mods_import_safety">يتم نسخ المود أولًا إلى منطقة مؤقتة، ثم فحص المسارات غير الآمنة وأرشيفات BIG التالفة، وبعد النجاح فقط يُنقل إلى Mods. أي استيراد فاشل يُحذف من المنطقة المؤقتة ولا يستبدل مودًا مثبتًا.</string>
+    <string name="mods_import_picker_missing">لا يوجد منتقي ملفات متوافق في هذا الجهاز.</string>
+    <string name="mods_import_working_title">جارٍ استيراد المود</string>
+    <string name="mods_import_working_message">جارٍ نسخ المود المحدد والتحقق منه. لن تتغير المودات المثبتة حتى ينجح الفحص بالكامل.</string>
+    <string name="mods_import_done_title">تم استيراد المود</string>
+    <string name="mods_import_done_message">تم تثبيت %1$s بنجاح.\n\nأرشيفات BIG: %2$d\nالملفات: %3$d\nالحجم المنسوخ: %4$s</string>
+    <string name="mods_import_activate">تفعيل</string>
+    <string name="mods_import_later">لاحقًا</string>
+    <string name="mods_import_failed_title">فشل الاستيراد</string>
+    <string name="mods_import_failed_message">لم يتم تثبيت أي شيء.\n\n%1$s</string>
+
 </resources>
