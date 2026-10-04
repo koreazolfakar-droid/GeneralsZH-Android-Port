@@ -396,4 +396,18 @@
     <string name="mods_import_failed_title">Import failed</string>
     <string name="mods_import_failed_message">Nothing was installed.\n\n%1$s</string>
 
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Manage and launch installed mods</string>
+    <string name="mods_library_title">Installed Mods</string>
+    <string name="mods_storage_used">Storage Used</string>
+    <string name="mods_free_space">Free Space</string>
+    <string name="mods_size_unknown">Unavailable</string>
+    <string name="mods_installed_badge">Installed</string>
+    <string name="mods_launch_button">Launch</string>
+    <string name="mods_library_loading">Reading your mod library…</string>
+    <string name="mods_library_empty">Your installed mods will appear here. Import a folder, BIG archive or ZIP package.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
 </resources>

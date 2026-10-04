@@ -345,4 +345,18 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Zastosuj rozmiar interfejsu</string>
     <string name="setup_interface_scale_help">Powiększa interfejs gry bez zmiany jej plików: pasek dowodzenia z radarem rośnie w górę od dolnej krawędzi, a pasek mocy generała, czat, komunikaty o zdarzeniach, lista graczy, menu gry z zapisem/wczytaniem i opcjami oraz przyciski menu głównego rosną od miejsca, w którym są. Nic nie wychodzi poza ekran: każda część rośnie tylko tyle, ile się zmieści, więc na szerokim telefonie pasek dowodzenia robi się wyższy, a nie szerszy, a pole bitwy nad nim — niższe. Działa razem z rozmiarem tekstu menu. Zadziała przy następnym uruchomieniu gry.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Zarządzaj zainstalowanymi modami i uruchamiaj je</string>
+    <string name="mods_library_title">Zainstalowane mody</string>
+    <string name="mods_storage_used">Zajęte miejsce</string>
+    <string name="mods_free_space">Wolne miejsce</string>
+    <string name="mods_size_unknown">Niedostępne</string>
+    <string name="mods_installed_badge">Zainstalowany</string>
+    <string name="mods_launch_button">Uruchom</string>
+    <string name="mods_library_loading">Odczytywanie biblioteki modów…</string>
+    <string name="mods_library_empty">Tutaj pojawią się zainstalowane mody. Importuj folder, archiwum BIG lub pakiet ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
 </resources>

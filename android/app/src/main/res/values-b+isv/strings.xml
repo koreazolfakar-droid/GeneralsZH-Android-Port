@@ -345,4 +345,18 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Primeniti veličinu interfejsa</string>
     <string name="setup_interface_scale_help">Uvečaje interfejs igry bez měnjenja jej datotek: dolnja panel s kartoju raste vvŕh od kraja ekrana, a panel moćij generala, čat, poruky o događajah, spis igračev, igrovo meni s shranjenjem i nastavjenjami i ključi glavnogo menija rastut od města, gde sut. Ničto ne izhodi za ekran: každa čast uvečaje se jedino toliko, koliko se vměstiti, zato na širokom telefonu dolnja panel stanovi se vyšeju, ne širšeju, a pole bitvy nad njeju — nižeju. Dějstvuje vměste s Věličinoju teksta menija. Dějstvuje pri sledujućem spuštěniju igry.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Upravjaj i zapuskaj instalovane mody</string>
+    <string name="mods_library_title">Instalovane mody</string>
+    <string name="mods_storage_used">Zajeta pamet</string>
+    <string name="mods_free_space">Svobodna pamet</string>
+    <string name="mods_size_unknown">Nedostupno</string>
+    <string name="mods_installed_badge">Instalovany</string>
+    <string name="mods_launch_button">Zapustiti</string>
+    <string name="mods_library_loading">Čitanje biblioteky modov…</string>
+    <string name="mods_library_empty">Tvoje instalovane mody budut tu. Importuj direktoriju, arhiv BIG ili paket ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
 </resources>

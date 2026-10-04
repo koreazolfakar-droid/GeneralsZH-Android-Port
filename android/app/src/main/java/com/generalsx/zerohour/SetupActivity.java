@@ -75,6 +75,8 @@ import java.net.URL;
 import java.io.File;
 
 public class SetupActivity extends Activity {
+    // GeneralsX @feature Android port 04/10/2026 Mod library reuses the proven launch/rotation path.
+    static final String EXTRA_LAUNCH_FROM_MODS = "com.generalsx.zerohour.LAUNCH_FROM_MODS";
 
     static final String PREFS_NAME = "generalszh_setup";
     static final String PREF_GAME_PATH = "game_path";
@@ -163,6 +165,10 @@ public class SetupActivity extends Activity {
             buildUi();
         } catch (Throwable t) {
             buildFallbackUi(t);
+        }
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_LAUNCH_FROM_MODS, false)) {
+            getIntent().removeExtra(EXTRA_LAUNCH_FROM_MODS);
+            getWindow().getDecorView().post(this::onLaunchGame);
         }
     }
 

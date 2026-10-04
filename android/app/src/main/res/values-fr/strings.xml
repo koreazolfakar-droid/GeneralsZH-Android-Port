@@ -345,4 +345,18 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Appliquer la taille de l\'interface</string>
     <string name="setup_interface_scale_help">Agrandit l\'interface du jeu sans modifier ses fichiers : la barre de commande avec le radar grandit vers le haut depuis le bord inférieur, et la barre des pouvoirs du général, le chat, les messages d\'événements, la liste des joueurs, le menu de partie avec Sauvegarder/Charger et Options ainsi que les boutons du menu principal grandissent depuis leur place. Rien ne sort de l\'écran : chaque partie ne grandit que tant qu\'elle tient, donc sur un téléphone large la barre de commande devient plus haute plutôt que plus large, et le champ de bataille au-dessus plus court. Fonctionne avec la taille du texte des menus. Prend effet au prochain lancement du jeu.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Gérez et lancez les mods installés</string>
+    <string name="mods_library_title">Mods installés</string>
+    <string name="mods_storage_used">Espace utilisé</string>
+    <string name="mods_free_space">Espace libre</string>
+    <string name="mods_size_unknown">Indisponible</string>
+    <string name="mods_installed_badge">Installé</string>
+    <string name="mods_launch_button">Lancer</string>
+    <string name="mods_library_loading">Lecture de la bibliothèque de mods…</string>
+    <string name="mods_library_empty">Les mods installés apparaîtront ici. Importez un dossier, une archive BIG ou un paquet ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
 </resources>

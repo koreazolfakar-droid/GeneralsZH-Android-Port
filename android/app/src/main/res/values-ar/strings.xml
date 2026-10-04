@@ -389,4 +389,18 @@
     <string name="mods_import_failed_title">فشل الاستيراد</string>
     <string name="mods_import_failed_message">لم يتم تثبيت أي شيء.\n\n%1$s</string>
 
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">إدارة وتشغيل المودات المثبّتة</string>
+    <string name="mods_library_title">المودات المثبّتة</string>
+    <string name="mods_storage_used">المساحة المستخدمة</string>
+    <string name="mods_free_space">المساحة الحرة</string>
+    <string name="mods_size_unknown">غير متاح</string>
+    <string name="mods_installed_badge">مثبّت</string>
+    <string name="mods_launch_button">تشغيل</string>
+    <string name="mods_library_loading">جارٍ قراءة مكتبة المودات…</string>
+    <string name="mods_library_empty">ستظهر المودات المثبّتة هنا. استورد مجلدًا أو ملف BIG أو حزمة ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
 </resources>
