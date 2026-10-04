@@ -46,6 +46,7 @@
 
 #include "Lib/BaseType.h"
 #include "Common/GameSounds.h"
+#include "GXTrace.h"
 
 #include "Common/AudioEventInfo.h"
 #include "Common/AudioEventRTS.h"
@@ -177,6 +178,8 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 			distance.sub(*pos);
 			if (distance.length() >= event->getAudioEventInfo()->m_maxDistance)
 			{
+				GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=distance distance=%.2f max=%.2f\n",
+					event->getEventName().str(), distance.length(), event->getAudioEventInfo()->m_maxDistance);
 #ifdef INTENSIVE_AUDIO_DEBUG
 				DEBUG_LOG(("- culled due to distance (%.2f).", distance.length()));
 #endif
@@ -188,6 +191,7 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 			if( (event->getAudioEventInfo()->m_type & ST_SHROUDED) &&
 					 ThePartitionManager->getShroudStatusForPlayer(localPlayerIndex, pos) != CELLSHROUD_CLEAR )
 			{
+				GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=shrouded\n", event->getEventName().str());
 #ifdef INTENSIVE_AUDIO_DEBUG
 				DEBUG_LOG(("- culled due to shroud."));
 #endif
@@ -205,6 +209,7 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 		}
 		else
 		{
+			GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=voice_limit\n", event->getEventName().str());
 #ifdef INTENSIVE_AUDIO_DEBUG
 		DEBUG_LOG(("- culled due to voice."));
 #endif
@@ -214,6 +219,7 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 
 	if( TheAudio->doesViolateLimit( event ) )
 	{
+		GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=event_limit\n", event->getEventName().str());
 #ifdef INTENSIVE_AUDIO_DEBUG
 		DEBUG_LOG(("- culled due to limit." ));
 #endif
@@ -230,6 +236,8 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 		{
 			return true;
 		}
+		GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=no_3d_channels total=%u available=%u\n",
+			event->getEventName().str(), TheAudio->getNum3DSamples(), TheAudio->getNumAvailable3DSamples());
 #ifdef INTENSIVE_AUDIO_DEBUG
 		DEBUG_LOG(("- %d samples playing, %d samples available",
 			TheAudio->getNum3DSamples() - TheAudio->getNumAvailable3DSamples(), TheAudio->getNum3DSamples()));
@@ -242,6 +250,8 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 		{
 			return true;
 		}
+		GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=no_2d_channels total=%u available=%u\n",
+			event->getEventName().str(), TheAudio->getNum2DSamples(), TheAudio->getNumAvailable2DSamples());
 	}
 
 	if (TheAudio->isPlayingLowerPriority(event))
@@ -264,6 +274,10 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 			return false;
 		}
 	}
+	GX_AUDIO_TRACE("reject event=%s stage=canPlay reason=unavailable_channels positional=%d total2d=%u avail2d=%u total3d=%u avail3d=%u\n",
+		event->getEventName().str(), (int)event->isPositionalAudio(),
+		TheAudio->getNum2DSamples(), TheAudio->getNumAvailable2DSamples(),
+		TheAudio->getNum3DSamples(), TheAudio->getNumAvailable3DSamples());
 #ifdef INTENSIVE_AUDIO_DEBUG
 	DEBUG_LOG(("culled due to unavailable channels"));
 #endif

@@ -1651,6 +1651,7 @@ Bool OpenALAudioManager::hasMusicTrackCompleted(const AsciiString& trackName, In
 void OpenALAudioManager::openDevice(void)
 {
 	if (!TheGlobalData->m_audioOn) {
+		GX_AUDIO_TRACE("state stage=openDevice result=skipped reason=global_audio_off\n");
 		return;
 	}
 
@@ -1662,6 +1663,7 @@ void OpenALAudioManager::openDevice(void)
 
 	m_alcDevice = alcOpenDevice(NULL);
 	if (m_alcDevice == nullptr) {
+		GX_AUDIO_TRACE("state stage=openDevice result=fail reason=alcOpenDevice\n");
 		DEBUG_LOG(("Failed to open ALC device"));
 		// if we couldn't initialize any devices, turn sound off (fail silently)
 		setOn(false, AudioAffect_All);
@@ -1671,12 +1673,14 @@ void OpenALAudioManager::openDevice(void)
 	ALCint attributes[] = { ALC_FREQUENCY, audioSettings->m_outputRate, 0 /* end-of-list */ };
 	m_alcContext = alcCreateContext(m_alcDevice, attributes);
 	if (m_alcContext == nullptr) {
+		GX_AUDIO_TRACE("state stage=openDevice result=fail reason=alcCreateContext\n");
 		DEBUG_LOG(("Failed to create ALC context"));
 		setOn(false, AudioAffect_All);
 		return;
 	}
 
 	if (!alcMakeContextCurrent(m_alcContext)) {
+		GX_AUDIO_TRACE("state stage=openDevice result=fail reason=alcMakeContextCurrent\n");
 		DEBUG_LOG(("Failed to make ALC context current"));
 		setOn(false, AudioAffect_All);
 		return;
@@ -1697,10 +1701,21 @@ void OpenALAudioManager::openDevice(void)
 	TheAudio->refreshCachedVariables();
 
 	if (!isValidProvider()) {
+		GX_AUDIO_TRACE("state stage=provider result=fail preferred=%s selected=%u providers=%u sound=%d sound3d=%d\n",
+			m_pref3DProvider.str(), m_selectedProvider, m_providerCount,
+			(int)isOn(AudioAffect_Sound), (int)isOn(AudioAffect_Sound3D));
 		return;
 	}
 
 	initDelayFilter();
+
+	const ALCchar *deviceName = alcGetString(m_alcDevice, ALC_DEVICE_SPECIFIER);
+	GX_AUDIO_TRACE("state stage=ready device=%s rate=%d provider=%s selected=%u providers=%u sound=%d sound3d=%d pools2d=%u avail2d=%u pools3d=%u avail3d=%u streams=%u\n",
+		deviceName ? deviceName : "<unknown>", audioSettings->m_outputRate,
+		getProviderName(m_selectedProvider).str(), m_selectedProvider, m_providerCount,
+		(int)isOn(AudioAffect_Sound), (int)isOn(AudioAffect_Sound3D),
+		getNum2DSamples(), getNumAvailable2DSamples(),
+		getNum3DSamples(), getNumAvailable3DSamples(), m_numStreams);
 }
 
 //-------------------------------------------------------------------------------------------------

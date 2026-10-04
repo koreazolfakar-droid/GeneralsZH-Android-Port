@@ -44,6 +44,7 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #include "Common/GameAudio.h"
+#include "GXTrace.h"
 
 #include "Common/AudioAffect.h"
 #include "Common/AudioEventInfo.h"
@@ -393,6 +394,7 @@ AudioHandle AudioManager::addAudioEvent(const AudioEventRTS *eventToAdd)
 	if (!eventToAdd->getAudioEventInfo()) {
 		getInfoForAudioEvent(eventToAdd);
 		if (!eventToAdd->getAudioEventInfo()) {
+			GX_AUDIO_TRACE("reject event=%s stage=add reason=missing_event_info\n", eventToAdd->getEventName().str());
 			DEBUG_CRASH(("No info for requested audio event '%s'", eventToAdd->getEventName().str()));
 			return AHSV_Error;
 		}
@@ -410,8 +412,11 @@ AudioHandle AudioManager::addAudioEvent(const AudioEventRTS *eventToAdd)
 				return AHSV_NoSound;
 			break;
 		case AT_SoundEffect:
-			if (!isOn(AudioAffect_Sound) || !isOn(AudioAffect_Sound3D))
+			if (!isOn(AudioAffect_Sound) || !isOn(AudioAffect_Sound3D)) {
+				GX_AUDIO_TRACE("reject event=%s stage=add reason=sfx_disabled sound=%d sound3d=%d\n",
+					eventToAdd->getEventName().str(), (int)isOn(AudioAffect_Sound), (int)isOn(AudioAffect_Sound3D));
 				return AHSV_NoSound;
+			}
 			break;
 		case AT_Streaming:
 			// if we're currently playing uninterruptable speech, then disallow the addition of this sample
@@ -434,6 +439,7 @@ AudioHandle AudioManager::addAudioEvent(const AudioEventRTS *eventToAdd)
 
 	if (!logicalAudio && notForLocal)
 	{
+		GX_AUDIO_TRACE("reject event=%s stage=add reason=not_for_local\n", eventToAdd->getEventName().str());
 		return AHSV_NotForLocal;
 	}
 
@@ -461,6 +467,8 @@ AudioHandle AudioManager::addAudioEvent(const AudioEventRTS *eventToAdd)
 
 	// cull muted audio
 	if (audioEvent->getVolume() < m_audioSettings->m_minVolume) {
+		GX_AUDIO_TRACE("reject event=%s stage=add reason=below_min_volume volume=%.4f min=%.4f\n",
+			audioEvent->getEventName().str(), audioEvent->getVolume(), m_audioSettings->m_minVolume);
 #ifdef INTENSIVE_AUDIO_DEBUG
 		DEBUG_LOG((" - culled due to muting (%d).", audioEvent->getVolume()));
 #endif
