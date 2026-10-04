@@ -25,7 +25,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -177,6 +179,7 @@ final class ModImportService {
                 throw new IOException("Could not open selected ZIP archive");
             }
 
+            Set<String> seenPaths = new HashSet<>();
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 String entryName = normalizeZipPath(entry.getName());
@@ -185,6 +188,10 @@ final class ModImportService {
                     continue;
                 }
                 File dest = resolveSafeRelative(stage, entryName);
+                String canonicalKey = dest.getCanonicalPath();
+                if (!seenPaths.add(canonicalKey)) {
+                    throw new IOException("ZIP contains a duplicate path: " + entryName);
+                }
                 if (entry.isDirectory()) {
                     if (!dest.isDirectory() && !dest.mkdirs()) {
                         throw new IOException("Could not create directory: " + entryName);
@@ -501,6 +508,15 @@ final class ModImportService {
         }
         if (result.isEmpty() || ".".equals(result) || "..".equals(result)) {
             throw new IOException("Mod name is not usable");
+        }
+        // A dot-prefixed direct child is hidden by ModManager.listMods().
+        // Keep imported mods visible instead of successfully installing one
+        // that then appears to have vanished from the UI.
+        if (result.startsWith(".")) {
+            result = "_" + result.substring(1);
+            if (result.equals("_")) {
+                result = "_mod";
+            }
         }
         if (keepBigExtension && !result.toLowerCase(Locale.US).endsWith(".big")) {
             result += ".big";
