@@ -126,6 +126,8 @@ public class SetupActivity extends Activity {
     private static final String[] REQUIRED_GAME_FILES = { "INIZH.big", "INI.big" };
 
     private TextView statusText;
+    // GeneralsX @feature Android port 04/10/2026 Current Mod Manager selection shown on Home.
+    private TextView modStatusView;
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
@@ -230,6 +232,7 @@ public class SetupActivity extends Activity {
         // re-applies the landscape lock itself the next time it's needed.
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         refreshStatus();
+        refreshModStatus();
         refreshGeneralsOnlineStatus();
         loadDxvkConfigIntoEditor();
         refreshDiagnosticsSwitches();
@@ -411,6 +414,7 @@ public class SetupActivity extends Activity {
     /** Forgets every page-scoped view so a stale one is never written to. */
     private void clearPageReferences() {
         statusText = null;
+        modStatusView = null;
         onlineStatusView = null;
         updatesStatusView = null;
         gameLanguageStatusView = null;
@@ -457,10 +461,8 @@ public class SetupActivity extends Activity {
         LinearLayout mods = UiKit.card(page);
         UiKit.sectionHeader(mods, R.drawable.ic_gzh_folder,
             getString(R.string.mods_card_title), false);
-        File activeMod = ModManager.getActiveMod(this);
-        UiKit.body(mods, activeMod == null
-            ? getString(R.string.mods_active_vanilla)
-            : getString(R.string.mods_active_mod, activeMod.getName()));
+        modStatusView = UiKit.body(mods, null);
+        refreshModStatus();
         UiKit.button(mods, UiKit.BTN_TONAL, R.drawable.ic_gzh_folder,
             getString(R.string.mods_open_manager),
             () -> startActivity(new Intent(this, ModManagerActivity.class)));
@@ -471,6 +473,16 @@ public class SetupActivity extends Activity {
         // bury under settings most players never touch.
         buildGeneralsOnlineSection(page);
         buildUpdatesSection(page);
+    }
+
+    private void refreshModStatus() {
+        if (modStatusView == null) {
+            return;
+        }
+        File active = ModManager.getActiveMod(this);
+        modStatusView.setText(active == null
+            ? getString(R.string.mods_active_vanilla)
+            : getString(R.string.mods_active_mod, active.getName()));
     }
 
     // ------------------------------------------------------------ Updates
