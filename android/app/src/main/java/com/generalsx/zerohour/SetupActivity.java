@@ -451,6 +451,20 @@ public class SetupActivity extends Activity {
                 getString(R.string.setup_button_clear_base_generals), this::onClearBaseGeneralsFolder);
         }
 
+        // GeneralsX @feature Android port 04/10/2026 Mod Manager Phase 1.
+        // Keep mod choice on Home because it changes what the Launch button starts.
+        // Import/delete are intentionally not part of this first reversible slice.
+        LinearLayout mods = UiKit.card(page);
+        UiKit.sectionHeader(mods, R.drawable.ic_gzh_folder,
+            getString(R.string.mods_card_title), false);
+        File activeMod = ModManager.getActiveMod(this);
+        UiKit.body(mods, activeMod == null
+            ? getString(R.string.mods_active_vanilla)
+            : getString(R.string.mods_active_mod, activeMod.getName()));
+        UiKit.button(mods, UiKit.BTN_TONAL, R.drawable.ic_gzh_folder,
+            getString(R.string.mods_open_manager),
+            () -> startActivity(new Intent(this, ModManagerActivity.class)));
+
         // GeneralsX @bugfix Android port 01/08/2026 kept above the advanced
         // settings -- signing into GeneralsOnline is a primary action most
         // people want right after picking their game folder, not something to
