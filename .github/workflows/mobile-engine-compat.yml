@@ -1,0 +1,33 @@
+name: Mobile Engine Compatibility Gate
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - 'engine/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Core/**'
+      - 'GeneralsMD/**'
+      - 'android/**'
+      - 'scripts/ci/check-mobile-engine-compat.sh'
+      - '.github/workflows/mobile-engine-compat.yml'
+  workflow_dispatch:
+
+jobs:
+  legacy-compatibility:
+    name: Protect file/mod compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify protected engine surfaces
+        run: bash scripts/ci/check-mobile-engine-compat.sh
