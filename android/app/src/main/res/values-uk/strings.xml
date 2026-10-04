@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Налаштування гри</string>
     <string name="launcher_data_hint">Налаштування і файли</string>
     <string name="launcher_tools_hint">Журнали і діагностика</string>
+    <string name="mods_delete_button">Видалити</string>
+    <string name="mods_delete_confirm_title">Видалити мод?</string>
+    <string name="mods_delete_confirm">Назавжди видалити «%1$s» із керованої папки Mods?</string>
+    <string name="mods_delete_active_confirm">«%1$s» активний. Перед остаточним видаленням буде вибрано Vanilla. Продовжити?</string>
+    <string name="mods_delete_success">%1$s видалено.</string>
+    <string name="mods_delete_failed">Не вдалося повністю видалити %1$s. Перевірте доступ до сховища та повторіть спробу.</string>
+    <string name="mods_import_cancel_action">Скасувати імпорт</string>
+    <string name="mods_import_cancelling">Безпечне скасування…</string>
+    <string name="mods_import_cancelled">Імпорт скасовано. Установлені моди не змінено.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Деякі моди замінюють макет панелі керування. Якщо елементи перекриваються, спочатку перевірте масштаб 100%. Зміна застосовується під час наступного запуску гри.</string>
+    <string name="setup_audio_check_ready">Потрібні аудіоархіви знайдено. Якщо у грі немає звуку, увімкніть журнал аудіо нижче та відтворіть проблему.</string>
+    <string name="setup_audio_check_missing">Відсутні потрібні аудіоархіви: %1$s</string>
 </resources>

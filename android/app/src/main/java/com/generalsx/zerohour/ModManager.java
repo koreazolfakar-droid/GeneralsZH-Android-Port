@@ -14,6 +14,11 @@ import android.content.Context;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -131,6 +136,57 @@ final class ModManager {
         ctx.getSharedPreferences(SetupActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
             .remove(PREF_ACTIVE_MOD)
             .apply();
+    }
+
+    /**
+     * GeneralsX @feature Android port 04/10/2026 Delete one managed mod only.
+     *
+     * The canonical direct-child check protects the base installation and
+     * Vanilla archives. Files.walkFileTree does not follow symbolic links, so
+     * a link inside a mod is removed as a link rather than deleting its target.
+     * The active selection is cleared before deletion so a partial filesystem
+     * failure can never leave the launcher pointing at a damaged mod.
+     */
+    static boolean deleteManagedMod(Context ctx, File candidate) {
+        File root = modsRoot(ctx);
+        if (root == null || candidate == null) {
+            return false;
+        }
+        try {
+            File canonicalRoot = root.getCanonicalFile();
+            File canonicalCandidate = candidate.getCanonicalFile();
+            if (!isDirectChild(canonicalRoot, canonicalCandidate)
+                    || candidate.getName().startsWith(".")
+                    || Files.isSymbolicLink(candidate.toPath())
+                    || (!canonicalCandidate.isDirectory()
+                        && !(canonicalCandidate.isFile()
+                            && canonicalCandidate.getName().toLowerCase(Locale.US).endsWith(".big")))) {
+                return false;
+            }
+
+            File active = getActiveMod(ctx);
+            if (active != null && active.getCanonicalFile().equals(canonicalCandidate)) {
+                clearActiveMod(ctx);
+            }
+
+            Files.walkFileTree(canonicalCandidate.toPath(), new SimpleFileVisitor<Path>() {
+                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                        throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override public FileVisitResult postVisitDirectory(Path dir, IOException error)
+                        throws IOException {
+                    if (error != null) throw error;
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            return !canonicalCandidate.exists();
+        } catch (IOException | SecurityException e) {
+            return false;
+        }
     }
 
     private static boolean isDirectChild(File root, File candidate) {

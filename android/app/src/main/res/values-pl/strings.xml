@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Ustawienia gry</string>
     <string name="launcher_data_hint">Konfiguracja i pliki</string>
     <string name="launcher_tools_hint">Dzienniki i diagnostyka</string>
+    <string name="mods_delete_button">Usuń</string>
+    <string name="mods_delete_confirm_title">Usunąć mod?</string>
+    <string name="mods_delete_confirm">Trwale usunąć „%1$s” z zarządzanego folderu Mods?</string>
+    <string name="mods_delete_active_confirm">„%1$s” jest aktywny. Trwałe usunięcie najpierw wybierze Vanilla. Kontynuować?</string>
+    <string name="mods_delete_success">Usunięto %1$s.</string>
+    <string name="mods_delete_failed">Nie udało się całkowicie usunąć %1$s. Sprawdź dostęp do pamięci i spróbuj ponownie.</string>
+    <string name="mods_import_cancel_action">Anuluj import</string>
+    <string name="mods_import_cancelling">Bezpieczne anulowanie…</string>
+    <string name="mods_import_cancelled">Import anulowany. Zainstalowane mody nie zostały zmienione.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Niektóre mody zastępują układ paska sterowania. Jeśli elementy się nakładają, najpierw sprawdź 100%. Zmiana zadziała przy następnym uruchomieniu gry.</string>
+    <string name="setup_audio_check_ready">Znaleziono wymagane archiwa dźwięku. Jeśli gra jest cicha, włącz poniżej dziennik dźwięku i odtwórz problem.</string>
+    <string name="setup_audio_check_missing">Brak wymaganych archiwów dźwięku: %1$s</string>
 </resources>

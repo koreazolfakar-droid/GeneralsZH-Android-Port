@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">تنظیمات بازی</string>
     <string name="launcher_data_hint">راه‌اندازی و فایل‌ها</string>
     <string name="launcher_tools_hint">گزارش‌ها و عیب‌یابی</string>
+    <string name="mods_delete_button">حذف</string>
+    <string name="mods_delete_confirm_title">ماد حذف شود؟</string>
+    <string name="mods_delete_confirm">«%1$s» برای همیشه از پوشهٔ مدیریت‌شدهٔ Mods حذف شود؟</string>
+    <string name="mods_delete_active_confirm">«%1$s» فعال است. با حذف دائمی آن ابتدا Vanilla انتخاب می‌شود. ادامه می‌دهید؟</string>
+    <string name="mods_delete_success">%1$s حذف شد.</string>
+    <string name="mods_delete_failed">حذف کامل %1$s ممکن نشد. دسترسی به حافظه را بررسی و دوباره تلاش کنید.</string>
+    <string name="mods_import_cancel_action">لغو وارد کردن</string>
+    <string name="mods_import_cancelling">در حال لغو ایمن…</string>
+    <string name="mods_import_cancelled">وارد کردن لغو شد. مادهای نصب‌شده تغییر نکردند.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">برخی مادها چیدمان نوار کنترل را جایگزین می‌کنند. اگر عناصر روی هم افتادند، ابتدا ۱۰۰٪ را امتحان کنید. تغییر در اجرای بعدی بازی اعمال می‌شود.</string>
+    <string name="setup_audio_check_ready">آرشیوهای صوتی لازم پیدا شدند. اگر بازی بی‌صداست، گزارش صدا را در پایین فعال و مشکل را تکرار کنید.</string>
+    <string name="setup_audio_check_missing">آرشیوهای صوتی لازم موجود نیستند: %1$s</string>
 </resources>

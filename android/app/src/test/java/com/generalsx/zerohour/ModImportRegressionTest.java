@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -19,7 +20,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 
-// GeneralsX @feature Android port 04/10/2026 Guard the existing transactional importer unchanged.
+// GeneralsX @feature Android port 04/10/2026 Guard transactional import and cancellation.
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class ModImportRegressionTest {
@@ -114,5 +115,29 @@ public class ModImportRegressionTest {
         }
         assertFalse(new File(game, "escape.big").exists());
         assertFalse(new File(game, "vanilla.big").exists());
+    }
+
+    // GeneralsX @feature Android port 04/10/2026 Cancellation stays transactional.
+    @Test public void cancellationRemovesStagingAndKeepsInstalledModsUntouched() throws Exception {
+        Uri uri = Uri.parse("content://test.mod.documents/Cancellable.big");
+        ModImportService.CancellationSignal cancellation = new ModImportService.CancellationSignal();
+        InputStream stream = new InputStream() {
+            private int reads;
+            @Override public int read() { return -1; }
+            @Override public int read(byte[] bytes, int offset, int length) {
+                if (reads++ == 0) {
+                    java.util.Arrays.fill(bytes, offset, offset + Math.min(length, 64), (byte) 1);
+                    cancellation.cancel();
+                    return Math.min(length, 64);
+                }
+                return -1;
+            }
+        };
+        org.robolectric.Shadows.shadowOf(context.getContentResolver()).registerInputStream(uri, stream);
+
+        assertThrows(ModImportService.ImportCancelledException.class,
+            () -> ModImportService.importDocument(context, uri, cancellation));
+        unchanged();
+        assertEquals(1, ModManager.listMods(context).size());
     }
 }

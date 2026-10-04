@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Ajustes del juego</string>
     <string name="launcher_data_hint">Configuración y archivos</string>
     <string name="launcher_tools_hint">Registros y diagnóstico</string>
+    <string name="mods_delete_button">Eliminar</string>
+    <string name="mods_delete_confirm_title">¿Eliminar mod?</string>
+    <string name="mods_delete_confirm">¿Eliminar “%1$s” permanentemente de la carpeta Mods administrada?</string>
+    <string name="mods_delete_active_confirm">“%1$s” está activo. Al eliminarlo permanentemente se seleccionará Vanilla primero. ¿Continuar?</string>
+    <string name="mods_delete_success">Se eliminó %1$s.</string>
+    <string name="mods_delete_failed">No se pudo eliminar %1$s por completo. Comprueba el acceso al almacenamiento e inténtalo de nuevo.</string>
+    <string name="mods_import_cancel_action">Cancelar importación</string>
+    <string name="mods_import_cancelling">Cancelando de forma segura…</string>
+    <string name="mods_import_cancelled">Importación cancelada. Los mods instalados no cambiaron.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Algunos mods sustituyen el diseño de la barra de control. Si sus elementos se superponen, prueba primero 100 %. El cambio se aplica al iniciar el juego de nuevo.</string>
+    <string name="setup_audio_check_ready">Se encontraron los archivos de audio necesarios. Si el juego sigue sin sonido, activa el registro de audio de abajo y reproduce el problema.</string>
+    <string name="setup_audio_check_missing">Faltan archivos de audio necesarios: %1$s</string>
 </resources>

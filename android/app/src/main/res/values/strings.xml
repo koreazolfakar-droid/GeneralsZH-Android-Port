@@ -352,6 +352,9 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Apply Interface Size</string>
     <string name="setup_interface_scale_help">Makes the in-game interface bigger, without touching the game\'s files: the control bar with the radar grows up from the bottom, and the generals\' powers bar, chat, event messages, player list, in-game menu with Save/Load and Options, and the main menu\'s buttons grow from where they sit. Nothing is pushed off the screen: each part grows only as far as it fits, so the control bar gets taller rather than wider on a wide phone, and the battlefield above it gets shorter. Works together with Menu Text Size. Takes effect the next time you launch the game.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Some mods replace the control-bar layout. If its elements overlap, test 100% first. The change applies on the next game launch.</string>
+    <string name="setup_audio_check_ready">Required audio archives found. If the game is silent, enable Audio log below and reproduce the problem.</string>
+    <string name="setup_audio_check_missing">Missing required audio archives: %1$s</string>
 
     <!-- Mod Manager Phase 1 -->
     <string name="mods_title">Mods</string>
@@ -366,6 +369,15 @@
     <string name="mods_use_vanilla">Use Vanilla</string>
     <string name="mods_active_button">Active</string>
     <string name="mods_activate_button">Activate</string>
+    <string name="mods_delete_button">Delete</string>
+    <string name="mods_delete_confirm_title">Delete mod?</string>
+    <string name="mods_delete_confirm">Permanently delete “%1$s” from the managed Mods folder?</string>
+    <string name="mods_delete_active_confirm">“%1$s” is active. Deleting it permanently will select Vanilla first. Continue?</string>
+    <string name="mods_delete_success">Deleted %1$s.</string>
+    <string name="mods_delete_failed">Could not completely delete %1$s. Check storage access and try again.</string>
+    <string name="mods_import_cancel_action">Cancel import</string>
+    <string name="mods_import_cancelling">Cancelling safely…</string>
+    <string name="mods_import_cancelled">Import cancelled. Installed mods were not changed.</string>
     <string name="mods_type_folder">Mod folder</string>
     <string name="mods_type_big">BIG archive mod</string>
     <string name="mods_empty_title">No managed mods yet</string>

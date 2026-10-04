@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Paramètres du jeu</string>
     <string name="launcher_data_hint">Installation et fichiers</string>
     <string name="launcher_tools_hint">Journaux et diagnostic</string>
+    <string name="mods_delete_button">Supprimer</string>
+    <string name="mods_delete_confirm_title">Supprimer le mod ?</string>
+    <string name="mods_delete_confirm">Supprimer définitivement « %1$s » du dossier Mods géré ?</string>
+    <string name="mods_delete_active_confirm">« %1$s » est actif. Sa suppression définitive sélectionnera d’abord Vanilla. Continuer ?</string>
+    <string name="mods_delete_success">%1$s a été supprimé.</string>
+    <string name="mods_delete_failed">Impossible de supprimer complètement %1$s. Vérifiez l’accès au stockage et réessayez.</string>
+    <string name="mods_import_cancel_action">Annuler l’importation</string>
+    <string name="mods_import_cancelling">Annulation sécurisée…</string>
+    <string name="mods_import_cancelled">Importation annulée. Les mods installés n’ont pas été modifiés.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Certains mods remplacent la disposition de la barre de contrôle. Si ses éléments se chevauchent, testez d’abord 100 %. Le changement s’applique au prochain lancement du jeu.</string>
+    <string name="setup_audio_check_ready">Les archives audio requises sont présentes. Si le jeu reste muet, activez le journal audio ci-dessous et reproduisez le problème.</string>
+    <string name="setup_audio_check_missing">Archives audio requises manquantes : %1$s</string>
 </resources>

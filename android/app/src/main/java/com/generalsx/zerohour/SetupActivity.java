@@ -430,12 +430,14 @@ public class SetupActivity extends Activity {
         renderBackendStatusView = null;
         customDriverStatusView = null;
         diagnosticsNoFolderHint = null;
+        audioArchiveStatus = null;
         dxvkConfigEdit = null;
         uiScaleSlider = null;
         uiScaleLabel = null;
         upscaleStatus = null;
         interfaceScaleSlider = null;
         interfaceScaleLabel = null;
+        interfaceScaleWarning = null;
         java.util.Arrays.fill(diagnosticSwitches, null);
     }
 
@@ -1164,6 +1166,7 @@ public class SetupActivity extends Activity {
     // GXUiScale (percent) in Options.ini, read by SDL3Main.cpp at startup.
     private Slider interfaceScaleSlider;
     private TextView interfaceScaleLabel;
+    private TextView interfaceScaleWarning;
 
     private void buildInterfaceScaleSection(LinearLayout root) {
         LinearLayout content = UiKit.card(root);
@@ -1188,6 +1191,11 @@ public class SetupActivity extends Activity {
         sliderLp.topMargin = UiKit.dim(this, R.dimen.gzh_item_gap_tight);
         content.addView(interfaceScaleSlider, sliderLp);
 
+        interfaceScaleWarning = UiKit.chip(content, R.drawable.ic_gzh_info,
+            getString(R.string.setup_interface_scale_overlap_warning),
+            R.color.gzh_status_warn, R.color.gzh_surface_container_high);
+        interfaceScaleWarning.setVisibility(startPercent > 100 ? View.VISIBLE : View.GONE);
+
         UiKit.button(content, UiKit.BTN_PRIMARY, R.drawable.ic_gzh_check,
             getString(R.string.setup_button_apply_interface_scale), () -> {
                 writeInterfaceScalePercent((int) interfaceScaleSlider.getValue());
@@ -1200,6 +1208,9 @@ public class SetupActivity extends Activity {
     private void updateInterfaceScaleLabel(int percent) {
         if (interfaceScaleLabel != null) {
             interfaceScaleLabel.setText(getString(R.string.setup_interface_scale_label, percent));
+        }
+        if (interfaceScaleWarning != null) {
+            interfaceScaleWarning.setVisibility(percent > 100 ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -2137,6 +2148,13 @@ public class SetupActivity extends Activity {
             getString(R.string.setup_diagnostics_no_folder),
             R.color.gzh_status_warn, R.color.gzh_surface_container_high);
 
+        // GeneralsX @feature Android port 04/10/2026 Real-file audio readiness hint.
+        boolean audioReady = missingAudioArchives().isEmpty();
+        audioArchiveStatus = UiKit.chip(content, R.drawable.ic_gzh_info,
+            audioArchiveStatusText(), audioReady ? R.color.gzh_status_ok : R.color.gzh_status_warn,
+            R.color.gzh_surface_container_high);
+        audioArchiveStatus.setVisibility(getSavedGamePath() != null ? View.VISIBLE : View.GONE);
+
         // GeneralsX @feature Android port 27/09/2026 Master switch: when off, nothing is logged in
         // the background -- not the engine's stderr mirror, not crash.log, not GeneralsOnline.log,
         // not this launcher's network trace. Kept as a marker in the app's own files dir (not the
@@ -2160,6 +2178,7 @@ public class SetupActivity extends Activity {
     }
 
     private TextView diagnosticsNoFolderHint;
+    private TextView audioArchiveStatus;
     private SwitchCompat loggingSwitch;
 
     static final String LOGGING_OFF_MARKER = "logging_off";
@@ -2207,6 +2226,10 @@ public class SetupActivity extends Activity {
         if (diagnosticsNoFolderHint != null) {
             diagnosticsNoFolderHint.setVisibility(haveFolder ? android.view.View.GONE : android.view.View.VISIBLE);
         }
+        if (audioArchiveStatus != null) {
+            audioArchiveStatus.setText(audioArchiveStatusText());
+            audioArchiveStatus.setVisibility(haveFolder ? View.VISIBLE : View.GONE);
+        }
         for (int i = 0; i < DIAGNOSTIC_MARKERS.length; i++) {
             final int index = i;
             SwitchCompat sw = diagnosticSwitches[index];
@@ -2219,6 +2242,38 @@ public class SetupActivity extends Activity {
             sw.setEnabled(haveFolder);
             sw.setOnCheckedChangeListener((button, checked) -> setDiagnosticMarker(DIAGNOSTIC_MARKERS[index], checked));
         }
+    }
+
+    private String audioArchiveStatusText() {
+        String path = getSavedGamePath();
+        if (path == null) return "";
+        java.util.List<String> missing = missingAudioArchives();
+        return missing.isEmpty() ? getString(R.string.setup_audio_check_ready)
+            : getString(R.string.setup_audio_check_missing, android.text.TextUtils.join(", ", missing));
+    }
+
+    private java.util.List<String> missingAudioArchives() {
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        String path = getSavedGamePath();
+        if (path == null) return missing;
+        java.util.List<File> roots = new java.util.ArrayList<>();
+        File game = new File(path);
+        roots.add(game);
+        File[] gameChildren = game.listFiles(File::isDirectory);
+        if (gameChildren != null) java.util.Collections.addAll(roots, gameChildren);
+        String basePath = getBaseGeneralsPath();
+        if (basePath != null) roots.add(new File(basePath));
+        for (String name : new String[] {"Audio.big", "Speech.big", "Music.big"}) {
+            boolean found = false;
+            for (File root : roots) {
+                if (new File(root, name).isFile()) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) missing.add(name);
+        }
+        return missing;
     }
 
     // GeneralsX @feature Android port 10/07/2026 GeneralsOnline (playgenerals.online)

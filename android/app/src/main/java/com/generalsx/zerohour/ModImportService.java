@@ -47,6 +47,24 @@ final class ModImportService {
     private static final int MAX_DEPTH = 64;
     private static final int BUFFER_SIZE = 64 * 1024;
 
+    // GeneralsX @feature Android port 04/10/2026 Cooperative transactional cancellation.
+    static final class CancellationSignal {
+        private volatile boolean cancelled;
+
+        void cancel() { cancelled = true; }
+        boolean isCancelled() { return cancelled; }
+
+        void throwIfCancelled() throws ImportCancelledException {
+            if (cancelled || Thread.currentThread().isInterrupted()) {
+                throw new ImportCancelledException();
+            }
+        }
+    }
+
+    static final class ImportCancelledException extends IOException {
+        ImportCancelledException() { super("Import cancelled"); }
+    }
+
     static final class Result {
         final File installed;
         final int fileCount;
@@ -84,6 +102,12 @@ final class ModImportService {
     private ModImportService() {}
 
     static Result importDocument(Context ctx, Uri uri) throws IOException {
+        return importDocument(ctx, uri, new CancellationSignal());
+    }
+
+    static Result importDocument(Context ctx, Uri uri, CancellationSignal cancellation)
+            throws IOException {
+        cancellation.throwIfCancelled();
         File modsRoot = requireModsRoot(ctx);
         cleanupStaleStaging(modsRoot);
 
@@ -94,15 +118,21 @@ final class ModImportService {
 
         String lower = displayName.toLowerCase(Locale.US);
         if (lower.endsWith(".zip")) {
-            return importZip(ctx, uri, displayName, modsRoot);
+            return importZip(ctx, uri, displayName, modsRoot, cancellation);
         }
         if (lower.endsWith(".big")) {
-            return importBig(ctx, uri, displayName, modsRoot);
+            return importBig(ctx, uri, displayName, modsRoot, cancellation);
         }
         throw new IOException("Only .big and .zip files are supported in this import phase");
     }
 
     static Result importTree(Context ctx, Uri treeUri) throws IOException {
+        return importTree(ctx, treeUri, new CancellationSignal());
+    }
+
+    static Result importTree(Context ctx, Uri treeUri, CancellationSignal cancellation)
+            throws IOException {
+        cancellation.throwIfCancelled();
         File modsRoot = requireModsRoot(ctx);
         cleanupStaleStaging(modsRoot);
 
@@ -119,22 +149,25 @@ final class ModImportService {
 
         Stats stats = new Stats();
         try {
-            copyTree(ctx.getContentResolver(), treeUri, documentId, stage, stats, 0);
-            stats.bigCount = verifyBigArchives(stage);
+            copyTree(ctx.getContentResolver(), treeUri, documentId, stage, stats, 0, cancellation);
+            stats.bigCount = verifyBigArchives(stage, cancellation);
             if (stats.bigCount == 0) {
                 throw new IOException("No .big archive was found. Loose-only mods are not supported yet");
             }
 
             File target = uniqueTarget(modsRoot, name, false);
+            cancellation.throwIfCancelled();
             finishInstall(stage, target);
             return new Result(target, stats.fileCount, stats.bigCount, stats.bytes);
         } catch (IOException | RuntimeException e) {
             deleteRecursively(stage);
+            if (cancellation.isCancelled()) throw new ImportCancelledException();
             throw e;
         }
     }
 
-    private static Result importBig(Context ctx, Uri uri, String displayName, File modsRoot)
+    private static Result importBig(Context ctx, Uri uri, String displayName, File modsRoot,
+                                    CancellationSignal cancellation)
             throws IOException {
         String name = sanitizeInstallName(displayName, true);
         File stagingRoot = stagingRoot(modsRoot);
@@ -146,22 +179,25 @@ final class ModImportService {
                 throw new IOException("Could not open selected BIG archive");
             }
             stats.addFile();
-            copyStream(raw, stage, stats);
-            if (!isValidBig(stage)) {
+            copyStream(raw, stage, stats, cancellation);
+            if (!isValidBig(stage, cancellation)) {
                 throw new IOException("Selected file is not a valid BIGF/BIG4 archive");
             }
             stats.bigCount = 1;
 
             File target = uniqueTarget(modsRoot, name, true);
+            cancellation.throwIfCancelled();
             finishInstall(stage, target);
             return new Result(target, stats.fileCount, stats.bigCount, stats.bytes);
         } catch (IOException | RuntimeException e) {
             stage.delete();
+            if (cancellation.isCancelled()) throw new ImportCancelledException();
             throw e;
         }
     }
 
-    private static Result importZip(Context ctx, Uri uri, String displayName, File modsRoot)
+    private static Result importZip(Context ctx, Uri uri, String displayName, File modsRoot,
+                                    CancellationSignal cancellation)
             throws IOException {
         String baseName = displayName.substring(0, displayName.length() - 4);
         String name = sanitizeInstallName(baseName, false);
@@ -182,6 +218,7 @@ final class ModImportService {
             Set<String> seenPaths = new HashSet<>();
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
+                cancellation.throwIfCancelled();
                 String entryName = normalizeZipPath(entry.getName());
                 if (entryName.isEmpty()) {
                     zip.closeEntry();
@@ -202,27 +239,31 @@ final class ModImportService {
                     if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
                         throw new IOException("Could not create directory for: " + entryName);
                     }
-                    copyStream(zip, dest, stats);
+                    copyStream(zip, dest, stats, cancellation);
                 }
                 zip.closeEntry();
             }
 
-            stats.bigCount = verifyBigArchives(stage);
+            stats.bigCount = verifyBigArchives(stage, cancellation);
             if (stats.bigCount == 0) {
                 throw new IOException("ZIP contains no .big archive. Loose-only mods are not supported yet");
             }
 
             File target = uniqueTarget(modsRoot, name, false);
+            cancellation.throwIfCancelled();
             finishInstall(stage, target);
             return new Result(target, stats.fileCount, stats.bigCount, stats.bytes);
         } catch (IOException | RuntimeException e) {
             deleteRecursively(stage);
+            if (cancellation.isCancelled()) throw new ImportCancelledException();
             throw e;
         }
     }
 
     private static void copyTree(ContentResolver resolver, Uri treeUri, String parentDocumentId,
-                                 File destDir, Stats stats, int depth) throws IOException {
+                                 File destDir, Stats stats, int depth,
+                                 CancellationSignal cancellation) throws IOException {
+        cancellation.throwIfCancelled();
         if (depth > MAX_DEPTH) {
             throw new IOException("Mod folder nesting is too deep");
         }
@@ -243,6 +284,7 @@ final class ModImportService {
             int mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE);
 
             while (cursor.moveToNext()) {
+                cancellation.throwIfCancelled();
                 String childId = cursor.getString(idCol);
                 String childName = validateSegment(cursor.getString(nameCol));
                 String mime = cursor.getString(mimeCol);
@@ -252,7 +294,7 @@ final class ModImportService {
                     if (!dest.isDirectory() && !dest.mkdirs()) {
                         throw new IOException("Could not create directory: " + childName);
                     }
-                    copyTree(resolver, treeUri, childId, dest, stats, depth + 1);
+                    copyTree(resolver, treeUri, childId, dest, stats, depth + 1, cancellation);
                 } else {
                     stats.addFile();
                     Uri childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId);
@@ -260,7 +302,7 @@ final class ModImportService {
                         if (in == null) {
                             throw new IOException("Could not open: " + childName);
                         }
-                        copyStream(in, dest, stats);
+                        copyStream(in, dest, stats, cancellation);
                     }
                 }
             }
@@ -318,7 +360,8 @@ final class ModImportService {
         return null;
     }
 
-    private static void copyStream(InputStream in, File dest, Stats stats) throws IOException {
+    private static void copyStream(InputStream in, File dest, Stats stats,
+                                   CancellationSignal cancellation) throws IOException {
         File parent = dest.getParentFile();
         if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
             throw new IOException("Could not create destination directory");
@@ -328,7 +371,10 @@ final class ModImportService {
                 new FileOutputStream(dest), BUFFER_SIZE)) {
             byte[] buffer = new byte[BUFFER_SIZE];
             int n;
-            while ((n = in.read(buffer)) != -1) {
+            while (true) {
+                cancellation.throwIfCancelled();
+                n = in.read(buffer);
+                if (n == -1) break;
                 if (n == 0) {
                     continue;
                 }
@@ -339,10 +385,12 @@ final class ModImportService {
         }
     }
 
-    private static int verifyBigArchives(File root) throws IOException {
+    private static int verifyBigArchives(File root, CancellationSignal cancellation)
+            throws IOException {
+        cancellation.throwIfCancelled();
         if (root.isFile()) {
             if (root.getName().toLowerCase(Locale.US).endsWith(".big")) {
-                if (!isValidBig(root)) {
+                if (!isValidBig(root, cancellation)) {
                     throw new IOException("Corrupt BIG archive: " + root.getName());
                 }
                 return 1;
@@ -356,12 +404,13 @@ final class ModImportService {
         }
         int count = 0;
         for (File child : children) {
-            count += verifyBigArchives(child);
+            count += verifyBigArchives(child, cancellation);
         }
         return count;
     }
 
-    private static boolean isValidBig(File file) {
+    private static boolean isValidBig(File file, CancellationSignal cancellation)
+            throws ImportCancelledException {
         if (!file.isFile() || file.length() < 16) {
             return false;
         }
@@ -389,6 +438,7 @@ final class ModImportService {
 
             long tableBytes = 16;
             for (int i = 0; i < count; i++) {
+                if ((i & 255) == 0) cancellation.throwIfCancelled();
                 if (tableBytes + 9 > headerSize) {
                     return false;
                 }
@@ -416,6 +466,8 @@ final class ModImportService {
                 }
             }
             return tableBytes <= headerSize;
+        } catch (ImportCancelledException e) {
+            throw e;
         } catch (IOException e) {
             return false;
         }

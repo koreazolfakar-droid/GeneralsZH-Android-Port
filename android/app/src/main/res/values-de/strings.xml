@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Spieleinstellungen</string>
     <string name="launcher_data_hint">Einrichtung und Dateien</string>
     <string name="launcher_tools_hint">Logs und Diagnose</string>
+    <string name="mods_delete_button">Löschen</string>
+    <string name="mods_delete_confirm_title">Mod löschen?</string>
+    <string name="mods_delete_confirm">„%1$s“ dauerhaft aus dem verwalteten Mods-Ordner löschen?</string>
+    <string name="mods_delete_active_confirm">„%1$s“ ist aktiv. Beim dauerhaften Löschen wird zuerst Vanilla ausgewählt. Fortfahren?</string>
+    <string name="mods_delete_success">%1$s wurde gelöscht.</string>
+    <string name="mods_delete_failed">%1$s konnte nicht vollständig gelöscht werden. Prüfe den Speicherzugriff und versuche es erneut.</string>
+    <string name="mods_import_cancel_action">Import abbrechen</string>
+    <string name="mods_import_cancelling">Sicherer Abbruch…</string>
+    <string name="mods_import_cancelled">Import abgebrochen. Installierte Mods wurden nicht geändert.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Einige Mods ersetzen das Layout der Steuerleiste. Wenn Elemente überlappen, teste zuerst 100 %. Die Änderung gilt beim nächsten Spielstart.</string>
+    <string name="setup_audio_check_ready">Erforderliche Audioarchive gefunden. Falls das Spiel stumm bleibt, aktiviere unten das Audioprotokoll und reproduziere das Problem.</string>
+    <string name="setup_audio_check_missing">Erforderliche Audioarchive fehlen: %1$s</string>
 </resources>

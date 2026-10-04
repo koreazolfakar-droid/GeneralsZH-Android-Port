@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">Nastavjenja igry</string>
     <string name="launcher_data_hint">Nastavjenje i fajly</string>
     <string name="launcher_tools_hint">Žurnaly i diagnostika</string>
+    <string name="mods_delete_button">Izbrisati</string>
+    <string name="mods_delete_confirm_title">Izbrisati mod?</string>
+    <string name="mods_delete_confirm">Trajno izbrisati „%1$s“ iz upravljanogo foldera Mods?</string>
+    <string name="mods_delete_active_confirm">„%1$s“ jest aktivny mod. Njegovo trajno izbrisanje najprvo izbere Vanilla. Prodolžiti?</string>
+    <string name="mods_delete_success">%1$s jest izbrisany.</string>
+    <string name="mods_delete_failed">Ne udało se potpuno izbrisati %1$s. Prověri dostup k hranilišču i probuj snova.</string>
+    <string name="mods_import_cancel_action">Odmeniti import</string>
+    <string name="mods_import_cancelling">Bezopasno odmenjanje…</string>
+    <string name="mods_import_cancelled">Import odmenjen. Instalovane modifikacije ne sut izmenjene.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Někoje modifikacije zaměnjajut raspoloženje kontrolnogo panela. Ako elementy se prěkrivajut, najprvo probuj 100%. Izměna dějstvuje pri slědujućem startu igry.</string>
+    <string name="setup_audio_check_ready">Potrebne audio arhivy sut najdene. Ako igra jest bez zvuka, vkjuči Audio log niže i povtori problem.</string>
+    <string name="setup_audio_check_missing">Nedostajut potrebne audio arhivy: %1$s</string>
 </resources>

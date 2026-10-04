@@ -46,7 +46,9 @@ import java.util.concurrent.Executors;
  * Phase 1 owns reversible activation. Phase 2 adds a transactional importer:
  * folder trees and .big/.zip documents are copied to a hidden staging area,
  * validated, then atomically renamed into Mods/. No import operation writes
- * into the live game root or an already-installed mod.
+ * into the live game root or an already-installed mod. Import can be cancelled
+ * before commit, and installed entries can be deleted only through ModManager's
+ * canonical managed-root check.
  */
 public class ModManagerActivity extends Activity {
     private static final int REQUEST_IMPORT_FOLDER = 2101;
@@ -54,6 +56,8 @@ public class ModManagerActivity extends Activity {
 
     private boolean importRunning;
     private AlertDialog importProgress;
+    private ModImportService.CancellationSignal importCancellation;
+    private Thread importThread;
 
     // GeneralsX @feature Android port 04/10/2026 Tactical Views-only library.
     // Filesystem discovery and size accounting never run on the UI thread.
@@ -124,6 +128,8 @@ public class ModManagerActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (importCancellation != null) importCancellation.cancel();
+        if (importThread != null) importThread.interrupt();
         if (importProgress != null) {
             importProgress.dismiss();
             importProgress = null;
@@ -342,18 +348,24 @@ public class ModManagerActivity extends Activity {
             LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(-2, -2);
             badgeLp.setMarginStart(dp(6));
             titleRow.addView(badge, badgeLp);
+            View delete = UiKit.iconButton(this, android.R.drawable.ic_menu_delete,
+                getString(R.string.mods_delete_button), () -> confirmDelete(entry.file, active));
+            delete.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
+            ((ImageView) delete).setImageTintList(new ColorStateList(
+                new int[][] { {-android.R.attr.state_enabled}, {} },
+                new int[] { MUTED, 0xffff6b78 }));
+            delete.setEnabled(enabled);
+            titleRow.addView(delete);
             TextView type = text(info, sizeLabel(entry.bytes) + "  ·  " + getString(entry.directory
                 ? R.string.mods_type_folder : R.string.mods_type_big), 11, MUTED, false);
             type.setPadding(0, dp(4), 0, 0);
-            // Narrow phones retain full-width actions; wider phones match the reference layout.
-            LinearLayout actions = UiKit.buttonRow(getResources().getConfiguration().screenWidthDp >= 360 ? info : card);
+            LinearLayout actions = UiKit.buttonRow(info);
             MaterialButton launch = action(actions, R.string.mods_launch_button, R.drawable.ic_gzh_play,
                 active, () -> selectMod(entry.file, true));
             MaterialButton activate = action(actions, R.string.mods_activate_button, R.drawable.ic_gzh_refresh,
                 false, () -> selectMod(entry.file, false));
             launch.setEnabled(enabled);
             activate.setEnabled(enabled && !active);
-            // Delete deliberately remains hidden: this UI iteration adds no destructive backend.
         }
         if (shown == 0 && !snapshot.entries.isEmpty()) {
             text(library, getString(R.string.launcher_no_matches), 14, MUTED, false);
@@ -385,6 +397,33 @@ public class ModManagerActivity extends Activity {
                     Toast.makeText(this, mod == null ? getString(R.string.mods_toast_vanilla)
                         : getString(R.string.mods_toast_activated, mod.getName()), Toast.LENGTH_SHORT).show();
                 }
+            });
+        });
+    }
+
+    // GeneralsX @feature Android port 04/10/2026 Confirmed, managed-root-only deletion.
+    private void confirmDelete(File mod, boolean active) {
+        if (importRunning || actionRunning || snapshot == null || !snapshot.storageReady) return;
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.mods_delete_confirm_title)
+            .setMessage(getString(active ? R.string.mods_delete_active_confirm
+                : R.string.mods_delete_confirm, mod.getName()))
+            .setPositiveButton(R.string.mods_delete_button, (dialog, which) -> deleteMod(mod))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    private void deleteMod(File mod) {
+        actionRunning = true;
+        renderLibrary();
+        libraryWorker.execute(() -> {
+            boolean deleted = ModManager.deleteManagedMod(this, mod);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                actionRunning = false;
+                Toast.makeText(this, getString(deleted ? R.string.mods_delete_success
+                    : R.string.mods_delete_failed, mod.getName()), Toast.LENGTH_LONG).show();
+                refreshLibrary();
             });
         });
     }
@@ -538,16 +577,28 @@ public class ModManagerActivity extends Activity {
         importProgress = new AlertDialog.Builder(this)
             .setTitle(R.string.mods_import_working_title)
             .setView(progressSurface)
+            .setNegativeButton(R.string.mods_import_cancel_action, null)
             .setCancelable(false)
             .create();
         importProgress.show();
 
-        new Thread(() -> {
+        importCancellation = new ModImportService.CancellationSignal();
+        importProgress.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+            if (importCancellation == null || importCancellation.isCancelled()) return;
+            importCancellation.cancel();
+            if (importThread != null) importThread.interrupt();
+            progressMessage.setText(R.string.mods_import_cancelling);
+            v.setEnabled(false);
+        });
+
+        importThread = new Thread(() -> {
             try {
                 ModImportService.Result result = folder
-                    ? ModImportService.importTree(this, uri)
-                    : ModImportService.importDocument(this, uri);
+                    ? ModImportService.importTree(this, uri, importCancellation)
+                    : ModImportService.importDocument(this, uri, importCancellation);
                 runOnUiThread(() -> finishImportSuccess(result));
+            } catch (ModImportService.ImportCancelledException e) {
+                runOnUiThread(this::finishImportCancelled);
             } catch (Exception e) {
                 String message = e.getMessage();
                 if (message == null || message.trim().isEmpty()) {
@@ -556,15 +607,26 @@ public class ModManagerActivity extends Activity {
                 final String detail = message;
                 runOnUiThread(() -> finishImportFailure(detail));
             }
-        }, "GeneralsX-ModImport").start();
+        }, "GeneralsX-ModImport");
+        importThread.start();
     }
 
     private void dismissImportProgress() {
         importRunning = false;
+        importCancellation = null;
+        importThread = null;
         if (importProgress != null) {
             importProgress.dismiss();
             importProgress = null;
         }
+    }
+
+    private void finishImportCancelled() {
+        if (isFinishing() || isDestroyed()) return;
+        dismissImportProgress();
+        renderLibrary();
+        Toast.makeText(this, R.string.mods_import_cancelled, Toast.LENGTH_LONG).show();
+        refreshLibrary();
     }
 
     private void finishImportSuccess(ModImportService.Result result) {

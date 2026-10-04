@@ -144,12 +144,28 @@ public class LauncherHomeUiTest {
         label(R.string.setup_card_language);
         label(R.string.setup_card_text_size);
         label(R.string.setup_card_interface_scale);
+        assertEquals(View.GONE, ((TextView) field("interfaceScaleWarning")).getVisibility());
+        ((com.google.android.material.slider.Slider) field("interfaceScaleSlider")).setValue(150f);
+        assertEquals(View.VISIBLE, ((TextView) field("interfaceScaleWarning")).getVisibility());
         settings(SetupActivity.TAB_HELP);
         label(R.string.setup_card_how_it_works);
         ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_TOOLS);
         label(R.string.setup_card_diagnostics);
         click(R.string.setup_button_view_logs);
         assertEquals(LogViewerActivity.class.getName(), shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
+    }
+
+    @Test public void toolsReportsRealAudioArchiveReadiness() throws Exception {
+        completeGame();
+        open();
+        ((BottomNavigationView) field("bottomNav")).setSelectedItemId(SetupActivity.TAB_TOOLS);
+        assertEquals(activity.getString(R.string.setup_audio_check_ready),
+            ((TextView) field("audioArchiveStatus")).getText().toString());
+        assertNotNull(label(R.string.setup_switch_gx_audio_trace));
+        assertTrue(new File(game, "Audio.big").delete());
+        ((BottomNavigationView) field("bottomNav")).setSelectedItemId(SetupActivity.TAB_HOME);
+        ((BottomNavigationView) field("bottomNav")).setSelectedItemId(SetupActivity.TAB_TOOLS);
+        assertTrue(((TextView) field("audioArchiveStatus")).getText().toString().contains("Audio.big"));
     }
     @Test public void navigationPreservesGraphicsToolsAndModManagerRoutes() {
         open();

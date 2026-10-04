@@ -379,4 +379,16 @@
     <string name="launcher_graphics_hint">游戏设置</string>
     <string name="launcher_data_hint">设置与文件</string>
     <string name="launcher_tools_hint">日志与诊断</string>
+    <string name="mods_delete_button">删除</string>
+    <string name="mods_delete_confirm_title">删除模组？</string>
+    <string name="mods_delete_confirm">要从受管理的 Mods 文件夹中永久删除“%1$s”吗？</string>
+    <string name="mods_delete_active_confirm">“%1$s”当前已启用。永久删除前将先选择原版。继续吗？</string>
+    <string name="mods_delete_success">已删除 %1$s。</string>
+    <string name="mods_delete_failed">无法完全删除 %1$s。请检查存储访问权限后重试。</string>
+    <string name="mods_import_cancel_action">取消导入</string>
+    <string name="mods_import_cancelling">正在安全取消…</string>
+    <string name="mods_import_cancelled">导入已取消。已安装的模组未被更改。</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">部分模组会替换控制栏布局。如果元素重叠，请先测试 100%。更改将在下次启动游戏时生效。</string>
+    <string name="setup_audio_check_ready">已找到所需音频档案。如果游戏仍然无声，请启用下方的音频日志并重现问题。</string>
+    <string name="setup_audio_check_missing">缺少所需音频档案：%1$s</string>
 </resources>

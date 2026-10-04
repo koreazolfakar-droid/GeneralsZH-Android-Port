@@ -100,7 +100,18 @@ public class ModManagerUiTest {
         throw new AssertionError("Missing button: " + text);
     }
 
-    private View card(File mod) { return (View) label(mod.getName()).getParent().getParent().getParent(); }
+    private View action(View root, int string) {
+        String description = activity.getString(string);
+        for (View v : views(root)) {
+            if (v.getContentDescription() != null
+                    && description.contentEquals(v.getContentDescription())) return v;
+        }
+        throw new AssertionError("Missing action: " + description);
+    }
+
+    private View card(File mod) {
+        return (View) label(mod.getName()).getParent().getParent().getParent().getParent();
+    }
 
     @Test public void emptyLibraryAndMissingGameFolderAreSafe() throws Exception {
         open();
@@ -154,6 +165,62 @@ public class ModManagerUiTest {
         drain();
         assertEquals(second, ModManager.getActiveMod(context));
         assertEquals(2, ModManager.listMods(context).size());
+    }
+
+    // GeneralsX @feature Android port 04/10/2026 Destructive actions stay inside Mods.
+    @Test public void confirmedDeleteRemovesOnlyManagedModAndReturnsActiveChoiceToVanilla()
+            throws Exception {
+        File vanilla = new File(game, "INI.big");
+        Files.write(vanilla.toPath(), new byte[] {9,8,7});
+        File active = new File(mods, "Delete me");
+        assertTrue(active.mkdir());
+        Files.write(new File(active, "data.big").toPath(), new byte[] {1,2,3});
+        assertTrue(ModManager.setActiveMod(context, active));
+        open();
+
+        action(card(active), R.string.mods_delete_button).performClick();
+        AlertDialog confirm = ShadowAlertDialog.getLatestAlertDialog();
+        assertTrue(((TextView) confirm.findViewById(android.R.id.message)).getText().toString()
+            .contains(active.getName()));
+        confirm.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        assertTrue(active.exists());
+        assertEquals(active, ModManager.getActiveMod(context));
+
+        assertTrue(action(card(active), R.string.mods_delete_button).performClick());
+        ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        long deleteDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (active.exists() && System.nanoTime() < deleteDeadline) {
+            drain();
+            Thread.sleep(10);
+        }
+        assertFalse(active.exists());
+        assertNull(ModManager.getActiveMod(context));
+        assertArrayEquals(new byte[] {9,8,7}, Files.readAllBytes(vanilla.toPath()));
+        assertFalse(ModManager.deleteManagedMod(context, vanilla));
+        assertFalse(ModManager.deleteManagedMod(context, new File(mods, ".installing")));
+
+        File outside = temp.newFolder("outside-mod");
+        File link = new File(mods, "Outside link");
+        try {
+            Files.createSymbolicLink(link.toPath(), outside.toPath());
+            assertFalse(ModManager.deleteManagedMod(context, link));
+            assertTrue(outside.exists());
+        } catch (UnsupportedOperationException | java.io.IOException ignored) {
+            // Some Android test filesystems cannot create symbolic links.
+        }
+    }
+
+    @Test public void managedDeleteBackendHandlesFilesAndNestedFolders() throws Exception {
+        File archive = new File(mods, "Archive.big");
+        Files.write(archive.toPath(), new byte[] {1});
+        assertTrue(ModManager.deleteManagedMod(context, archive));
+        assertFalse(archive.exists());
+
+        File folder = new File(mods, "Folder");
+        assertTrue(new File(folder, "nested").mkdirs());
+        Files.write(new File(folder, "nested/data.big").toPath(), new byte[] {2});
+        assertTrue(ModManager.deleteManagedMod(context, folder));
+        assertFalse(folder.exists());
     }
 
     @Test public void cancellingPickerAndImportChoiceDoesNotTouchExistingFiles() throws Exception {
@@ -221,6 +288,9 @@ public class ModManagerUiTest {
                 }
             }
             assertTrue(spinner);
+            assertNotNull(progress.getButton(AlertDialog.BUTTON_NEGATIVE));
+            assertEquals(activity.getString(R.string.mods_import_cancel_action),
+                progress.getButton(AlertDialog.BUTTON_NEGATIVE).getText().toString());
             assertEquals(installed, ModManager.getActiveMod(context));
             assertArrayEquals(new byte[] {1,2,3}, Files.readAllBytes(installed.toPath()));
         } finally {
@@ -322,7 +392,12 @@ public class ModManagerUiTest {
         root.measure(View.MeasureSpec.makeMeasureSpec(360, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(760, View.MeasureSpec.EXACTLY));
         root.layout(0, 0, 360, 760);
-        assertTrue(button(card(mod), R.string.mods_launch_button).getWidth() > 100);
+        for (int id : new int[] {R.string.mods_launch_button, R.string.mods_activate_button}) {
+            assertTrue(button(card(mod), id).getWidth() >= 80);
+            assertTrue(button(card(mod), id).getHeight() >= 48);
+        }
+        assertTrue(action(card(mod), R.string.mods_delete_button).getWidth() >= 48);
+        assertTrue(action(card(mod), R.string.mods_delete_button).getHeight() >= 48);
         String destination = System.getProperty("modUiScreenshot");
         if (destination != null) {
             Bitmap bitmap = Bitmap.createBitmap(360, 760, Bitmap.Config.ARGB_8888);
