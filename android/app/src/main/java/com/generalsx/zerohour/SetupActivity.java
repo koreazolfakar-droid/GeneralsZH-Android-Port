@@ -138,6 +138,9 @@ public class SetupActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // GeneralsX @bugfix Codex 04/10/2026 Keep branding in the launch window only;
+        // restore the existing Material theme before creating any app widgets.
+        setTheme(R.style.Theme_GeneralsZHSettings);
         // GeneralsX @bugfix Android port 31/07/2026 No longer forced to
         // landscape here -- see the matching AndroidManifest.xml comment.
         // This screen now starts portrait-first like every other non-game
