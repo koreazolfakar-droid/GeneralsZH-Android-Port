@@ -16,6 +16,23 @@ permissions:
   actions: write
 
 on:
+  # Temporary, branch-scoped diagnostic build. This does not restore broad push CI.
+  push:
+    branches:
+      - 'debug/android-audio-sfx-v1'
+    paths:
+      - 'GeneralsMD/**'
+      - 'Core/**'
+      - 'Dependencies/**'
+      - 'cmake/**'
+      - 'android/**'
+      - 'scripts/build/android/**'
+      - 'Patches/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/build-android.yml'
+
   # GeneralsX @bugfix Android CI 01/08/2026 dropped the push: trigger that
   # used to fire a full CI build on every push to main/claude/** touching
   # these paths. This session's actual dev loop builds and checksum-verifies
