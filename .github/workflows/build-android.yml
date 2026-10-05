@@ -43,6 +43,10 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      restore_validation_layer:
+        type: boolean
+        description: "Repackage the existing APK with the baseline validation library; no native build."
+        default: false
       verify_apk_run:
         type: string
         description: "Verify an existing run's APK without rebuilding it. Leave blank for a normal build."
@@ -328,6 +332,7 @@ jobs:
       - name: Run save safety and localization host tests
         run: |
           set -euo pipefail
+          python3 scripts/qa/test-android-validation-staging.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-mod-localization.py
 
@@ -781,6 +786,43 @@ jobs:
           github-token: ${{ github.token }}
           path: verification-input
           merge-multiple: true
+      # GeneralsX @bugfix Codex 05/10/2026 Carry the omitted baseline diagnostic library into the existing artifact.
+      - name: Restore baseline validation layer without recompiling
+        if: inputs.restore_validation_layer
+        env:
+          GX_VULKAN_VALIDATION: ${{ github.workspace }}/verification-layer
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-android-validation-staging.py
+          ./scripts/build/android/fetch-vulkan-validation-layer.sh
+          python3 - <<'PYREPACK'
+          from pathlib import Path
+          import hashlib,re,subprocess,zipfile
+          original=list(Path('verification-input').glob('*.apk'))
+          assert len(original)==1
+          lib=Path('verification-layer/libVkLayer_khronos_validation.so')
+          assert hashlib.sha256(lib.read_bytes()).hexdigest()=='1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68'
+          out=Path('verification-output');out.mkdir()
+          unsigned=out/'unsigned.zip'
+          def signature(name):
+              return bool(re.match(r'^META-INF/[^/]+\.(SF|RSA|DSA|EC|MF)$',name,re.I))
+          layer='lib/arm64-v8a/libVkLayer_khronos_validation.so'
+          with zipfile.ZipFile(original[0]) as src,zipfile.ZipFile(unsigned,'w') as dst:
+              for entry in src.infolist():
+                  if not signature(entry.filename) and entry.filename!=layer:
+                      dst.writestr(entry,src.read(entry.filename))
+              dst.write(lib,layer,compress_type=zipfile.ZIP_DEFLATED)
+          apk=out/'GeneralsZH-SaveOnline-debug.apk'
+          tools=Path('/opt/android-sdk/build-tools/35.0.0')
+          subprocess.run([str(tools/'zipalign'),'-P','16','4',str(unsigned),str(apk)],check=True)
+          subprocess.run([str(tools/'apksigner'),'sign','--ks','android/app/debug.keystore','--ks-pass','pass:android','--key-pass','pass:android',str(apk)],check=True)
+          with zipfile.ZipFile(original[0]) as src,zipfile.ZipFile(apk) as dst:
+              for entry in src.infolist():
+                  if not signature(entry.filename) and entry.filename!=layer:
+                      assert src.read(entry.filename)==dst.read(entry.filename),entry.filename
+          print('PASS: every original non-signature payload, including both engines, is byte-identical')
+          PYREPACK
+
       - name: Verify signature, identity, alignment and native payload
         env:
           EXPECTED_VERSION_CODE: ${{ inputs.version_code }}
@@ -788,7 +830,7 @@ jobs:
           python3 - <<'PYVERIFY'
           from pathlib import Path
           import hashlib,json,os,re,struct,subprocess,zipfile
-          apks=list(Path('verification-input').glob('*.apk'))
+          apks=list(Path('verification-output').glob('*.apk')) or list(Path('verification-input').glob('*.apk'))
           assert len(apks)==1,apks
           apk=apks[0];tools=Path('/opt/android-sdk/build-tools/35.0.0')
           signature=subprocess.check_output([str(tools/'apksigner'),'verify','--print-certs',str(apk)],text=True)
@@ -807,6 +849,9 @@ jobs:
               for name in libs:
                   data=z.read(name)
                   assert data[:4]==b'\x7fELF' and struct.unpack_from('<H',data,18)[0]==183,name
+              if Path('verification-output').exists():
+                  assert len(libs)==17
+                  assert hashlib.sha256(z.read('lib/arm64-v8a/libVkLayer_khronos_validation.so')).hexdigest()=='1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68'
               for engine in ['libmain.so','libmain60.so']:
                   assert 'lib/arm64-v8a/'+engine in libs
               assert z.read('lib/arm64-v8a/libmain.so')!=z.read('lib/arm64-v8a/libmain60.so')
@@ -818,4 +863,11 @@ jobs:
         with:
           name: apk-verification-${{ inputs.verify_apk_run }}
           path: apk-verification.json
+          retention-days: 7
+      - name: Upload corrected APK
+        if: inputs.restore_validation_layer
+        uses: actions/upload-artifact@v7
+        with:
+          name: GeneralsZH-SaveOnline-debug.apk
+          path: verification-output/GeneralsZH-SaveOnline-debug.apk
           retention-days: 7
