@@ -345,4 +345,50 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">인터페이스 크기 적용</string>
     <string name="setup_interface_scale_help">게임 파일을 건드리지 않고 게임 인터페이스를 키웁니다. 레이더가 있는 하단 컨트롤 바는 화면 아래쪽 가장자리에서 위로 커지고, 장군 능력 바, 채팅, 이벤트 메시지, 플레이어 목록, 저장/불러오기와 옵션이 있는 게임 메뉴, 메인 메뉴 버튼은 각자의 위치에서 커집니다. 화면 밖으로 밀려나는 것은 없습니다. 각 부분은 들어갈 수 있는 만큼만 커지므로, 넓은 휴대폰에서는 컨트롤 바가 넓어지는 대신 높아지고 그 위의 전장은 낮아집니다. 메뉴 글자 크기와 함께 작동합니다. 다음에 게임을 실행할 때 적용됩니다.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">설치된 모드 관리 및 실행</string>
+    <string name="mods_library_title">설치된 모드</string>
+    <string name="mods_storage_used">사용 공간</string>
+    <string name="mods_free_space">여유 공간</string>
+    <string name="mods_size_unknown">사용 불가</string>
+    <string name="mods_installed_badge">설치됨</string>
+    <string name="mods_launch_button">실행</string>
+    <string name="mods_library_loading">모드 라이브러리 읽는 중…</string>
+    <string name="mods_library_empty">설치된 모드가 여기에 표시됩니다. 폴더, BIG 파일 또는 ZIP 패키지를 가져오세요.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">준비 완료</string>
+    <string name="launcher_setup_needed">설정 필요</string>
+    <string name="launcher_quick_access">빠른 접근</string>
+    <string name="launcher_game_data">게임 데이터</string>
+    <string name="launcher_engine_build">엔진 빌드</string>
+    <string name="launcher_account">계정</string>
+    <string name="launcher_play_now">지금 플레이</string>
+    <string name="launcher_settings">설정</string>
+    <string name="launcher_build_value">빌드 %1$d</string>
+    <string name="launcher_search_mods">모드 검색</string>
+    <string name="launcher_no_matches">검색과 일치하는 설치된 모드가 없습니다.</string>
+    <string name="launcher_signed_out">로그인 안 됨</string>
+    <string name="launcher_play_options">플레이 옵션</string>
+    <string name="launcher_mods_hint">설치된 모드 관리</string>
+    <string name="launcher_graphics_hint">게임 설정</string>
+    <string name="launcher_data_hint">설정 및 파일</string>
+    <string name="launcher_tools_hint">로그 및 진단</string>
+    <string name="mods_delete_button">삭제</string>
+    <string name="mods_delete_confirm_title">모드를 삭제할까요?</string>
+    <string name="mods_delete_confirm">관리되는 Mods 폴더에서 “%1$s”을(를) 영구 삭제할까요?</string>
+    <string name="mods_delete_active_confirm">“%1$s”이(가) 활성 상태입니다. 영구 삭제하면 먼저 Vanilla가 선택됩니다. 계속할까요?</string>
+    <string name="mods_delete_success">%1$s을(를) 삭제했습니다.</string>
+    <string name="mods_delete_failed">%1$s을(를) 완전히 삭제하지 못했습니다. 저장소 접근 권한을 확인하고 다시 시도하세요.</string>
+    <string name="mods_import_cancel_action">가져오기 취소</string>
+    <string name="mods_import_cancelling">안전하게 취소 중…</string>
+    <string name="mods_import_cancelled">가져오기를 취소했습니다. 설치된 모드는 변경되지 않았습니다.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">일부 모드는 제어판 레이아웃을 교체합니다. 요소가 겹치면 먼저 100%로 시험하세요. 변경 사항은 다음 게임 실행부터 적용됩니다.</string>
+    <string name="setup_audio_check_ready">필수 오디오 보관 파일을 찾았습니다. 게임에서 소리가 나지 않으면 아래의 오디오 로그를 켜고 문제를 재현하세요.</string>
+    <string name="setup_audio_check_missing">필수 오디오 보관 파일 누락: %1$s</string>
 </resources>

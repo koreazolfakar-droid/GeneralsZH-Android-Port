@@ -75,6 +75,9 @@ import java.net.URL;
 import java.io.File;
 
 public class SetupActivity extends Activity {
+    // GeneralsX @feature Android port 04/10/2026 Mod library reuses the proven launch/rotation path.
+    static final String EXTRA_OPEN_TAB = "com.generalsx.zerohour.OPEN_TAB";
+    static final String EXTRA_LAUNCH_FROM_MODS = "com.generalsx.zerohour.LAUNCH_FROM_MODS";
 
     static final String PREFS_NAME = "generalszh_setup";
     static final String PREF_GAME_PATH = "game_path";
@@ -127,7 +130,6 @@ public class SetupActivity extends Activity {
 
     private TextView statusText;
     // GeneralsX @feature Android port 04/10/2026 Current Mod Manager selection shown on Home.
-    private TextView modStatusView;
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
@@ -136,6 +138,9 @@ public class SetupActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // GeneralsX @bugfix Codex 04/10/2026 Keep branding in the launch window only;
+        // restore the existing Material theme before creating any app widgets.
+        setTheme(R.style.Theme_GeneralsZHSettings);
         // GeneralsX @bugfix Android port 31/07/2026 No longer forced to
         // landscape here -- see the matching AndroidManifest.xml comment.
         // This screen now starts portrait-first like every other non-game
@@ -152,6 +157,8 @@ public class SetupActivity extends Activity {
         // dropped back on Home.
         if (savedInstanceState != null) {
             currentTab = savedInstanceState.getInt(STATE_TAB, TAB_HOME);
+        } else {
+            currentTab = getIntent().getIntExtra(EXTRA_OPEN_TAB, TAB_HOME);
         }
 
         // GeneralsX @bugfix Android port 08/07/2026 This screen is the ONLY
@@ -163,6 +170,10 @@ public class SetupActivity extends Activity {
             buildUi();
         } catch (Throwable t) {
             buildFallbackUi(t);
+        }
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_LAUNCH_FROM_MODS, false)) {
+            getIntent().removeExtra(EXTRA_LAUNCH_FROM_MODS);
+            getWindow().getDecorView().post(this::onLaunchGame);
         }
     }
 
@@ -256,11 +267,17 @@ public class SetupActivity extends Activity {
     // and status line that existed before still exists, and every string
     // resource is still used. See showTab() for where each one landed.
     private static final String STATE_TAB = "gzh_tab";
-    private static final int TAB_HOME = 1;
-    private static final int TAB_GRAPHICS = 2;
-    private static final int TAB_INTERFACE = 3;
-    private static final int TAB_TOOLS = 4;
-    private static final int TAB_HELP = 5;
+    static final int TAB_HOME = 1;
+    static final int TAB_GRAPHICS = 2;
+    static final int TAB_INTERFACE = 3;
+    static final int TAB_TOOLS = 4;
+    static final int TAB_HELP = 5;
+    static final int TAB_MODS = 6;
+    private BottomNavigationView bottomNav;
+    private TextView heroReady, heroMod, homeModSummary, homeEngineSummary,
+        homeAccountSummary, homeGameSummary, homeOnlineSummary, homeUpdatesSummary;
+    private LinearLayout homeGameData, homeOnlineDetails, homeUpdateDetails;
+
 
     private int currentTab = TAB_HOME;
     private FrameLayout contentHost;
@@ -271,23 +288,37 @@ public class SetupActivity extends Activity {
 
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setBackgroundColor(UiKit.color(this, R.color.gzh_background));
+        shell.setBackgroundColor(LauncherUi.BACKGROUND);
+        getWindow().setStatusBarColor(LauncherUi.BACKGROUND);
+        getWindow().setNavigationBarColor(LauncherUi.BACKGROUND);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         setContentView(shell);
         // Edge-to-edge still handled the same way: pad the outermost view by
         // the system bars/cutout so the app bar clears the status bar and the
         // navigation bar below clears the gesture handle.
         InsetUtil.applySafeInsets(shell);
 
-        appBarTitle = UiKit.appBar(shell, getString(R.string.setup_title),
-            getString(R.string.nav_tab_home),
-            R.drawable.ic_gzh_doc, getString(R.string.setup_button_view_logs), this::onViewLogs);
+        LinearLayout bar = new LinearLayout(this);
+        bar.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        bar.setPadding(dp(16), dp(10), dp(16), dp(4));
+        appBarTitle = new TextView(this);
+        appBarTitle.setTextSize(22);
+        appBarTitle.setTextColor(LauncherUi.TEXT);
+        appBarTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        appBarTitle.setMaxLines(2);
+        bar.addView(appBarTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        View settings = UiKit.iconButton(this, R.drawable.ic_gzh_sliders,
+            getString(R.string.launcher_settings), this::onViewLogs);
+        settings.setOnClickListener(v -> LauncherUi.settings(this, v, this::navigateLauncher));
+        bar.addView(settings);
+        shell.addView(bar, new LinearLayout.LayoutParams(-1, -2));
 
         contentHost = new FrameLayout(this);
         shell.addView(contentHost, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
         shell.addView(buildBottomNav(), new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(68)));
 
         if (contentHost.getChildCount() == 0) {
             showTab(currentTab);
@@ -295,47 +326,26 @@ public class SetupActivity extends Activity {
     }
 
     private BottomNavigationView buildBottomNav() {
-        BottomNavigationView nav = new BottomNavigationView(this);
+        bottomNav = LauncherUi.navigation(this, currentTab, this::navigateLauncher);
+        return bottomNav;
+    }
 
-        // Keep the tab order left-to-right in every language, Arabic and Farsi
-        // included. Android mirrors layouts in RTL locales, which is correct for
-        // the content -- and the rest of this launcher is built on start/end so
-        // it mirrors properly -- but it also reversed the five tabs, putting Home
-        // on the right, and that was reported as wrong. The tabs are a fixed rail
-        // of destinations rather than a line of reading, so pin the bar itself to
-        // LTR and leave text direction on the locale, so the labels still shape
-        // and read right-to-left inside their items.
-        nav.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);
-        nav.setTextDirection(android.view.View.TEXT_DIRECTION_LOCALE);
+    // GeneralsX @feature Android port 04/10/2026 Existing destinations share a compact rail.
+    // Interface and Help remain reachable from Settings; no controls are removed.
+    private void navigateLauncher(int tab) {
+        if (tab == TAB_MODS) {
+            startActivity(new Intent(this, ModManagerActivity.class));
+        } else {
+            showTab(tab);
+        }
+    }
 
-        nav.setBackgroundColor(UiKit.color(this, R.color.gzh_surface_container_low));
-        nav.setElevation(0f);
-        nav.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
-        nav.setItemIconSize(UiKit.dp(this, 22));
-        // Checked/unchecked pair: the selected item is the one sitting in the
-        // active-indicator pill, so it takes the on-container colour.
-        android.content.res.ColorStateList itemTint = new android.content.res.ColorStateList(
-            new int[][] { new int[] { android.R.attr.state_checked }, new int[0] },
-            new int[] { UiKit.color(this, R.color.gzh_on_primary_container),
-                        UiKit.color(this, R.color.gzh_on_surface_faint) });
-        nav.setItemIconTintList(itemTint);
-        nav.setItemTextColor(itemTint);
-        nav.setItemActiveIndicatorColor(UiKit.tint(this, R.color.gzh_primary_container));
-        nav.setItemRippleColor(UiKit.tint(this, R.color.gzh_ripple_primary));
-
-        Menu menu = nav.getMenu();
-        menu.add(Menu.NONE, TAB_HOME, 0, R.string.nav_tab_home).setIcon(R.drawable.ic_gzh_home);
-        menu.add(Menu.NONE, TAB_GRAPHICS, 1, R.string.nav_tab_graphics).setIcon(R.drawable.ic_gzh_display);
-        menu.add(Menu.NONE, TAB_INTERFACE, 2, R.string.nav_tab_interface).setIcon(R.drawable.ic_gzh_globe);
-        menu.add(Menu.NONE, TAB_TOOLS, 3, R.string.nav_tab_tools).setIcon(R.drawable.ic_gzh_wrench);
-        menu.add(Menu.NONE, TAB_HELP, 4, R.string.nav_tab_help).setIcon(R.drawable.ic_gzh_info);
-
-        nav.setOnItemSelectedListener(item -> {
-            showTab(item.getItemId());
-            return true;
-        });
-        nav.setSelectedItemId(currentTab);
-        return nav;
+    private void openLauncherTab(int tab) {
+        if (bottomNav != null && bottomNav.getMenu().findItem(tab) != null) {
+            bottomNav.setSelectedItemId(tab);
+        } else {
+            navigateLauncher(tab);
+        }
     }
 
     private int tabTitle(int tab) {
@@ -363,7 +373,7 @@ public class SetupActivity extends Activity {
         clearPageReferences();
         contentHost.removeAllViews();
         if (appBarTitle != null) {
-            appBarTitle.setText(tabTitle(tab));
+            appBarTitle.setText(tab == TAB_HOME ? R.string.launcher_name : tabTitle(tab));
         }
 
         LinearLayout page = UiKit.scrollingPage(contentHost);
@@ -414,29 +424,137 @@ public class SetupActivity extends Activity {
     /** Forgets every page-scoped view so a stale one is never written to. */
     private void clearPageReferences() {
         statusText = null;
-        modStatusView = null;
+        heroReady = heroMod = homeModSummary = homeEngineSummary = homeAccountSummary = null;
+        homeGameSummary = homeOnlineSummary = homeUpdatesSummary = null;
+        homeGameData = homeOnlineDetails = homeUpdateDetails = null;
         onlineStatusView = null;
         updatesStatusView = null;
         gameLanguageStatusView = null;
         renderBackendStatusView = null;
         customDriverStatusView = null;
         diagnosticsNoFolderHint = null;
+        audioArchiveStatus = null;
         dxvkConfigEdit = null;
         uiScaleSlider = null;
         uiScaleLabel = null;
         upscaleStatus = null;
         interfaceScaleSlider = null;
         interfaceScaleLabel = null;
+        interfaceScaleWarning = null;
         java.util.Arrays.fill(diagnosticSwitches, null);
     }
 
     // ------------------------------------------------------------ Home page
 
+    // GeneralsX @feature Android port 04/10/2026 Approved tactical Home presentation.
     private void buildHomeSection(LinearLayout page) {
-        // The one thing this app exists to do, as the first thing on it.
-        UiKit.button(page, UiKit.BTN_PRIMARY, R.drawable.ic_gzh_play,
-            getString(R.string.setup_button_launch_game), this::onLaunchGame);
+        page.setPadding(dp(16), dp(6), dp(16), dp(12));
+        LinearLayout hero = LauncherUi.panel(this, page);
+        hero.setPadding(0, 0, 0, dp(10));
+        ((LinearLayout.LayoutParams)hero.getLayoutParams()).topMargin = dp(6);
+        FrameLayout scene = LauncherUi.artwork(this, hero, 148);
+        LinearLayout overlay = LauncherUi.column(this);
+        overlay.setPadding(dp(14), dp(6), dp(14), dp(10));
+        overlay.setBackground(new android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[] {0x00090d14, 0xee090d14}));
+        FrameLayout.LayoutParams overlayLp = new FrameLayout.LayoutParams(-1, -2,
+            android.view.Gravity.BOTTOM);
+        scene.addView(overlay, overlayLp);
+        heroReady = LauncherUi.text(this, overlay, getString(R.string.launcher_setup_needed),
+            12, LauncherUi.GOLD, true);
+        heroReady.setCompoundDrawablePadding(dp(6));
+        heroReady.setPadding(dp(10), dp(5), dp(10), dp(5));
+        heroReady.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
+        LauncherUi.text(this, overlay, getString(R.string.mods_status_title), 10, LauncherUi.MUTED, false);
+        heroMod = LauncherUi.text(this, overlay, "", 14, LauncherUi.TEXT, true);
+        LinearLayout playRow = new LinearLayout(this);
+        playRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        playRow.setPadding(dp(10), 0, dp(10), 0);
+        hero.addView(playRow, new LinearLayout.LayoutParams(-1, dp(56)));
+        com.google.android.material.button.MaterialButton play = UiKit.button(playRow,
+            UiKit.BTN_PRIMARY, R.drawable.ic_gzh_play, getString(R.string.launcher_play_now), this::onLaunchGame);
+        LauncherUi.purple(this, play);
+        UiKit.share(play, true);
+        play.setMinHeight(dp(52));
+        play.setMinimumHeight(dp(52));
+        play.setTextSize(18);
+        View options = UiKit.iconButton(this, R.drawable.ic_gzh_chevron,
+            getString(R.string.launcher_play_options), () -> openLauncherTab(TAB_GRAPHICS));
+        options.setRotation(90);
+        options.setOnClickListener(v -> showPlayOptions(v));
+        playRow.addView(options);
 
+        LinearLayout metrics = new LinearLayout(this);
+        LinearLayout.LayoutParams metricLp = new LinearLayout.LayoutParams(-1, -2);
+        metricLp.topMargin = dp(6);
+        page.addView(metrics, metricLp);
+        homeModSummary = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.mods_status_title);
+        homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
+        homeAccountSummary = homeMetric(metrics, R.drawable.ic_gzh_account, R.string.launcher_account);
+
+        // GeneralsX @tweak Android port 04/10/2026 Keep one navigation entry per destination.
+        homeGameSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_check,
+            R.string.setup_card_game_folder, "", () -> expandHome(homeGameData));
+        homeOnlineSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_account,
+            R.string.setup_card_online, "", () -> expandHome(homeOnlineDetails));
+        homeUpdatesSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_refresh,
+            R.string.setup_card_updates, "", () -> expandHome(homeUpdateDetails));
+
+        // Keep every original action and supporting note available in expandable sections.
+        homeGameData = LauncherUi.column(this);
+        page.addView(homeGameData, new LinearLayout.LayoutParams(-1, -2));
+        buildGameFolderControls(homeGameData);
+        homeGameData.setVisibility(View.GONE);
+        homeOnlineDetails = LauncherUi.column(this);
+        page.addView(homeOnlineDetails, new LinearLayout.LayoutParams(-1, -2));
+        buildGeneralsOnlineSection(homeOnlineDetails);
+        homeOnlineDetails.setVisibility(View.GONE);
+        homeUpdateDetails = LauncherUi.column(this);
+        page.addView(homeUpdateDetails, new LinearLayout.LayoutParams(-1, -2));
+        buildUpdatesSection(homeUpdateDetails);
+        homeUpdateDetails.setVisibility(View.GONE);
+        refreshModStatus();
+    }
+
+    private void showPlayOptions(View anchor) {
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(this, anchor);
+        menu.getMenu().add(0, TAB_GRAPHICS, 0, R.string.setup_card_sim_rate);
+        menu.setOnMenuItemClickListener(item -> {
+            openLauncherTab(item.getItemId());
+            return true;
+        });
+        menu.show();
+    }
+
+    private TextView homeMetric(LinearLayout row, int icon, int caption) {
+        LinearLayout cell = LauncherUi.column(this);
+        cell.setPadding(dp(8), dp(7), dp(8), dp(7));
+        cell.setBackground(LauncherUi.shape(this, LauncherUi.SURFACE, LauncherUi.OUTLINE, 10));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1);
+        if (row.getChildCount() > 0) lp.setMarginStart(dp(6));
+        row.addView(cell, lp);
+        TextView value = LauncherUi.text(this, cell, "", 12, LauncherUi.TEXT, true);
+        value.setMaxLines(1);
+        android.graphics.drawable.Drawable glyph = getDrawable(icon);
+        glyph.setTint(LauncherUi.PURPLE);
+        glyph.setBounds(0, 0, dp(18), dp(18));
+        value.setCompoundDrawablesRelative(glyph, null, null, null);
+        value.setCompoundDrawablePadding(dp(5));
+        LauncherUi.text(this, cell, getString(caption), 10, LauncherUi.MUTED, false);
+        return value;
+    }
+
+    private void expandHome(LinearLayout section) {
+        if (section == null) return;
+        section.setVisibility(section.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+        if (section.getVisibility() == View.VISIBLE) {
+            section.post(() -> section.requestRectangleOnScreen(
+                new android.graphics.Rect(0, 0, section.getWidth(), Math.min(section.getHeight(), dp(180))), false));
+        }
+    }
+
+    private void buildGameFolderControls(LinearLayout page) {
         LinearLayout folder = UiKit.card(page);
         UiKit.sectionHeader(folder, R.drawable.ic_gzh_folder,
             getString(R.string.setup_card_game_folder), false);
@@ -455,34 +573,16 @@ public class SetupActivity extends Activity {
                 getString(R.string.setup_button_clear_base_generals), this::onClearBaseGeneralsFolder);
         }
 
-        // GeneralsX @feature Android port 04/10/2026 Mod Manager Phase 1.
-        // Keep mod choice on Home because it changes what the Launch button starts.
-        // Import/delete are intentionally not part of this first reversible slice.
-        LinearLayout mods = UiKit.card(page);
-        UiKit.sectionHeader(mods, R.drawable.ic_gzh_folder,
-            getString(R.string.mods_card_title), false);
-        modStatusView = UiKit.body(mods, null);
-        refreshModStatus();
-        UiKit.button(mods, UiKit.BTN_TONAL, R.drawable.ic_gzh_folder,
-            getString(R.string.mods_open_manager),
-            () -> startActivity(new Intent(this, ModManagerActivity.class)));
-
-        // GeneralsX @bugfix Android port 01/08/2026 kept above the advanced
-        // settings -- signing into GeneralsOnline is a primary action most
-        // people want right after picking their game folder, not something to
-        // bury under settings most players never touch.
-        buildGeneralsOnlineSection(page);
-        buildUpdatesSection(page);
     }
 
     private void refreshModStatus() {
-        if (modStatusView == null) {
+        if (heroMod == null && homeModSummary == null) {
             return;
         }
         File active = ModManager.getActiveMod(this);
-        modStatusView.setText(active == null
-            ? getString(R.string.mods_active_vanilla)
-            : getString(R.string.mods_active_mod, active.getName()));
+        CharSequence name = active == null ? getString(R.string.mods_active_vanilla) : active.getName();
+        if (heroMod != null) heroMod.setText(name);
+        if (homeModSummary != null) homeModSummary.setText(name);
     }
 
     // ------------------------------------------------------------ Updates
@@ -535,6 +635,10 @@ public class SetupActivity extends Activity {
                 UpdateManager.datapackLatestSeen(this));
         }
         updatesStatusView.setText(status);
+        String build = getString(R.string.launcher_build_value,
+            active > 0 ? active : UpdateManager.bundledEngineSeq(this));
+        if (homeEngineSummary != null) homeEngineSummary.setText(build);
+        if (homeUpdatesSummary != null) homeUpdatesSummary.setText(build + " · " + when);
         if (updatesOpenOnlineButton != null) {
             updatesOpenOnlineButton.setVisibility(newerData ? View.VISIBLE : View.GONE);
         }
@@ -1065,6 +1169,7 @@ public class SetupActivity extends Activity {
     // GXUiScale (percent) in Options.ini, read by SDL3Main.cpp at startup.
     private Slider interfaceScaleSlider;
     private TextView interfaceScaleLabel;
+    private TextView interfaceScaleWarning;
 
     private void buildInterfaceScaleSection(LinearLayout root) {
         LinearLayout content = UiKit.card(root);
@@ -1089,6 +1194,11 @@ public class SetupActivity extends Activity {
         sliderLp.topMargin = UiKit.dim(this, R.dimen.gzh_item_gap_tight);
         content.addView(interfaceScaleSlider, sliderLp);
 
+        interfaceScaleWarning = UiKit.chip(content, R.drawable.ic_gzh_info,
+            getString(R.string.setup_interface_scale_overlap_warning),
+            R.color.gzh_status_warn, R.color.gzh_surface_container_high);
+        interfaceScaleWarning.setVisibility(startPercent > 100 ? View.VISIBLE : View.GONE);
+
         UiKit.button(content, UiKit.BTN_PRIMARY, R.drawable.ic_gzh_check,
             getString(R.string.setup_button_apply_interface_scale), () -> {
                 writeInterfaceScalePercent((int) interfaceScaleSlider.getValue());
@@ -1101,6 +1211,9 @@ public class SetupActivity extends Activity {
     private void updateInterfaceScaleLabel(int percent) {
         if (interfaceScaleLabel != null) {
             interfaceScaleLabel.setText(getString(R.string.setup_interface_scale_label, percent));
+        }
+        if (interfaceScaleWarning != null) {
+            interfaceScaleWarning.setVisibility(percent > 100 ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -2038,6 +2151,13 @@ public class SetupActivity extends Activity {
             getString(R.string.setup_diagnostics_no_folder),
             R.color.gzh_status_warn, R.color.gzh_surface_container_high);
 
+        // GeneralsX @feature Android port 04/10/2026 Real-file audio readiness hint.
+        boolean audioReady = missingAudioArchives().isEmpty();
+        audioArchiveStatus = UiKit.chip(content, R.drawable.ic_gzh_info,
+            audioArchiveStatusText(), audioReady ? R.color.gzh_status_ok : R.color.gzh_status_warn,
+            R.color.gzh_surface_container_high);
+        audioArchiveStatus.setVisibility(getSavedGamePath() != null ? View.VISIBLE : View.GONE);
+
         // GeneralsX @feature Android port 27/09/2026 Master switch: when off, nothing is logged in
         // the background -- not the engine's stderr mirror, not crash.log, not GeneralsOnline.log,
         // not this launcher's network trace. Kept as a marker in the app's own files dir (not the
@@ -2061,6 +2181,7 @@ public class SetupActivity extends Activity {
     }
 
     private TextView diagnosticsNoFolderHint;
+    private TextView audioArchiveStatus;
     private SwitchCompat loggingSwitch;
 
     static final String LOGGING_OFF_MARKER = "logging_off";
@@ -2108,6 +2229,10 @@ public class SetupActivity extends Activity {
         if (diagnosticsNoFolderHint != null) {
             diagnosticsNoFolderHint.setVisibility(haveFolder ? android.view.View.GONE : android.view.View.VISIBLE);
         }
+        if (audioArchiveStatus != null) {
+            audioArchiveStatus.setText(audioArchiveStatusText());
+            audioArchiveStatus.setVisibility(haveFolder ? View.VISIBLE : View.GONE);
+        }
         for (int i = 0; i < DIAGNOSTIC_MARKERS.length; i++) {
             final int index = i;
             SwitchCompat sw = diagnosticSwitches[index];
@@ -2120,6 +2245,38 @@ public class SetupActivity extends Activity {
             sw.setEnabled(haveFolder);
             sw.setOnCheckedChangeListener((button, checked) -> setDiagnosticMarker(DIAGNOSTIC_MARKERS[index], checked));
         }
+    }
+
+    private String audioArchiveStatusText() {
+        String path = getSavedGamePath();
+        if (path == null) return "";
+        java.util.List<String> missing = missingAudioArchives();
+        return missing.isEmpty() ? getString(R.string.setup_audio_check_ready)
+            : getString(R.string.setup_audio_check_missing, android.text.TextUtils.join(", ", missing));
+    }
+
+    private java.util.List<String> missingAudioArchives() {
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        String path = getSavedGamePath();
+        if (path == null) return missing;
+        java.util.List<File> roots = new java.util.ArrayList<>();
+        File game = new File(path);
+        roots.add(game);
+        File[] gameChildren = game.listFiles(File::isDirectory);
+        if (gameChildren != null) java.util.Collections.addAll(roots, gameChildren);
+        String basePath = getBaseGeneralsPath();
+        if (basePath != null) roots.add(new File(basePath));
+        for (String name : new String[] {"Audio.big", "Speech.big", "Music.big"}) {
+            boolean found = false;
+            for (File root : roots) {
+                if (new File(root, name).isFile()) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) missing.add(name);
+        }
+        return missing;
     }
 
     // GeneralsX @feature Android port 10/07/2026 GeneralsOnline (playgenerals.online)
@@ -2151,6 +2308,9 @@ public class SetupActivity extends Activity {
             return;
         }
         String displayName = GeneralsOnlineActivity.getSignedInDisplayName(this);
+        String account = displayName != null ? displayName : getString(R.string.setup_online_signed_out);
+        if (homeAccountSummary != null) homeAccountSummary.setText(displayName != null ? displayName : getString(R.string.launcher_signed_out));
+        if (homeOnlineSummary != null) homeOnlineSummary.setText(account);
         onlineStatusView.setText(displayName != null
             ? getString(R.string.setup_online_signed_in, displayName)
             : getString(R.string.setup_online_signed_out));
@@ -2264,6 +2424,7 @@ public class SetupActivity extends Activity {
             return;  // the current page has no status line (see showTab())
         }
         String path = getSavedGamePath();
+        boolean ready = false;
         SpannableStringBuilder sb = new SpannableStringBuilder();
         if (path == null) {
             sb.append(getString(R.string.setup_status_folder_not_set));
@@ -2279,6 +2440,7 @@ public class SetupActivity extends Activity {
             } else {
                 java.util.List<String> issues = findGameFolderIntegrityIssues(dir);
                 if (issues.isEmpty()) {
+                    ready = true;
                     sb.append(getString(R.string.setup_status_folder_valid));
                     statusColorRes = R.color.gzh_status_ok;
                 } else {
@@ -2309,6 +2471,17 @@ public class SetupActivity extends Activity {
             end--;
         }
         statusText.setText(sb.subSequence(0, end));
+        if (heroReady != null) {
+            int color = ready ? LauncherUi.GREEN : LauncherUi.GOLD;
+            String verdict = getString(ready ? R.string.launcher_ready : R.string.launcher_setup_needed);
+            heroReady.setText(verdict);
+            heroReady.setTextColor(color);
+            heroReady.setBackground(LauncherUi.shape(this, ready ? 0xe00c241b : 0xe0282415, color, 18));
+            if (homeGameSummary != null) {
+                homeGameSummary.setText(verdict);
+                homeGameSummary.setTextColor(color);
+            }
+        }
         updateGameLanguageStatusView();
     }
 

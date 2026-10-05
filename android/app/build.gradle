@@ -113,6 +113,16 @@ android {
         }
     }
 
+    // GeneralsX @build Android port 04/10/2026 JVM Android UI/import regressions; no native build.
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            if (System.getProperty('modUiScreenshot')) {
+                systemProperty 'modUiScreenshot', System.getProperty('modUiScreenshot')
+            }
+        }
+    }
+
     packagingOptions {
         jniLibs {
             // GeneralsX @bugfix Android port 10/07/2026 libadrenotools (custom
@@ -145,6 +155,8 @@ android {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
     // Material Components for the Setup/Settings/Log-viewer screens only —
     // GeneralsZHActivity (the actual game surface) stays on its own plain
     // fullscreen theme and never touches these widgets.
@@ -155,4 +167,3 @@ dependencies {
     // Material already, but declared directly since we call its APIs.
     implementation 'androidx.core:core:1.13.1'
 }
-

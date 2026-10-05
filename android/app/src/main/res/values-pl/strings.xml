@@ -345,4 +345,50 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Zastosuj rozmiar interfejsu</string>
     <string name="setup_interface_scale_help">Powiększa interfejs gry bez zmiany jej plików: pasek dowodzenia z radarem rośnie w górę od dolnej krawędzi, a pasek mocy generała, czat, komunikaty o zdarzeniach, lista graczy, menu gry z zapisem/wczytaniem i opcjami oraz przyciski menu głównego rosną od miejsca, w którym są. Nic nie wychodzi poza ekran: każda część rośnie tylko tyle, ile się zmieści, więc na szerokim telefonie pasek dowodzenia robi się wyższy, a nie szerszy, a pole bitwy nad nim — niższe. Działa razem z rozmiarem tekstu menu. Zadziała przy następnym uruchomieniu gry.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Zarządzaj zainstalowanymi modami i uruchamiaj je</string>
+    <string name="mods_library_title">Zainstalowane mody</string>
+    <string name="mods_storage_used">Zajęte miejsce</string>
+    <string name="mods_free_space">Wolne miejsce</string>
+    <string name="mods_size_unknown">Niedostępne</string>
+    <string name="mods_installed_badge">Zainstalowany</string>
+    <string name="mods_launch_button">Uruchom</string>
+    <string name="mods_library_loading">Odczytywanie biblioteki modów…</string>
+    <string name="mods_library_empty">Tutaj pojawią się zainstalowane mody. Importuj folder, archiwum BIG lub pakiet ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">GOTOWE</string>
+    <string name="launcher_setup_needed">WYMAGANA KONFIGURACJA</string>
+    <string name="launcher_quick_access">Szybki dostęp</string>
+    <string name="launcher_game_data">Dane gry</string>
+    <string name="launcher_engine_build">Wersja silnika</string>
+    <string name="launcher_account">Konto</string>
+    <string name="launcher_play_now">Graj teraz</string>
+    <string name="launcher_settings">Ustawienia</string>
+    <string name="launcher_build_value">Kompilacja %1$d</string>
+    <string name="launcher_search_mods">Szukaj modów</string>
+    <string name="launcher_no_matches">Żaden zainstalowany mod nie pasuje do wyszukiwania.</string>
+    <string name="launcher_signed_out">Niezalogowany</string>
+    <string name="launcher_play_options">Opcje gry</string>
+    <string name="launcher_mods_hint">Zarządzaj modami</string>
+    <string name="launcher_graphics_hint">Ustawienia gry</string>
+    <string name="launcher_data_hint">Konfiguracja i pliki</string>
+    <string name="launcher_tools_hint">Dzienniki i diagnostyka</string>
+    <string name="mods_delete_button">Usuń</string>
+    <string name="mods_delete_confirm_title">Usunąć mod?</string>
+    <string name="mods_delete_confirm">Trwale usunąć „%1$s” z zarządzanego folderu Mods?</string>
+    <string name="mods_delete_active_confirm">„%1$s” jest aktywny. Trwałe usunięcie najpierw wybierze Vanilla. Kontynuować?</string>
+    <string name="mods_delete_success">Usunięto %1$s.</string>
+    <string name="mods_delete_failed">Nie udało się całkowicie usunąć %1$s. Sprawdź dostęp do pamięci i spróbuj ponownie.</string>
+    <string name="mods_import_cancel_action">Anuluj import</string>
+    <string name="mods_import_cancelling">Bezpieczne anulowanie…</string>
+    <string name="mods_import_cancelled">Import anulowany. Zainstalowane mody nie zostały zmienione.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Niektóre mody zastępują układ paska sterowania. Jeśli elementy się nakładają, najpierw sprawdź 100%. Zmiana zadziała przy następnym uruchomieniu gry.</string>
+    <string name="setup_audio_check_ready">Znaleziono wymagane archiwa dźwięku. Jeśli gra jest cicha, włącz poniżej dziennik dźwięku i odtwórz problem.</string>
+    <string name="setup_audio_check_missing">Brak wymaganych archiwów dźwięku: %1$s</string>
 </resources>

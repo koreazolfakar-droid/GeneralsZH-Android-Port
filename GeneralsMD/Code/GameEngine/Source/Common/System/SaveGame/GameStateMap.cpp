@@ -346,7 +346,8 @@ void GameStateMap::xfer( Xfer *xfer )
 		xfer->xferAsciiString( &saveGameInfo->pristineMapName );
 		saveGameInfo->pristineMapName = TheGameState->portableMapPathToRealMapPath(saveGameInfo->pristineMapName);
 
-		if (currentVersion >= 2)
+		// GeneralsX @bugfix Codex 05/10/2026 Version 1 has no gameMode field; use the file version to preserve alignment.
+		if (version >= 2)
 		{
 			// get the game mode.
 			Int gameMode;
@@ -460,10 +461,14 @@ void GameStateMap::clearScratchPadMaps()
 
 	// remember the current directory
 	char currentDirectory[ _MAX_PATH ];
-	GetCurrentDirectory( _MAX_PATH, currentDirectory );
+	// GeneralsX @bugfix Codex 05/10/2026 Never clean maps outside Save when directory access fails.
+	DWORD directoryLength = GetCurrentDirectory( _MAX_PATH, currentDirectory );
+	if( directoryLength == 0 || directoryLength >= _MAX_PATH )
+		return;
 
 	// switch into the save directory
-	SetCurrentDirectory( TheGameState->getSaveDirectory().str() );
+	if( !SetCurrentDirectory( TheGameState->getSaveDirectory().str() ) )
+		return;
 
 	// iterate all items in the directory
 	AsciiString fileToDelete;
@@ -484,7 +489,10 @@ void GameStateMap::clearScratchPadMaps()
 			// start search
 			hFile = FindFirstFile( "*", &item );
 			if( hFile == INVALID_HANDLE_VALUE )
+			{
+				SetCurrentDirectory( currentDirectory );
 				return;
+			}
 
 			// we are no longer on our first item
 			first = FALSE;

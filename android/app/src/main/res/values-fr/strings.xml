@@ -345,4 +345,50 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Appliquer la taille de l\'interface</string>
     <string name="setup_interface_scale_help">Agrandit l\'interface du jeu sans modifier ses fichiers : la barre de commande avec le radar grandit vers le haut depuis le bord inférieur, et la barre des pouvoirs du général, le chat, les messages d\'événements, la liste des joueurs, le menu de partie avec Sauvegarder/Charger et Options ainsi que les boutons du menu principal grandissent depuis leur place. Rien ne sort de l\'écran : chaque partie ne grandit que tant qu\'elle tient, donc sur un téléphone large la barre de commande devient plus haute plutôt que plus large, et le champ de bataille au-dessus plus court. Fonctionne avec la taille du texte des menus. Prend effet au prochain lancement du jeu.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Gérez et lancez les mods installés</string>
+    <string name="mods_library_title">Mods installés</string>
+    <string name="mods_storage_used">Espace utilisé</string>
+    <string name="mods_free_space">Espace libre</string>
+    <string name="mods_size_unknown">Indisponible</string>
+    <string name="mods_installed_badge">Installé</string>
+    <string name="mods_launch_button">Lancer</string>
+    <string name="mods_library_loading">Lecture de la bibliothèque de mods…</string>
+    <string name="mods_library_empty">Les mods installés apparaîtront ici. Importez un dossier, une archive BIG ou un paquet ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">PRÊT</string>
+    <string name="launcher_setup_needed">CONFIGURATION REQUISE</string>
+    <string name="launcher_quick_access">Accès rapide</string>
+    <string name="launcher_game_data">Données du jeu</string>
+    <string name="launcher_engine_build">Version du moteur</string>
+    <string name="launcher_account">Compte</string>
+    <string name="launcher_play_now">Jouer</string>
+    <string name="launcher_settings">Paramètres</string>
+    <string name="launcher_build_value">Build %1$d</string>
+    <string name="launcher_search_mods">Rechercher des mods</string>
+    <string name="launcher_no_matches">Aucun mod installé ne correspond à votre recherche.</string>
+    <string name="launcher_signed_out">Non connecté</string>
+    <string name="launcher_play_options">Options de jeu</string>
+    <string name="launcher_mods_hint">Gérer les mods</string>
+    <string name="launcher_graphics_hint">Paramètres du jeu</string>
+    <string name="launcher_data_hint">Installation et fichiers</string>
+    <string name="launcher_tools_hint">Journaux et diagnostic</string>
+    <string name="mods_delete_button">Supprimer</string>
+    <string name="mods_delete_confirm_title">Supprimer le mod ?</string>
+    <string name="mods_delete_confirm">Supprimer définitivement « %1$s » du dossier Mods géré ?</string>
+    <string name="mods_delete_active_confirm">« %1$s » est actif. Sa suppression définitive sélectionnera d’abord Vanilla. Continuer ?</string>
+    <string name="mods_delete_success">%1$s a été supprimé.</string>
+    <string name="mods_delete_failed">Impossible de supprimer complètement %1$s. Vérifiez l’accès au stockage et réessayez.</string>
+    <string name="mods_import_cancel_action">Annuler l’importation</string>
+    <string name="mods_import_cancelling">Annulation sécurisée…</string>
+    <string name="mods_import_cancelled">Importation annulée. Les mods installés n’ont pas été modifiés.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Certains mods remplacent la disposition de la barre de contrôle. Si ses éléments se chevauchent, testez d’abord 100 %. Le changement s’applique au prochain lancement du jeu.</string>
+    <string name="setup_audio_check_ready">Les archives audio requises sont présentes. Si le jeu reste muet, activez le journal audio ci-dessous et reproduisez le problème.</string>
+    <string name="setup_audio_check_missing">Archives audio requises manquantes : %1$s</string>
 </resources>

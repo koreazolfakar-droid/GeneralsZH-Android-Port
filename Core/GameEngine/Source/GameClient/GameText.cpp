@@ -46,6 +46,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #include <cstdlib>
 #include <cctype>
+#include <string>
 
 #include "GameClient/GameText.h"
 #include "Common/Language.h"
@@ -57,11 +58,10 @@
 #include "Common/GlobalData.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "Common/ArchiveFileSystem.h"
+#include "Common/ArchiveFile.h"
+#include "Common/LocalFileSystem.h"
 #include "Common/version.h"
-
-#ifdef __ANDROID__
-#include "Common/ModLocalization.h"
-#endif
 
 
 
@@ -345,6 +345,45 @@ GameTextManager::~GameTextManager()
 extern const Char *g_strFile;
 extern const Char *g_csfFile;
 
+// GeneralsX @bugfix Codex 05/10/2026 Choose text by active archive ownership, not format alone.
+// This only reads the existing mount order. No archives, INI or game state are changed.
+static std::string gxTextArchivePath(const AsciiString& path)
+{
+	std::string result = path.str();
+	for (size_t i = 0; i < result.size(); ++i)
+	{
+		if (result[i] == '\\') result[i] = '/';
+		result[i] = (char)std::tolower((unsigned char)result[i]);
+	}
+	while (!result.empty() && result[result.size() - 1] == '/') result.erase(result.size() - 1);
+	return result;
+}
+
+static Int gxActiveModTextInstance(const AsciiString& filename)
+{
+	if (!TheGlobalData || !TheArchiveFileSystem) return -1;
+	ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(filename);
+	if (!archive) return -1;
+	const std::string source = gxTextArchivePath(archive->getName());
+	const std::string modBig = gxTextArchivePath(TheGlobalData->m_modBIG);
+	const std::string modDir = gxTextArchivePath(TheGlobalData->m_modDir);
+	const Bool owned = (!modBig.empty() && source == modBig)
+		|| (!modDir.empty() && source.compare(0, modDir.size() + 1, modDir + "/") == 0);
+	if (!owned) return -1;
+	// FileSystem counts a loose file as instance 0; the first archive is then instance 1.
+	return TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str()) ? 1 : 0;
+}
+
+static void gxLogTextSource(const AsciiString& filename, FileInstance instance, Int format, Bool modText)
+{
+	const Bool loose = TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str());
+	ArchiveFile* archive = TheArchiveFileSystem && (!loose || instance > 0)
+		? TheArchiveFileSystem->getArchiveFile(filename, instance - (loose ? 1 : 0)) : nullptr;
+	fprintf(stderr, "[GX-TEXT] format=%s path='%s' instance=%u source='%s' activeModText=%s\n",
+		format == CSF_FILE ? "CSF" : "STR", filename.str(), (unsigned)instance,
+		archive ? archive->getName().str() : "loose", modText ? "yes" : "no");
+}
+
 void GameTextManager::init()
 {
 	// GeneralsX @feature Android port 09/09/2026 The language of the TEXT, which is not
@@ -383,34 +422,29 @@ void GameTextManager::init()
 	else
 		strFile = g_strFile;
 
-	// GeneralsX @bugfix Codex 05/10/2026 Active mod tables outrank base STR/CSF files.
-	FileInstance csfInstance = 0;
-	FileInstance strInstance = 0;
-	AsciiString fallbackCSF = csfFile;
-	FileInstance fallbackInstance = 1;
-	Bool preferModCSF = FALSE;
-#ifdef __ANDROID__
-	const ModLocalizationSource csfSource = resolveModLocalization(csfFile, textLanguage, "generals.csf");
-	const ModLocalizationSource strSource = resolveModLocalization(strFile, textLanguage, "generals.str");
-	const ModLocalizationSource vanillaSource = resolveVanillaLocalization(csfFile);
-	csfFile = csfSource.filename;
-	csfInstance = csfSource.instance;
-	strFile = strSource.filename;
-	strInstance = strSource.instance;
-	preferModCSF = csfSource.activeMod && !strSource.activeMod;
-	if (csfSource.activeMod || strSource.activeMod)
+	// A base .str must not hide a CSF supplied by -mod. Prefer the active mod's
+	// selected-language table, then its English table; Vanilla keeps STR-before-CSF.
+	// English fallback changes TEXT only, never the SKU language or mod mount order.
+	Int modStrInstance = gxActiveModTextInstance(strFile);
+	Int modCsfInstance = gxActiveModTextInstance(csfFile);
+	if (modStrInstance < 0 && modCsfInstance < 0 && textLanguage.compareNoCase("english") != 0)
 	{
-		fallbackCSF = vanillaSource.filename;
-		fallbackInstance = vanillaSource.instance;
+		AsciiString englishStr, englishCsf;
+		englishStr.format(g_strFile, "english");
+		englishCsf.format(g_csfFile, "english");
+		const Int englishStrInstance = gxActiveModTextInstance(englishStr);
+		const Int englishCsfInstance = gxActiveModTextInstance(englishCsf);
+		if (englishStrInstance >= 0 || englishCsfInstance >= 0)
+		{
+			strFile = englishStr;
+			csfFile = englishCsf;
+			modStrInstance = englishStrInstance;
+			modCsfInstance = englishCsfInstance;
+		}
 	}
-	fprintf(stderr, "[GX-MOD-LANG] activeMod=%s\n", TheGlobalData == nullptr ? "Vanilla" :
-		(TheGlobalData->m_modDir.isNotEmpty() ? TheGlobalData->m_modDir.str() :
-		(TheGlobalData->m_modBIG.isNotEmpty() ? TheGlobalData->m_modBIG.str() : "Vanilla")));
-	fprintf(stderr, "[GX-MOD-LANG] language=%s\n", textLanguage.str());
-	fprintf(stderr, "[GX-MOD-LANG] csfSource=%s\n", csfSource.description.str());
-	fprintf(stderr, "[GX-MOD-LANG] strSource=%s\n", strSource.description.str());
-#endif
-
+	const FileInstance strInstance = modStrInstance >= 0 ? modStrInstance : 0;
+	const FileInstance csfInstance = modCsfInstance >= 0 ? modCsfInstance : 0;
+	const Bool preferModCsf = modCsfInstance >= 0 && !(m_useStringFile && modStrInstance >= 0);
 	Int format;
 
 	// GeneralsX @bugfix BenderAI 16/02/2026 - Debug CSF init
@@ -432,7 +466,11 @@ void GameTextManager::init()
 	}
 #endif
 
-	if ( m_useStringFile && !preferModCSF && getStringCount( strFile.str(), m_textCount, strInstance ) )
+	if ( preferModCsf && getCSFInfo( csfFile.str(), m_textCount, m_language, csfInstance ) && m_textCount > 0 )
+	{
+		format = CSF_FILE;
+	}
+	else if ( m_useStringFile && getStringCount( strFile.str(), m_textCount, strInstance ) )
 	{
 		format = STRING_FILE;
 	}
@@ -444,9 +482,6 @@ void GameTextManager::init()
 	else
 	{
 		fprintf(stderr, "[CSF] init() - getCSFInfo FAILED\n");
-#ifdef __ANDROID__
-		fprintf(stderr, "[GX-MOD-LANG] overrideVanilla=false (no readable table)\n");
-#endif
 		return;
 	}
 
@@ -499,31 +534,26 @@ void GameTextManager::init()
 	}
 
 	qsort( m_stringLUT, m_textCount, sizeof(StringLookUp), compareLUT  );
-
-#ifdef __ANDROID__
-	const Bool overrideVanilla = format == CSF_FILE ? csfSource.activeMod : strSource.activeMod;
-	fprintf(stderr, "[GX-MOD-LANG] overrideVanilla=%s\n", overrideVanilla ? "true" : "false");
-	fprintf(stderr, "[GX-MOD-LANG] selectedFormat=%s\n", format == CSF_FILE ? "CSF" : "STR");
-#else
-	const Bool overrideVanilla = FALSE;
-#endif
+	gxLogTextSource(format == CSF_FILE ? csfFile : strFile,
+		format == CSF_FILE ? csfInstance : strInstance, format,
+		format == CSF_FILE ? modCsfInstance >= 0 : modStrInstance >= 0);
 
 	// GeneralsX @bugfix BenderAI 22/05/2026 Load fallback CSF instance when a mod provides an incomplete table.
-	if ( format == CSF_FILE || overrideVanilla )
+	if ( format == CSF_FILE )
 	{
 		Int fallbackCount = 0;
-		if (format == STRING_FILE)
-			m_language = LANGUAGE_ID_US;
 		LanguageID originalLanguage = m_language;
+		// If mod text skipped a loose base CSF, keep that base table as fallback.
+		const FileInstance fallbackInstance = modCsfInstance >= 0 && csfInstance > 0 ? 0 : csfInstance + 1;
 
-		if ( getCSFInfo(fallbackCSF.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0 )
+		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0 )
 		{
 			m_fallbackStringInfo = NEW StringInfo[fallbackCount];
 
 			if ( m_fallbackStringInfo != nullptr )
 			{
 				Int fallbackMaxLabelLen = m_maxLabelLen;
-				if ( parseCSF(fallbackCSF.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
+				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
 				{
 					m_fallbackTextCount = fallbackCount;
 					m_maxLabelLen = max(m_maxLabelLen, fallbackMaxLabelLen);

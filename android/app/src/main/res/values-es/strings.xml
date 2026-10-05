@@ -345,4 +345,50 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Aplicar tamaño de la interfaz</string>
     <string name="setup_interface_scale_help">Agranda la interfaz del juego sin tocar sus archivos: la barra de control con el radar crece hacia arriba desde el borde inferior, y la barra de poderes del general, el chat, los mensajes de eventos, la lista de jugadores, el menú de partida con Guardar/Cargar y Opciones y los botones del menú principal crecen desde donde están. Nada sale de la pantalla: cada parte crece solo lo que cabe, así que en un teléfono ancho la barra de control se hace más alta en vez de más ancha, y el campo de batalla encima, más bajo. Funciona junto con el tamaño del texto del menú. Se aplica la próxima vez que inicies el juego.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Gestiona y ejecuta los mods instalados</string>
+    <string name="mods_library_title">Mods instalados</string>
+    <string name="mods_storage_used">Espacio usado</string>
+    <string name="mods_free_space">Espacio libre</string>
+    <string name="mods_size_unknown">No disponible</string>
+    <string name="mods_installed_badge">Instalado</string>
+    <string name="mods_launch_button">Iniciar</string>
+    <string name="mods_library_loading">Leyendo la biblioteca de mods…</string>
+    <string name="mods_library_empty">Aquí aparecerán los mods instalados. Importa una carpeta, un archivo BIG o un paquete ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">LISTO</string>
+    <string name="launcher_setup_needed">CONFIGURACIÓN NECESARIA</string>
+    <string name="launcher_quick_access">Acceso rápido</string>
+    <string name="launcher_game_data">Datos del juego</string>
+    <string name="launcher_engine_build">Versión del motor</string>
+    <string name="launcher_account">Cuenta</string>
+    <string name="launcher_play_now">Jugar ahora</string>
+    <string name="launcher_settings">Ajustes</string>
+    <string name="launcher_build_value">Compilación %1$d</string>
+    <string name="launcher_search_mods">Buscar mods</string>
+    <string name="launcher_no_matches">Ningún mod instalado coincide con tu búsqueda.</string>
+    <string name="launcher_signed_out">Sin sesión</string>
+    <string name="launcher_play_options">Opciones de juego</string>
+    <string name="launcher_mods_hint">Gestionar mods</string>
+    <string name="launcher_graphics_hint">Ajustes del juego</string>
+    <string name="launcher_data_hint">Configuración y archivos</string>
+    <string name="launcher_tools_hint">Registros y diagnóstico</string>
+    <string name="mods_delete_button">Eliminar</string>
+    <string name="mods_delete_confirm_title">¿Eliminar mod?</string>
+    <string name="mods_delete_confirm">¿Eliminar “%1$s” permanentemente de la carpeta Mods administrada?</string>
+    <string name="mods_delete_active_confirm">“%1$s” está activo. Al eliminarlo permanentemente se seleccionará Vanilla primero. ¿Continuar?</string>
+    <string name="mods_delete_success">Se eliminó %1$s.</string>
+    <string name="mods_delete_failed">No se pudo eliminar %1$s por completo. Comprueba el acceso al almacenamiento e inténtalo de nuevo.</string>
+    <string name="mods_import_cancel_action">Cancelar importación</string>
+    <string name="mods_import_cancelling">Cancelando de forma segura…</string>
+    <string name="mods_import_cancelled">Importación cancelada. Los mods instalados no cambiaron.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Algunos mods sustituyen el diseño de la barra de control. Si sus elementos se superponen, prueba primero 100 %. El cambio se aplica al iniciar el juego de nuevo.</string>
+    <string name="setup_audio_check_ready">Se encontraron los archivos de audio necesarios. Si el juego sigue sin sonido, activa el registro de audio de abajo y reproduce el problema.</string>
+    <string name="setup_audio_check_missing">Faltan archivos de audio necesarios: %1$s</string>
 </resources>

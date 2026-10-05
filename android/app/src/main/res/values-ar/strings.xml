@@ -359,6 +359,15 @@
     <string name="mods_use_vanilla">استخدام النسخة الأصلية</string>
     <string name="mods_active_button">نشط</string>
     <string name="mods_activate_button">تفعيل</string>
+    <string name="mods_delete_button">حذف</string>
+    <string name="mods_delete_confirm_title">حذف المود؟</string>
+    <string name="mods_delete_confirm">هل تريد حذف ”%1$s“ نهائيًا من مجلد Mods المُدار؟</string>
+    <string name="mods_delete_active_confirm">”%1$s“ هو المود النشط. سيؤدي حذفه نهائيًا إلى اختيار Vanilla أولًا. هل تريد المتابعة؟</string>
+    <string name="mods_delete_success">تم حذف %1$s.</string>
+    <string name="mods_delete_failed">تعذر حذف %1$s بالكامل. تحقق من الوصول إلى التخزين وحاول مجددًا.</string>
+    <string name="mods_import_cancel_action">إلغاء الاستيراد</string>
+    <string name="mods_import_cancelling">جارٍ الإلغاء بأمان…</string>
+    <string name="mods_import_cancelled">تم إلغاء الاستيراد. لم تتغير المودات المثبتة.</string>
     <string name="mods_type_folder">مجلد مود</string>
     <string name="mods_type_big">مود بأرشيف BIG</string>
     <string name="mods_empty_title">لا توجد مودات مُدارة بعد</string>
@@ -389,4 +398,41 @@
     <string name="mods_import_failed_title">فشل الاستيراد</string>
     <string name="mods_import_failed_message">لم يتم تثبيت أي شيء.\n\n%1$s</string>
 
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">إدارة وتشغيل المودات المثبّتة</string>
+    <string name="mods_library_title">المودات المثبّتة</string>
+    <string name="mods_storage_used">المساحة المستخدمة</string>
+    <string name="mods_free_space">المساحة الحرة</string>
+    <string name="mods_size_unknown">غير متاح</string>
+    <string name="mods_installed_badge">مثبّت</string>
+    <string name="mods_launch_button">تشغيل</string>
+    <string name="mods_library_loading">جارٍ قراءة مكتبة المودات…</string>
+    <string name="mods_library_empty">ستظهر المودات المثبّتة هنا. استورد مجلدًا أو ملف BIG أو حزمة ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">جاهز</string>
+    <string name="launcher_setup_needed">الإعداد مطلوب</string>
+    <string name="launcher_quick_access">الوصول السريع</string>
+    <string name="launcher_game_data">بيانات اللعبة</string>
+    <string name="launcher_engine_build">إصدار المحرك</string>
+    <string name="launcher_account">الحساب</string>
+    <string name="launcher_play_now">العب الآن</string>
+    <string name="launcher_settings">الإعدادات</string>
+    <string name="launcher_build_value">الإصدار %1$d</string>
+    <string name="launcher_search_mods">البحث عن مود</string>
+    <string name="launcher_no_matches">لا توجد مودات مثبتة تطابق بحثك.</string>
+    <string name="launcher_signed_out">غير مسجل</string>
+    <string name="launcher_play_options">خيارات التشغيل</string>
+    <string name="launcher_mods_hint">إدارة المودات المثبتة</string>
+    <string name="launcher_graphics_hint">إعدادات اللعبة</string>
+    <string name="launcher_data_hint">الإعداد والملفات</string>
+    <string name="launcher_tools_hint">السجلات والتشخيص</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">تستبدل بعض المودات تخطيط شريط التحكم. إذا تداخلت عناصره، جرّب 100٪ أولًا. يُطبّق التغيير عند تشغيل اللعبة التالي.</string>
+    <string name="setup_audio_check_ready">تم العثور على أرشيفات الصوت المطلوبة. إذا بقيت اللعبة صامتة، فعّل سجل الصوت أدناه وأعد المشكلة.</string>
+    <string name="setup_audio_check_missing">أرشيفات صوت مطلوبة مفقودة: %1$s</string>
 </resources>

@@ -1,0 +1,42 @@
+{
+  "apk": "/workspace/GeneralsZH-Android-Port/apk/GeneralsZH-ModLocalization-debug.apk",
+  "bytes": 68721766,
+  "sha256": "dad623da50f4ecb54d51090249fc833051d636aaebe4e563a30f381565c2a602",
+  "zip_crc": "PASS",
+  "aarch64_both_engines": "PASS",
+  "localization_marker_both_engines": "PASS",
+  "changed_native_libraries": [
+    "lib/arm64-v8a/libmain.so",
+    "lib/arm64-v8a/libmain60.so"
+  ],
+  "unchanged_native_libraries": 15,
+  "changed_dex_and_resources": [],
+  "library_sha256": {
+    "lib/arm64-v8a/libEGL_angle.so": "68bec582dab9f2466ca83d80babbb65a334c09a9e85ef83aa3448ba22990268b",
+    "lib/arm64-v8a/libGLESv2_angle.so": "f85d6f551069a88757859088a88a3456fdfe4ac54e9c18a3c7fb533e9753efe2",
+    "lib/arm64-v8a/libSDL3.so": "1aed6bcfa60e968058a565a65bf9dfe4a93f6850812994b29ad5590345a74a35",
+    "lib/arm64-v8a/libSDL3_image.so": "70c6ec6a52960d52e712aa54d58fd3f7fc78763413baf307bb568b9f6ba87e72",
+    "lib/arm64-v8a/libVkLayer_khronos_validation.so": "1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68",
+    "lib/arm64-v8a/libadrenotools.so": "aca61d1edcd0092080ef3eeabaee47125a36d47d5a26f8ceb318e2cf75151371",
+    "lib/arm64-v8a/libc++_shared.so": "f9992c4ba6b7c5a716e3a202fceb1ce029d6a2b0605838ac6b3219f489dd7970",
+    "lib/arm64-v8a/libdxvk_d3d8.so": "386dfa0a56941e553bf657a80b08d2813c2e997aacfea81612b7c00b10232da4",
+    "lib/arm64-v8a/libdxvk_d3d9.so": "ddf6a8ccf234df16384cc2921231ea43b075be4577641610a8c1782436e9429e",
+    "lib/arm64-v8a/libfile_redirect_hook.so": "116f7a8f99a753137af361d0d9bb20ac6f91d93ebe036265252c772efe89d2e9",
+    "lib/arm64-v8a/libgamespy.so": "9260ece0638a218385d07de51b8436eb936bcf0b65c3389f224f924a8d6b81c1",
+    "lib/arm64-v8a/libgsl_alloc_hook.so": "04858f10c2cff917fa48cd2922e3be07b4b8b9dd13b8f971854798be5eea81f2",
+    "lib/arm64-v8a/libhook_impl.so": "dabc5a687be977ab896a468eaecd49a7de4f07155fcc7170bc14c7cc347af181",
+    "lib/arm64-v8a/libmain_hook.so": "afc6eac813b9c105ac5f149f6bf66178b5fe8dea7c1204b76d4dd9e48e9fd26c",
+    "lib/arm64-v8a/libopenal.so": "cbf7bc4ef6588b2b30bfaf01957801f703c14de2301469bcd6ec7a55a7d7b882",
+    "lib/arm64-v8a/libmain.so": "98d8d1065dee386bbf913bfcc21ba80a4eeefcddb368dc6a81065a6351cc4c6a",
+    "lib/arm64-v8a/libmain60.so": "1327734f9e9175f3c9b7cd77bbe66964384bc810704a85e5e06abbd80d1a70f7"
+  },
+  "signing_certificate_unchanged": "PASS",
+  "package_and_version_unchanged": "PASS",
+  "zip_alignment_16k": "PASS",
+  "only_changed_payloads": [
+    "assets/engine_build.txt",
+    "lib/arm64-v8a/libmain.so",
+    "lib/arm64-v8a/libmain60.so"
+  ],
+  "engine_source_commit": "9b741938c608e56ed31575d11257d99a8ff91ca2"
+}

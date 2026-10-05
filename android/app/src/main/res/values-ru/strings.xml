@@ -347,4 +347,50 @@
     <string name="setup_interface_scale_label">%1$d%%</string>
     <string name="setup_button_apply_interface_scale">Применить размер интерфейса</string>
     <string name="setup_interface_scale_help">Увеличивает интерфейс игры без правки её файлов: нижняя панель с картой растёт вверх от края экрана, а панель способностей генерала, чат, сообщения о событиях, список игроков, игровое меню с сохранением и настройками и кнопки главного меню растут от того места, где находятся. За экран ничего не уходит: каждая часть увеличивается только насколько помещается, поэтому на широком телефоне нижняя панель становится выше, а не шире, и поле боя над ней — ниже. Работает вместе с «Размером текста меню». Вступает в силу при следующем запуске игры.</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical mod library. -->
+    <string name="mods_library_subtitle">Управляйте установленными модами и запускайте их</string>
+    <string name="mods_library_title">Установленные моды</string>
+    <string name="mods_storage_used">Занято</string>
+    <string name="mods_free_space">Свободно</string>
+    <string name="mods_size_unknown">Недоступно</string>
+    <string name="mods_installed_badge">Установлен</string>
+    <string name="mods_launch_button">Запустить</string>
+    <string name="mods_library_loading">Чтение библиотеки модов…</string>
+    <string name="mods_library_empty">Здесь появятся установленные моды. Импортируйте папку, архив BIG или пакет ZIP.</string>
+    <string name="mods_brand_command" translatable="false">COMMAND &amp; CONQUER</string>
+    <string name="mods_brand_generals" translatable="false">GENERALS</string>
+    <string name="mods_brand_zero_hour" translatable="false">ZERO HOUR</string>
+
+    <!-- GeneralsX @feature Android port 04/10/2026 Tactical launcher presentation. -->
+    <string name="launcher_name" translatable="false">Generals Zero Hour</string>
+    <string name="launcher_ready">ГОТОВО</string>
+    <string name="launcher_setup_needed">НУЖНА НАСТРОЙКА</string>
+    <string name="launcher_quick_access">Быстрый доступ</string>
+    <string name="launcher_game_data">Данные игры</string>
+    <string name="launcher_engine_build">Сборка движка</string>
+    <string name="launcher_account">Аккаунт</string>
+    <string name="launcher_play_now">Играть</string>
+    <string name="launcher_settings">Настройки</string>
+    <string name="launcher_build_value">Сборка %1$d</string>
+    <string name="launcher_search_mods">Поиск модов</string>
+    <string name="launcher_no_matches">Установленные моды не соответствуют поиску.</string>
+    <string name="launcher_signed_out">Нет входа</string>
+    <string name="launcher_play_options">Параметры запуска</string>
+    <string name="launcher_mods_hint">Управление модами</string>
+    <string name="launcher_graphics_hint">Настройки игры</string>
+    <string name="launcher_data_hint">Настройка и файлы</string>
+    <string name="launcher_tools_hint">Журналы и диагностика</string>
+    <string name="mods_delete_button">Удалить</string>
+    <string name="mods_delete_confirm_title">Удалить мод?</string>
+    <string name="mods_delete_confirm">Навсегда удалить «%1$s» из управляемой папки Mods?</string>
+    <string name="mods_delete_active_confirm">«%1$s» активен. Перед его окончательным удалением будет выбран Vanilla. Продолжить?</string>
+    <string name="mods_delete_success">%1$s удалён.</string>
+    <string name="mods_delete_failed">Не удалось полностью удалить %1$s. Проверьте доступ к хранилищу и повторите попытку.</string>
+    <string name="mods_import_cancel_action">Отменить импорт</string>
+    <string name="mods_import_cancelling">Безопасная отмена…</string>
+    <string name="mods_import_cancelled">Импорт отменён. Установленные моды не изменены.</string>
+    <string name="setup_interface_scale_overlap_warning" formatted="false">Некоторые моды заменяют разметку панели управления. Если элементы перекрываются, сначала проверьте масштаб 100%. Изменение применяется при следующем запуске игры.</string>
+    <string name="setup_audio_check_ready">Необходимые аудиоархивы найдены. Если в игре нет звука, включите журнал аудио ниже и воспроизведите проблему.</string>
+    <string name="setup_audio_check_missing">Отсутствуют необходимые аудиоархивы: %1$s</string>
 </resources>

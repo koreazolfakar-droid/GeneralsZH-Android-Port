@@ -276,3 +276,15 @@ docker rmi generalsx/linux-builder:latest generalsx/mingw-builder:latest
 - **Phase 1 Details**: See [docs/WORKDIR/phases/PHASE01_IMPLEMENTATION_PLAN.md](../docs/WORKDIR/phases/PHASE01_IMPLEMENTATION_PLAN.md)
 - **Docker Workflow**: See [docs/WORKDIR/support/DOCKER_WORKFLOW.md](../docs/WORKDIR/support/DOCKER_WORKFLOW.md)
 - **Instructions**: See [.github/instructions/scripts.instructions.md](../.github/instructions/scripts.instructions.md)
+
+## Mod localization regression fixtures
+
+`python3 scripts/qa/test-mod-localization.py` compiles the production
+`GameText.cpp` with host adapters and runs STR/CSF priority, fallback and restart
+fixtures under ASan/UBSan. Requires a C++17 compiler; does not claim device or
+real-mod compatibility. `--source <old-GameText.cpp> --before` reproduces the old
+STR-masking defect.
+
+Incremental Android packaging supports `GX_INCREMENTAL=1` with the existing
+`./scripts/build/android/build-dual-hz.sh`, retaining build/cache directories and
+staged native libraries.

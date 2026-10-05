@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GeneralsX @feature Android port 04/10/2026 Original neutral tactical geometry; no external artwork. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp" android:height="220dp"
+    android:viewportWidth="360" android:viewportHeight="220">
+    <path android:fillColor="#0D1822" android:pathData="M0,0H360V220H0Z" />
+    <path android:fillColor="#142532" android:pathData="M180,0H360V120L320,138L294,126L256,160L219,138L183,167L156,150Z" />
+    <path android:fillColor="#1C303C" android:pathData="M210,220L255,170L281,188L300,163L327,185L360,144V220Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#2B424B" android:strokeWidth="1"
+        android:pathData="M245,0V220M300,0V220M355,0V220M185,40H360M185,95H360M185,150H360M185,205H360" />
+    <path android:fillColor="#00000000" android:strokeColor="#547875" android:strokeWidth="1"
+        android:pathData="M278,26L330,26L330,78M314,53L346,53M330,37L330,69M205,110L227,110L239,122L268,122" />
+    <path android:fillColor="#EFC752" android:pathData="M0,0H32V2H2V24H0ZM330,218H360V220H330ZM358,192H360V220H358Z" />
+</vector>
