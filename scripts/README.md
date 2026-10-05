@@ -30,6 +30,11 @@ Scripts for Linux native and Docker-based builds:
 #### `build/windows/` - Windows Build (Pending)
 Reserved for modern Windows toolchain (VS2022 + SDL3 + DXVK + OpenAL)
 
+#### `build/android/` - Engine provenance
+- `engine-build-number.sh <repository>` - Resolve the updater sequence from complete
+  source commit history. Reject shallow checkouts; never substitute an upstream
+  sequence for a fork's source count. Fetch with `--filter=blob:none` to avoid old APK blobs.
+
 ### `env/` - Environment Setup
 
 #### `env/docker/` - Docker Configuration
@@ -57,6 +62,12 @@ Utilities for large-scale code refactoring and fixes:
 - `unify_move_files.py` - Move files between Generals/GeneralsMD/Core with CMakeLists.txt updates
 
 ### `qa/` - Quality Assurance & Testing
+
+- `test-engine-build-number.py` - Exercise the production resolver against full,
+  shallow and subsequently fetched Git graphs, including paths with spaces.
+- `test-engine-3277-hotfix.py` - Compile the production GPU-timer initialization
+  block with host GL adapters and check serial-12 STUN/TURN fallback ordering.
+  Neither test compiles the engine or replaces Android/device acceptance.
 
 #### `qa/smoke/` - Smoke Tests
 - `test-mod-localization.py` - Compile production localization selection, CSF/STR parsers, and label lookup against synthetic BIG/loose fixtures (Python 3 + g++, with sanitizers). Uses `mod-localization-fixture.cpp`; no full engine build. Does not replace Android device QA.

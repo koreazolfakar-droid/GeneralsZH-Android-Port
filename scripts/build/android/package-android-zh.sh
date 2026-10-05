@@ -37,6 +37,9 @@ ASSETS="${ANDROID_DIR}/app/src/main/assets/gamedata"
 DEFAULT_DRIVER_ASSETS="${ANDROID_DIR}/app/src/main/assets/default_driver"
 STAGING="${GX_ANDROID_STAGING:-${HOME}/GeneralsX/android-staging}"
 
+# GeneralsX @build Codex 05/10/2026 Fail before staging if source history cannot identify this build.
+ENGINE_BUILD="$(bash "${SCRIPT_DIR}/engine-build-number.sh" "${PROJECT_ROOT}")"
+
 # --- 1. native libraries -----------------------------------------------------
 GAME_LIB="$(find "${BUILD_DIR}" -name libmain.so -not -path "*/_deps/*" 2>/dev/null | head -1)"
 if [[ -z "${GAME_LIB}" ]]; then
@@ -310,8 +313,9 @@ find "${DEFAULT_DRIVER_ASSETS}" -type f | sed "s|${DEFAULT_DRIVER_ASSETS}/|    d
 # --- 3b. engine build number ---------------------------------------------------
 # GeneralsX @feature Android port 27/09/2026 The launcher's update check (UpdateManager.java)
 # only runs a downloaded engine whose build number is higher than the APK's own. The number is
-# the commit count of the tree the engine was built from, so later builds always sort higher.
-ENGINE_BUILD="$(git -C "${PROJECT_ROOT}" rev-list --count HEAD 2>/dev/null || echo 0)"
+# the complete commit count of the source tree. Counts are monotonic within this
+# repository's preserved ancestry; a fork's count is not an upstream release identity.
+# Resolved before staging, with no shallow-history or zero fallback.
 echo "${ENGINE_BUILD}" > "${ANDROID_DIR}/app/src/main/assets/engine_build.txt"
 echo "==> Engine build number: ${ENGINE_BUILD}"
 
