@@ -43,6 +43,14 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      source_ref:
+        type: string
+        description: "Optional source commit to build using this workflow branch's caches."
+        default: ""
+      require_existing_caches:
+        type: boolean
+        description: "Stop on a missing SDK, vcpkg, DXVK or compiler cache instead of starting fresh."
+        default: false
       preset:
         type: choice
         description: "CMake preset for Android"
@@ -100,8 +108,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.source_ref || github.ref }}
           fetch-depth: 0
           submodules: false
+
+      # GeneralsX @build Codex 05/10/2026 Record the actual source when borrowing a warm workflow branch.
+      - name: Record source revision
+        run: |
+          echo "Source revision: $(git rev-parse HEAD)"
 
       - name: Checkout DXVK fork submodule
         run: |
@@ -140,6 +154,13 @@ jobs:
         with:
           path: /opt/android-sdk
           key: android-sdk-${{ env.CMDLINE_TOOLS_VERSION }}-ndk${{ env.NDK_VERSION }}-p35-bt35
+      # GeneralsX @build Codex 05/10/2026 Cache-only runs must not reinstall the Android toolchain.
+      - name: Require cached Android SDK
+        if: inputs.require_existing_caches && steps.cache-android-sdk.outputs.cache-hit != 'true'
+        run: |
+          echo "::error::Required Android SDK cache was not restored; refusing a fresh toolchain install."
+          exit 1
+
       - name: Install Android SDK (cmdline-tools + NDK + platform + build-tools)
         if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
@@ -256,6 +277,23 @@ jobs:
           # Tying the key to the repo name means a future rename invalidates
           # this cache instead of silently corrupting it again.
           key: dxvk-android-${{ runner.os }}-${{ github.repository }}-${{ env.DXVK_REF }}-${{ hashFiles('Patches/dxvk-android.patch', 'Patches/dxvk-ios.patch', 'cmake/dx8.cmake', 'cmake/meson-arm64-android-cross.ini.in') }}
+
+      # GeneralsX @build Codex 05/10/2026 Guard native dependency/compiler reuse before configuration.
+      - name: Require existing native caches
+        if: inputs.require_existing_caches
+        env:
+          COMPILER_CACHE: ${{ steps.cache-ccache.outputs.cache-matched-key }}
+          VCPKG_CACHE: ${{ steps.cache-vcpkg.outputs.cache-matched-key }}
+          DXVK_CACHE: ${{ steps.cache-dxvk.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          for cache in "$COMPILER_CACHE" "$VCPKG_CACHE" "$DXVK_CACHE"; do
+            if [ -z "$cache" ]; then
+              echo "::error::Required native cache was not restored; refusing a fresh dependency build."
+              exit 1
+            fi
+            echo "Restored required cache: $cache"
+          done
 
       - name: Bootstrap vcpkg
         run: |
@@ -397,7 +435,7 @@ jobs:
           OUT="symbols/libmain-run${{ github.run_number }}.symbols.txt"
           BUILD_ID="$(readelf -n "$LIB" 2>/dev/null | sed -n 's/.*Build ID: \([0-9a-f]*\).*/\1/p' | head -1)"
           {
-            echo "# libmain.so symbols -- run ${{ github.run_number }}, commit ${{ github.sha }}"
+            echo "# libmain.so symbols -- run ${{ github.run_number }}, commit $(git rev-parse HEAD)"
             echo "# Match this BuildID against the tombstone's before trusting any address."
             # llvm-readelf --notes prints the note's header but not the build-id
             # value itself, so pull it out with GNU readelf, which does.
@@ -436,7 +474,7 @@ jobs:
           TOOLS="$(dirname "$(ls "${ANDROID_NDK_HOME}"/toolchains/llvm/prebuilt/*/bin/llvm-nm | head -1)")"
           OUT="symbols/libmain60-run${{ github.run_number }}.symbols.txt"
           {
-            echo "# libmain60.so symbols -- commit ${{ github.sha }}"
+            echo "# libmain60.so symbols -- commit $(git rev-parse HEAD)"
             readelf -n "$GX_SECOND_GAME_LIB"
             "$TOOLS/llvm-readelf" --program-headers "$GX_SECOND_GAME_LIB"
             "$TOOLS/llvm-nm" --defined-only --numeric-sort --print-size --demangle "$GX_SECOND_GAME_LIB"
