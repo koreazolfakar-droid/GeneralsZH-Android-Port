@@ -16,23 +16,6 @@ permissions:
   actions: write
 
 on:
-  # Temporary, branch-scoped diagnostic build. This does not restore broad push CI.
-  push:
-    branches:
-      - 'debug/android-audio-sfx-v1'
-    paths:
-      - 'GeneralsMD/**'
-      - 'Core/**'
-      - 'Dependencies/**'
-      - 'cmake/**'
-      - 'android/**'
-      - 'scripts/build/android/**'
-      - 'Patches/**'
-      - 'CMakeLists.txt'
-      - 'CMakePresets.json'
-      - 'vcpkg.json'
-      - '.github/workflows/build-android.yml'
-
   # GeneralsX @bugfix Android CI 01/08/2026 dropped the push: trigger that
   # used to fire a full CI build on every push to main/claude/** touching
   # these paths. This session's actual dev loop builds and checksum-verifies
@@ -60,6 +43,14 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      source_ref:
+        type: string
+        description: "Optional source commit to build using this workflow branch's caches."
+        default: ""
+      require_existing_caches:
+        type: boolean
+        description: "Stop on a missing SDK, vcpkg, DXVK or compiler cache instead of starting fresh."
+        default: false
       preset:
         type: choice
         description: "CMake preset for Android"
@@ -94,6 +85,9 @@ jobs:
       # today doesn't silently pick up a different toolchain in six months.
       NDK_VERSION: "27.2.12479018"
       GRADLE_VERSION: "8.9"
+      # GeneralsX @build Codex 05/10/2026 Preserve staging and use cached builds without clean tasks.
+      GX_INCREMENTAL: "1"
+      GX_SECOND_GAME_LIB: "${{ github.workspace }}/build/libmain60.so"
       # cmdline-tools zip (pinned + sha1 from Google's repository2-3.xml manifest);
       # its sdkmanager then installs the NDK/platform/build-tools above.
       CMDLINE_TOOLS_VERSION: "13114758"
@@ -114,8 +108,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.source_ref || github.ref }}
           fetch-depth: 0
           submodules: false
+
+      # GeneralsX @build Codex 05/10/2026 Record the actual source when borrowing a warm workflow branch.
+      - name: Record source revision
+        run: |
+          echo "Source revision: $(git rev-parse HEAD)"
 
       - name: Checkout DXVK fork submodule
         run: |
@@ -154,6 +154,13 @@ jobs:
         with:
           path: /opt/android-sdk
           key: android-sdk-${{ env.CMDLINE_TOOLS_VERSION }}-ndk${{ env.NDK_VERSION }}-p35-bt35
+      # GeneralsX @build Codex 05/10/2026 Cache-only runs must not reinstall the Android toolchain.
+      - name: Require cached Android SDK
+        if: inputs.require_existing_caches && steps.cache-android-sdk.outputs.cache-hit != 'true'
+        run: |
+          echo "::error::Required Android SDK cache was not restored; refusing a fresh toolchain install."
+          exit 1
+
       - name: Install Android SDK (cmdline-tools + NDK + platform + build-tools)
         if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
@@ -271,6 +278,23 @@ jobs:
           # this cache instead of silently corrupting it again.
           key: dxvk-android-${{ runner.os }}-${{ github.repository }}-${{ env.DXVK_REF }}-${{ hashFiles('Patches/dxvk-android.patch', 'Patches/dxvk-ios.patch', 'cmake/dx8.cmake', 'cmake/meson-arm64-android-cross.ini.in') }}
 
+      # GeneralsX @build Codex 05/10/2026 Guard native dependency/compiler reuse before configuration.
+      - name: Require existing native caches
+        if: inputs.require_existing_caches
+        env:
+          COMPILER_CACHE: ${{ steps.cache-ccache.outputs.cache-matched-key }}
+          VCPKG_CACHE: ${{ steps.cache-vcpkg.outputs.cache-matched-key }}
+          DXVK_CACHE: ${{ steps.cache-dxvk.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          for cache in "$COMPILER_CACHE" "$VCPKG_CACHE" "$DXVK_CACHE"; do
+            if [ -z "$cache" ]; then
+              echo "::error::Required native cache was not restored; refusing a fresh dependency build."
+              exit 1
+            fi
+            echo "Restored required cache: $cache"
+          done
+
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -295,11 +319,18 @@ jobs:
       # and run #2 sailed straight past a fatal configure error into "success"
       # — exactly the pipeline-masking failure the porting playbook warns
       # about. The Verify step caught it; now the failing step reports itself.
+      - name: Run save safety and localization host tests
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-save-map-safety.py
+          python3 scripts/qa/test-mod-localization.py
+
       - name: Configure CMake (Android)
         run: |
           set -o pipefail
           mkdir -p logs
           cmake --preset ${{ env.PRESET }} \
+            -DSAGE_HIGH_FPS_SIM=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DANDROID_CI_BUILD_NUMBER=${{ github.run_number }} \
@@ -319,6 +350,21 @@ jobs:
           # requires all four to already exist.
           cmake --build build/${{ env.PRESET }} --target z_generals dxvk_d3d8_install \
             main_hook file_redirect_hook gsl_alloc_hook hook_impl -- -k 0 2>&1 | tee logs/build_android.log
+          ccache --show-stats
+
+      # GeneralsX @build Codex 05/10/2026 Ship both simulation-rate engines from the same source revision.
+      - name: Preserve 60 Hz engine and build default 30 Hz engine
+        run: |
+          set -euo pipefail
+          cp "build/${PRESET}/GeneralsMD/Code/Main/libmain.so" "$GX_SECOND_GAME_LIB"
+          cmake --preset "$PRESET" \
+            -DSAGE_HIGH_FPS_SIM=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DANDROID_CI_BUILD_NUMBER=${{ github.run_number }} \
+            2>&1 | tee logs/configure_android_30.log
+          cmake --build "build/${PRESET}" --target z_generals -- -k 0 \
+            2>&1 | tee logs/build_android_30.log
           ccache --show-stats
 
       - name: Verify artifacts
@@ -389,7 +435,7 @@ jobs:
           OUT="symbols/libmain-run${{ github.run_number }}.symbols.txt"
           BUILD_ID="$(readelf -n "$LIB" 2>/dev/null | sed -n 's/.*Build ID: \([0-9a-f]*\).*/\1/p' | head -1)"
           {
-            echo "# libmain.so symbols -- run ${{ github.run_number }}, commit ${{ github.sha }}"
+            echo "# libmain.so symbols -- run ${{ github.run_number }}, commit $(git rev-parse HEAD)"
             echo "# Match this BuildID against the tombstone's before trusting any address."
             # llvm-readelf --notes prints the note's header but not the build-id
             # value itself, so pull it out with GNU readelf, which does.
@@ -422,10 +468,24 @@ jobs:
       # libdxvk_d3d8.so/libdxvk_d3d9.so are deliberately excluded: stripping
       # them crashes DXVK's draw path on real hardware (keepDebugSymbols in
       # android/app/build.gradle has the full story).
+      - name: Collect 60 Hz symbol table (before stripping)
+        run: |
+          set -euo pipefail
+          TOOLS="$(dirname "$(ls "${ANDROID_NDK_HOME}"/toolchains/llvm/prebuilt/*/bin/llvm-nm | head -1)")"
+          OUT="symbols/libmain60-run${{ github.run_number }}.symbols.txt"
+          {
+            echo "# libmain60.so symbols -- commit $(git rev-parse HEAD)"
+            readelf -n "$GX_SECOND_GAME_LIB"
+            "$TOOLS/llvm-readelf" --program-headers "$GX_SECOND_GAME_LIB"
+            "$TOOLS/llvm-nm" --defined-only --numeric-sort --print-size --demangle "$GX_SECOND_GAME_LIB"
+          } > "$OUT"
+          gzip -9 "$OUT"
+
       - name: Strip debug symbols
         run: |
           STRIP="$(ls "${ANDROID_NDK_HOME}"/toolchains/llvm/prebuilt/*/bin/llvm-strip | head -1)"
           for lib in "build/${{ env.PRESET }}/GeneralsMD/Code/Main/libmain.so" \
+                     "$GX_SECOND_GAME_LIB" \
                      "build/${{ env.PRESET }}/_deps/sdl3-build/libSDL3.so" \
                      "build/${{ env.PRESET }}/_deps/sdl3_image-build/libSDL3_image.so" \
                      "build/${{ env.PRESET }}/_deps/openal_soft-build/libopenal.so" \
@@ -488,6 +548,9 @@ jobs:
           APK="${{ steps.locate.outputs.path }}"
           WORKDIR="$(mktemp -d)"
           unzip -q "${APK}" 'lib/arm64-v8a/*' -d "${WORKDIR}"
+          # GeneralsX @build Codex 05/10/2026 Both launcher simulation choices must be packaged.
+          test -s "${WORKDIR}/lib/arm64-v8a/libmain.so"
+          test -s "${WORKDIR}/lib/arm64-v8a/libmain60.so"
           echo "Packaged libraries:"
           ls "${WORKDIR}/lib/arm64-v8a/"
           NEEDED="$("${READELF}" -d "${WORKDIR}/lib/arm64-v8a/libmain.so" | grep NEEDED | sed -E 's/.*\[(.*)\]/\1/')"
@@ -609,8 +672,9 @@ jobs:
       # `actions: write` above is what authorizes the delete call itself.
       # Best-effort throughout: a delete failing (already expired, already
       # deleted by a concurrent run) must not fail the build.
+      # GeneralsX @build Codex 05/10/2026 Preserve existing APK artifacts during baseline validation.
       - name: Delete superseded artifacts across all branches
-        if: always()
+        if: ${{ false }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
