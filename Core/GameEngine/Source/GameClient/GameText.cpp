@@ -543,15 +543,17 @@ void GameTextManager::init()
 	{
 		Int fallbackCount = 0;
 		LanguageID originalLanguage = m_language;
+		// If mod text skipped a loose base CSF, keep that base table as fallback.
+		const FileInstance fallbackInstance = modCsfInstance >= 0 && csfInstance > 0 ? 0 : csfInstance + 1;
 
-		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, csfInstance + 1) && fallbackCount > 0 )
+		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0 )
 		{
 			m_fallbackStringInfo = NEW StringInfo[fallbackCount];
 
 			if ( m_fallbackStringInfo != nullptr )
 			{
 				Int fallbackMaxLabelLen = m_maxLabelLen;
-				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, csfInstance + 1) )
+				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
 				{
 					m_fallbackTextCount = fallbackCount;
 					m_maxLabelLen = max(m_maxLabelLen, fallbackMaxLabelLen);

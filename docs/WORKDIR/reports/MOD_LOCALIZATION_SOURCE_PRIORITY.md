@@ -52,8 +52,8 @@ Selection is:
 4. Otherwise keep the old Vanilla requested-language STR-before-CSF behavior.
 
 The chosen archived text instance skips a loose Vanilla file of the same path.
-CSF fallback uses the instance after the selected primary CSF, preserving the
-existing lower-priority incomplete-CSF fallback. Both count and parse use the SAME
+CSF fallback uses the bypassed loose base CSF when present, otherwise the
+instance after the selected primary CSF, preserving incomplete-CSF fallback. Both count and parse use the SAME
 instance for STR as well as CSF. No class fields/layouts were added or removed.
 
 This intentionally follows a mod's supplied language when it has only English,
@@ -87,7 +87,8 @@ labels, and construction of a fresh manager with the mod active.
 - PASS: unchanged production loader reproduces Vanilla STR masking mod CSF.
 - PASS: production loader fixture Vanilla -> Mod -> Vanilla and fresh manager
   with mod active; no stale labels.
-- PASS: active archive beats loose Vanilla STR and CSF; correct fallback instance.
+- PASS: active archive beats loose Vanilla STR and CSF; skipped loose base
+  CSF remains the fallback (distinct base text verified, not just identical copies).
 - PASS: direct BIG ownership, directory ownership, case/separators/trailing slash,
   and sibling-prefix rejection.
 - PASS: active mod without localization retains Vanilla STR priority.

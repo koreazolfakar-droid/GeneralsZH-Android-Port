@@ -98,10 +98,10 @@ int main(int argc, char** argv)
 
     // A loose Vanilla CSF must not hide the active mod archive; instances account
     // for the loose entry, and the next CSF is still the mounted base fallback.
-    lfs.entries[key("data/english/generals.csf")] = vanilla.entries[key("data/english/generals.csf")];
+    lfs.entries[key("data/english/generals.csf")] = csf({{"GUI:Faction", L"Loose base Army"}, {"GUI:OnlyBase", L"Loose base fallback"}});
     text.init();
     expect(text, "GUI:Faction", L"Mod Army");
-    expect(text, "GUI:OnlyBase", L"Base fallback");
+    expect(text, "GUI:OnlyBase", L"Loose base fallback");
     text.deinit();
     lfs.entries.erase(key("data/english/generals.csf"));
     puts("PASS: active archive bypasses loose Vanilla CSF and STR");
