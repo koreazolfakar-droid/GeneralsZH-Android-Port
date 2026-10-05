@@ -34,6 +34,9 @@ Reserved for modern Windows toolchain (VS2022 + SDL3 + DXVK + OpenAL)
 - `engine-build-number.sh <repository>` - Resolve the updater sequence from complete
   source commit history. Reject shallow checkouts; never substitute an upstream
   sequence for a fork's source count. Fetch with `--filter=blob:none` to avoid old APK blobs.
+- `engine-package-manifest.py write ROOT OUTPUT_JSON | verify APK EXPECTED_JSON` -
+  Record source HEAD/tree, full-history sequence and all staged native hashes;
+  compare the final APK with the linked outputs and reject stale/mismatched payloads.
 
 ### `env/` - Environment Setup
 
@@ -68,6 +71,8 @@ Utilities for large-scale code refactoring and fixes:
   differences. Requires the fetched audit refs, Git and OpenSSL; never builds.
 - `test-engine-build-number.py` - Exercise the production resolver against full,
   shallow and subsequently fetched Git graphs, including paths with spaces.
+- `test-engine-packaging.py` - Verify source/native provenance, both engine slots,
+  stale staging, tampered metadata/libraries and duplicate ZIP paths using host fixtures.
 - `test-engine-3277-hotfix.py` - Compile the production GPU-timer initialization
   block with host GL adapters and check serial-12 STUN/TURN fallback ordering.
   Neither test compiles the engine or replaces Android/device acceptance.

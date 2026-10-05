@@ -37,12 +37,18 @@ ASSETS="${ANDROID_DIR}/app/src/main/assets/gamedata"
 DEFAULT_DRIVER_ASSETS="${ANDROID_DIR}/app/src/main/assets/default_driver"
 STAGING="${GX_ANDROID_STAGING:-${HOME}/GeneralsX/android-staging}"
 
-# GeneralsX @build Codex 05/10/2026 Fail before staging if source history cannot identify this build.
+# GeneralsX @build Codex 05/10/2026 Older cached CI workflows check out one commit.
+# Recover only the Git graph; keep native outputs, caches and the checked-out HEAD.
+if [[ "${GITHUB_ACTIONS:-false}" == "true" ]] && \
+   [[ "$(git -C "${PROJECT_ROOT}" rev-parse --is-shallow-repository)" == "true" ]]; then
+    git -C "${PROJECT_ROOT}" fetch --unshallow --filter=blob:none --no-tags origin
+fi
+# Fail before staging if source history cannot identify this build.
 ENGINE_BUILD="$(bash "${SCRIPT_DIR}/engine-build-number.sh" "${PROJECT_ROOT}")"
 
 # --- 1. native libraries -----------------------------------------------------
-GAME_LIB="$(find "${BUILD_DIR}" -name libmain.so -not -path "*/_deps/*" 2>/dev/null | head -1)"
-if [[ -z "${GAME_LIB}" ]]; then
+GAME_LIB="${BUILD_DIR}/GeneralsMD/Code/Main/libmain.so"
+if [[ ! -f "${GAME_LIB}" ]]; then
     echo "ERROR: libmain.so not found — run ./scripts/build/android/build-android-zh.sh first."
     exit 1
 fi
@@ -318,6 +324,9 @@ find "${DEFAULT_DRIVER_ASSETS}" -type f | sed "s|${DEFAULT_DRIVER_ASSETS}/|    d
 # Resolved before staging, with no shallow-history or zero fallback.
 echo "${ENGINE_BUILD}" > "${ANDROID_DIR}/app/src/main/assets/engine_build.txt"
 echo "==> Engine build number: ${ENGINE_BUILD}"
+# Record every staged native payload before Gradle consumes it, then check the APK.
+ENGINE_PROVENANCE="${ANDROID_DIR}/app/src/main/assets/engine_provenance.json"
+python3 "${SCRIPT_DIR}/engine-package-manifest.py" write "${PROJECT_ROOT}" "${ENGINE_PROVENANCE}"
 
 # --- 4. gradle ---------------------------------------------------------------
 cd "${ANDROID_DIR}"
@@ -357,6 +366,7 @@ if [[ ! -f "${APK}" ]]; then
     echo "ERROR: expected APK not found at ${APK}"
     exit 1
 fi
+python3 "${SCRIPT_DIR}/engine-package-manifest.py" verify "${APK}" "${ENGINE_PROVENANCE}"
 echo "==> APK: ${APK}"
 
 if [[ $DO_INSTALL -eq 1 ]]; then
