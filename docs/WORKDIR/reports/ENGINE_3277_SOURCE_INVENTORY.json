@@ -1,0 +1,580 @@
+{
+  "branch": "dev/mobile-v4",
+  "audited_head": "b02a30b1116b88fcd89fb0d58254f2122e96449c",
+  "start_head": "a20f54728616ed3de69e4f25ab6e5092bbec01b2",
+  "manifest_commit": "43a023538d399474278889af304e068831e8fb9d",
+  "manifest_sha256": "257d7527126e9aa6771917859032266c0c0461d18d31c7af700cadf80875b1cf",
+  "manifest_signature_verified": true,
+  "live_manifest_identical": true,
+  "engine_sequence": 3277,
+  "manifest_serial": 12,
+  "release_commit": "576e2265bf271176028d1cef4f2b3fe8caa20b34",
+  "published_gpu_fix": "5eb288be6119325b430c074a9bb851723a7876bc",
+  "provenance_commit": "7f679883314f79c9a302160e1c46e23e816b4f94",
+  "unpublished_hotfix_commit": "2cc428d1b (unavailable; documented, not independently resolved)",
+  "comparison_basis": "reconstructed release tree plus only published GPU timer delta",
+  "gpu_file_matches_documented_3277": true,
+  "bundled_config_matches_signed_manifest": true,
+  "full_history_count": 3326,
+  "integration_files": [
+    ".github/workflows/build-android.yml",
+    "Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp",
+    "GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/NetworkMesh.cpp",
+    "docs/DEV_BLOG/2026-10-DIARY.md",
+    "scripts/README.md",
+    "scripts/build/android/engine-build-number.sh",
+    "scripts/build/android/package-android-zh.sh",
+    "scripts/qa/test-engine-3277-hotfix.py",
+    "scripts/qa/test-engine-build-number.py",
+    "update/config.json"
+  ],
+  "difference_count": 91,
+  "differences": [
+    {
+      "path": ".github/workflows/build-android.yml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 5115113a5d5829ccd57cb81c1cea98aea6b8754e",
+      "current_entry": "100644 blob 6ce8662d0f7458f526943f03fef0857045c9156d"
+    },
+    {
+      "path": "Core/GameEngine/Include/Common/ModLocalization.h",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob c31b8dfa77a5471c5b752bf55538743aa12e1bc3"
+    },
+    {
+      "path": "Core/GameEngine/Source/GameClient/GameText.cpp",
+      "status": "modified",
+      "baseline_entry": "100644 blob d44fff1c74f7d41cd1dcda792691f97efc605a22",
+      "current_entry": "100644 blob b11d97a601a7b49070fc814a2c32f818354c3b8c"
+    },
+    {
+      "path": "GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/NetworkMesh.h",
+      "status": "modified",
+      "baseline_entry": "100644 blob 393f8d22c30f686a375e8806cc110b555d19e334",
+      "current_entry": "100644 blob d54dcea491875ca5434fd441dd2751708a35c784"
+    },
+    {
+      "path": "GeneralsMD/Code/GameEngine/Source/Common/System/SaveGame/GameStateMap.cpp",
+      "status": "modified",
+      "baseline_entry": "100644 blob f503e975f8c91af3e6ad65766f8eb7867b782cfe",
+      "current_entry": "100644 blob f28f160f797e31b8183d5c3e2cabea7284a9beed"
+    },
+    {
+      "path": "GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/NetworkMesh.cpp",
+      "status": "modified",
+      "baseline_entry": "100644 blob 008b5847b10e8b27f6733ee73719a6e6abf83836",
+      "current_entry": "100644 blob fde4e2168d2cdef9d00b4b14d96f3299acc442f5"
+    },
+    {
+      "path": "android/app/build.gradle",
+      "status": "modified",
+      "baseline_entry": "100644 blob 05e0b5a973325c356719693c0b38b5019efaf7a0",
+      "current_entry": "100644 blob 4404b423423cfc99585b37baabf7f33f2454fd06"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob fde6aeaa9d6ed97c2c60237376c7b23afb8d2b89",
+      "current_entry": "100644 blob 5e013e93969a842fb0b78cc43f826375cedfd1b4"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/GeneralsZHActivity.java",
+      "status": "modified",
+      "baseline_entry": "100644 blob 6dc67b4d4daaf1db5bbd424b2dad41a7da6c9666",
+      "current_entry": "100644 blob 5de1a1a15f6ed4f4ae10bc0ba0b308eeba12bb5e"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/LauncherUi.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 0b83d83e15580e09c3c64c97f64c3ac11ca31fb9"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/ModImportService.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob f7eaf88d9bbb3562f41fbecbb091f2d6984394e3"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/ModLibraryInfo.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 2f50947585786cf223f191dd3290fb60688be4aa"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/ModManager.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob dd669b8c2c74bacc4e83378cd2c35cb563926c71"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/ModManagerActivity.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob caab19ced31824f07146748df3151c90adf372de"
+    },
+    {
+      "path": "android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java",
+      "status": "modified",
+      "baseline_entry": "100644 blob 38610b436964f144185fb853c37120bdfe7feb95",
+      "current_entry": "100644 blob a9e495200aca98e7e84322e78dc76cbc1c4baace"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-nodpi/launcher_battlefield.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob ad7fc728cf7b9e0fe5f495933edeef71ccee282e"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-nodpi/launcher_mods_battlefield.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob ca1232897aebf8cbf615bf1e1fe25dac11000af7"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-xxxhdpi/startup_emblem.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 1ae156f0ac9a097c62daa7f38e3e35de5daaa927"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_launcher_background.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob c5c8567421b0780e0d0b0f5a4831d94153ec8789",
+      "current_entry": "100644 blob e38550e946308930f12047a6466ff9aef195553c"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/mods_tactical_header.xml",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 97d6d1688c83ead236dc6cf6c4d207ed3d5c70ba"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/startup_background.xml",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 4372c1e6487b95b38279f7cd9725713b04d603b1"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 6d63add4be98b64200f33b7fb7d2aaca4d27a796",
+      "current_entry": "100644 blob c817c580a605ec3bed770c3c0f18e69562d82ca9"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 3ba4e35c081be423ea6bc05faa7d9cfc3d1e475c"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 5fb956bcef9f336beab859b5c051a9a65a93e86f"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 8ea9a01356106d53bd5a241005a8ca15b9e4ea66"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob b41706e57f7d0d61851007ea6d5c3f7bc579195f"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob b856d5862eeb463b4f5c78b4332a65f0412a8065"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob b3b8ee3618ac0b8dd34b819a9723b657ebb83048"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob f15273e61438e65de5483c6eb9e3a2756c70b674"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 22a62f1aa63f0df481fdef6512ef02fd436c16d3"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 53c9c6bc33c071762eb75f2ea7f95a9ba83f5d73"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob b7784ffc045f12690306f5357cf2e2301f823d1a"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "status": "deleted",
+      "baseline_entry": "100644 blob 75c27ccc6bea05c441a291b0434bc664035e83ad",
+      "current_entry": null
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 71aaef205ea856657c5c0bc4d6c8518c618c3945"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 7de14124f398fcb6e7e191519f5e08942285bb73"
+    },
+    {
+      "path": "android/app/src/main/res/values-ar/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 9f25d99aff380b287036f02352e097e2a71fa94a",
+      "current_entry": "100644 blob 424ab809d83fdaf360809b6e03101ac64081637c"
+    },
+    {
+      "path": "android/app/src/main/res/values-b+isv/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 03366721f59c9851b877b4e90ee967d345d00120",
+      "current_entry": "100644 blob 9d33761c427a2974f6ed0affe995ce98938437c5"
+    },
+    {
+      "path": "android/app/src/main/res/values-de/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 6821a0c1b2b622207a14d95ec2854dcb18972023",
+      "current_entry": "100644 blob 0182d0e57f943702cd6fd1416b2de060e9c56bb6"
+    },
+    {
+      "path": "android/app/src/main/res/values-es/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 28387100ae6e7d091208414e183a8501fe182535",
+      "current_entry": "100644 blob e0e390aea5f969c7a64c31b3d9bf1f12eab443c1"
+    },
+    {
+      "path": "android/app/src/main/res/values-fa/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 08b529d9224834ad214a5d0ff0f22127c82b90a7",
+      "current_entry": "100644 blob 0fee2f0172b96af1fb9dae472b656e0bf0a721fb"
+    },
+    {
+      "path": "android/app/src/main/res/values-fr/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 86b6589b3ec5abfee30ec5eaf9b8c23fdf814724",
+      "current_entry": "100644 blob 50bbade00e4d2071bfcb4d942364af73047c35c9"
+    },
+    {
+      "path": "android/app/src/main/res/values-ko/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob f97ff9a72bbefea6810f64ea993a44b6d597f1d2",
+      "current_entry": "100644 blob 11bc196d2cddb7a93db2ed880128c3ec56a3298e"
+    },
+    {
+      "path": "android/app/src/main/res/values-pl/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 7a0ccf843abefd9a431683657be5b0f65c0b4841",
+      "current_entry": "100644 blob 7646a433e08e602ff6d62b85f8600cc8c912beec"
+    },
+    {
+      "path": "android/app/src/main/res/values-pt-rBR/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 1e8bf3e88f313f615c6b1b4c609e53f3b0f1453f",
+      "current_entry": "100644 blob 4ec53324927f52aa47af628587f1dadee083befa"
+    },
+    {
+      "path": "android/app/src/main/res/values-ru/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 71faa41d4b9868de9c0b03c39254e1982b9ebeb7",
+      "current_entry": "100644 blob 5ee2fd48f9478e8d775d518ce18cdbb24d24d3d8"
+    },
+    {
+      "path": "android/app/src/main/res/values-uk/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob b567dd2b8b19fdd861a66eb5b421132e70f67908",
+      "current_entry": "100644 blob a7b64b79c4442947d32114eb7b9907e721b8b66b"
+    },
+    {
+      "path": "android/app/src/main/res/values-v31/themes.xml",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 60852459e49e05905e9e18df9e90c81025683532"
+    },
+    {
+      "path": "android/app/src/main/res/values-zh/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 303970ead2b07918b90045351088a81e4ff9f779",
+      "current_entry": "100644 blob e8e234b8a851284a23ea40c931850bc9c67d3b80"
+    },
+    {
+      "path": "android/app/src/main/res/values/colors.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 874ab1a986e7a5bc1f02b966486371a0c8f5114f",
+      "current_entry": "100644 blob 192d839500175e291d0a7a43fa24a7cd13556744"
+    },
+    {
+      "path": "android/app/src/main/res/values/strings.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 1a4c132651990670bd5c4baf4aeb1eb48a571736",
+      "current_entry": "100644 blob 0b24a0ec24d0aca9404f7afe7064d4dfec0f8e7c"
+    },
+    {
+      "path": "android/app/src/main/res/values/themes.xml",
+      "status": "modified",
+      "baseline_entry": "100644 blob 7af9e0352904e61fb905bdfb41553144f0655510",
+      "current_entry": "100644 blob b8918141f271cbdacb57903ed53d5660e079a4bf"
+    },
+    {
+      "path": "android/app/src/test/java/com/generalsx/zerohour/LauncherHomeUiTest.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 036b04a423ed8ef07c391abb7d142e8529888a0f"
+    },
+    {
+      "path": "android/app/src/test/java/com/generalsx/zerohour/ModImportRegressionTest.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 52ba0b27e521fac571a121b23115d93312a7fa40"
+    },
+    {
+      "path": "android/app/src/test/java/com/generalsx/zerohour/ModLibraryInfoTest.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 992b6470e64624dbebafdf3fb583ac1c8ee3a53f"
+    },
+    {
+      "path": "android/app/src/test/java/com/generalsx/zerohour/ModManagerUiTest.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 16e02bca138b78d48b8f686f9664b65c77e8526c"
+    },
+    {
+      "path": "android/app/src/test/java/com/generalsx/zerohour/StartupBrandingTest.java",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob c3c4a5b28e949cf5ede1471a3d6e10da08064e8d"
+    },
+    {
+      "path": "apk/GeneralsXZH-android-v1.4.0.apk",
+      "status": "deleted",
+      "baseline_entry": "100644 blob fddbfc76f87e522ae7e395bbc213a743757b0549",
+      "current_entry": null
+    },
+    {
+      "path": "apk/GeneralsZH-ModLocalization-debug.apk",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob f725f3da8c34772a396b9c50ffb9c950aeafa41f"
+    },
+    {
+      "path": "docs/DEV_BLOG/2026-10-DIARY.md",
+      "status": "modified",
+      "baseline_entry": "100644 blob 433db33c41bd6aae0062879d8dba7f53bcbc7792",
+      "current_entry": "100644 blob 5605d53087f480e050b7abbf11f6f6c84fbeaa3b"
+    },
+    {
+      "path": "docs/WORKDIR/reports/ANDROID_MOD_MANAGER_DEBUG_BUILD_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 1d36a1064dff3d241ccb1d938c8fcc6b722460d2"
+    },
+    {
+      "path": "docs/WORKDIR/reports/ANDROID_PREMIUM_BRANDING_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob c847aadeff0af61828f6bd243307ea2407113d6d"
+    },
+    {
+      "path": "docs/WORKDIR/reports/LAUNCHER_DEDUP_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 1f7d2d152766a2315aec63370cbbb48a4cb7b133"
+    },
+    {
+      "path": "docs/WORKDIR/reports/LAUNCHER_DEDUP_HOME_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 8d2af8df22882ccd2839dde379a42ded046c2ffb"
+    },
+    {
+      "path": "docs/WORKDIR/reports/MOD_LOCALIZATION_APK_VERIFICATION.json",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 139879759cf24dd080e4168d18012c1756bc77ef"
+    },
+    {
+      "path": "docs/WORKDIR/reports/MOD_LOCALIZATION_SOURCE_PRIORITY.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 756103ee959ea45015d793b5992c2c1fb8e7c9b2"
+    },
+    {
+      "path": "docs/WORKDIR/reports/MOD_MANAGER_UI_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 6a40c11c44b520b1485bd08cbdbe2b91126a02f6"
+    },
+    {
+      "path": "docs/WORKDIR/reports/MOD_MANAGER_UI_REDESIGN_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob db98141949d518a662e6f7cf03476150b8e4b19c"
+    },
+    {
+      "path": "docs/WORKDIR/reports/MOD_SAFETY_FIXES_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 32bfabe0269aca4cfc86e940a4f7686125e6a840"
+    },
+    {
+      "path": "docs/WORKDIR/reports/SAVE_ONLINE_DEBUG_APK_VERIFICATION.json",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 2ee55a5ac2211e9d5e3ab699115112d78f51b12e"
+    },
+    {
+      "path": "docs/WORKDIR/reports/SAVE_RESUME_ONLINE_ASSESSMENT.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 7699ec7b822770975245d3f3ef5207dea061aad6"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob c8b7a56aeeecb357c87e13a742f71a43e968cc87"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_COMPARISON_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob af8e51ad70e6140261b517101aea60cce20d47bf"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_DESIGN_QA_2026-10-04.md",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob f4aac308ed94914855ac10a61e07a85bcdfd419a"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_HOME_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 2956251e571f1de98338eed1855b24221080533f"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_MODS_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob e3b32fa51bcf676cf0955885553d39b1058b4f0b"
+    },
+    {
+      "path": "docs/WORKDIR/reports/TACTICAL_LAUNCHER_REFERENCE_2026-10-04.png",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob f491d563b213852f01f79120de652492de6f62cb"
+    },
+    {
+      "path": "scripts/README.md",
+      "status": "modified",
+      "baseline_entry": "100644 blob 3aec0cda5a984df55a5e81a0bb791621daddacac",
+      "current_entry": "100644 blob 5854574bd2fcd9f90b290d625abfe1a6901e46a8"
+    },
+    {
+      "path": "scripts/build/android/build-local-sandboxed.sh",
+      "status": "modified",
+      "baseline_entry": "100755 blob a8ae55cc36a9b3f0b894639ce67ea976f9448742",
+      "current_entry": "100755 blob 54a122454e75a6f3af8dc00cf242ed680acba17f"
+    },
+    {
+      "path": "scripts/build/android/engine-build-number.sh",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 669561ad4f416b319ab66476216b865118cd9e68"
+    },
+    {
+      "path": "scripts/build/android/package-android-zh.sh",
+      "status": "modified",
+      "baseline_entry": "100755 blob 7b52738a18f9ba9980108a111f94c6d6dd6f7fd4",
+      "current_entry": "100755 blob aff563b8eededa64d98bed6d8411419cfd9d3b00"
+    },
+    {
+      "path": "scripts/qa/mod-localization-compat.h",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob cd9330e8c54a891358432719bf3f10ab5dc400b6"
+    },
+    {
+      "path": "scripts/qa/mod-localization-test.cpp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 19c054132878c9bb8c90b330e694e6fba40ca8af"
+    },
+    {
+      "path": "scripts/qa/save-map-compat.h",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 7340d1890c7214567d5171fcb11c3c39fd877b8f"
+    },
+    {
+      "path": "scripts/qa/smoke/mod-localization-fixture.cpp",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 253da628cb328af9155880f9561faa77cbb696cc"
+    },
+    {
+      "path": "scripts/qa/smoke/test-mod-localization.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 2638709c3cfabeb85c67e78cdb36e0b883a2d927"
+    },
+    {
+      "path": "scripts/qa/test-android-validation-staging.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob e89ce65861c43743fd39e0dea90439199bde1a68"
+    },
+    {
+      "path": "scripts/qa/test-engine-3277-hotfix.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob 5ee66282cee42abe8455a4e6ea641cff0160047a"
+    },
+    {
+      "path": "scripts/qa/test-engine-build-number.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob ba22f0fd60b580cc682bf555c3e1dd4eb3068648"
+    },
+    {
+      "path": "scripts/qa/test-mod-localization.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob a8558beb78fce122aef3e1f8b7f25b25acac3373"
+    },
+    {
+      "path": "scripts/qa/test-save-map-safety.py",
+      "status": "added",
+      "baseline_entry": null,
+      "current_entry": "100644 blob e8597cb1c11e879111b633727c392b9c79a9a1d7"
+    },
+    {
+      "path": "update/config.json",
+      "status": "modified",
+      "baseline_entry": "100644 blob cce3b5928841b983c190d456533055c3a1acb0a0",
+      "current_entry": "100644 blob b59ac2fc29647298b15e4801ae5255bf525e8605"
+    }
+  ]
+}

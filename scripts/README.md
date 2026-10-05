@@ -63,11 +63,18 @@ Utilities for large-scale code refactoring and fixes:
 
 ### `qa/` - Quality Assurance & Testing
 
+- `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
+  reconstruct the documented release-only GPU delta and inventory committed
+  differences. Requires the fetched audit refs, Git and OpenSSL; never builds.
 - `test-engine-build-number.py` - Exercise the production resolver against full,
   shallow and subsequently fetched Git graphs, including paths with spaces.
 - `test-engine-3277-hotfix.py` - Compile the production GPU-timer initialization
   block with host GL adapters and check serial-12 STUN/TURN fallback ordering.
   Neither test compiles the engine or replaces Android/device acceptance.
+
+Use `qa/test-mod-localization.py` for the current production GameText fixture
+suite. The older `qa/smoke/test-mod-localization.py` is retained but currently
+fails compilation from fixture drift; see the Engine 3277 source audit report.
 
 #### `qa/smoke/` - Smoke Tests
 - `test-mod-localization.py` - Compile production localization selection, CSF/STR parsers, and label lookup against synthetic BIG/loose fixtures (Python 3 + g++, with sanitizers). Uses `mod-localization-fixture.cpp`; no full engine build. Does not replace Android device QA.
