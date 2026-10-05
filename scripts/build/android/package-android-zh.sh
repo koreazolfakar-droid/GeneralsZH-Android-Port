@@ -181,7 +181,9 @@ fi
 VVL_STAGED="${STAGING}/vulkan_validation/libVkLayer_khronos_validation.so"
 if [[ ! -f "${VVL_STAGED}" ]]; then
     echo "==> Vulkan validation layer not staged yet; fetching"
-    "${PROJECT_ROOT}/scripts/build/android/fetch-vulkan-validation-layer.sh" || true
+    # GeneralsX @bugfix Codex 05/10/2026 Fetch into the selected staging root, including CI.
+    GX_VULKAN_VALIDATION="$(dirname "${VVL_STAGED}")" \
+        "${PROJECT_ROOT}/scripts/build/android/fetch-vulkan-validation-layer.sh" || true
 fi
 if [[ -f "${VVL_STAGED}" ]]; then
     cp "${VVL_STAGED}" "${JNILIBS}/"
