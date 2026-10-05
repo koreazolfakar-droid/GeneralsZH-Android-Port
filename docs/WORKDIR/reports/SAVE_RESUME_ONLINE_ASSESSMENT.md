@@ -113,3 +113,48 @@ After the Actions APK is produced and verified, install only with
 battle before/after update and check mod and settings persistence. Autosave and
 sidecar metadata are pending, not implemented in this step.
 No success claim for save/resume or online play.
+
+## Completed cached Actions build and artifact verification
+
+Native build run [37316733729](https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/37316733729)
+PASS, source commit 7ab71998932150132c9a5890f312ca858240769d from dev/mobile-v4.
+GitHub cache scope required running the existing workflow on its warm
+`debug/android-audio-sfx-v1` branch with an explicit mobile source_ref. Only the
+workflow was updated on that cache-host branch; engine sources remained on
+mobile. All four required caches restored. SDK installation was skipped;
+25 vcpkg packages restored from binary archives. Ccache reported 481 hits/482
+cacheable calls, but 2133 calls were uncacheable; this is not a claim that every
+object was reused. No clean build/cache deletion was performed. Checkout uses
+depth 1 to avoid historical APK blobs. Initial run 37316019216 was canceled before
+native compilation. Source-level save/localization tests passed on the runner.
+The remote TURN deferred-signalling fix is included; device efficacy is unproven.
+
+Original build passed native dependency checks, but artifact comparison found
+its optional validation library missing. Logs proved download succeeded into
+the fetcher's HOME default while packaging checked the configured staging root.
+Pass GX_VULKAN_VALIDATION explicitly; production-shell fixture tests PASS for
+selected paths, cached layers and unavailable-layer warnings.
+
+Final [verification/repackaging run 37319710595](https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/37319710595)
+PASS, without rebuilding either engine. Added the exact baseline validation
+library (SHA256 1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68),
+then aligned and signed with the unchanged committed debug key. Every original
+non-signature payload, including both engines, is verified byte-identical.
+All 17 baseline library names are present. Signature, package identity,
+versionCode 10401, ZIP CRC/duplicate entries/16 KiB alignment and AArch64 checks
+PASS. Detailed results: SAVE_ONLINE_DEBUG_APK_VERIFICATION.json.
+
+Final artifact: [GeneralsZH-SaveOnline-debug.apk](https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/37319710595/artifacts/11349493751)
+(download ZIP containing APK). Existing APK/artifacts, local baseline history,
+mods, saves, caches and compiled objects were preserved. Cross-branch artifact
+cleanup is disabled. Source was published as non-force Git data API commits;
+normal Git push authentication and large historical blob upload had failed.
+No local Android build or toolchain installation was attempted in this continuation.
+
+NOT TESTED: APK installation on the real device, full battle save/load, old
+full saves, in-place update persistence, Vanilla/mod switching, account renewal,
+match start/in-game cross-play/desync, touch/graphics/audio/language/settings.
+No app uninstall or data clear performed. Install only with:
+`adb install -r GeneralsZH-SaveOnline-debug.apk`.
+Sidecar mod-save metadata and autosave remain pending; no full save/resume or
+online success claim. Further online diagnosis requires a failed-match log.
