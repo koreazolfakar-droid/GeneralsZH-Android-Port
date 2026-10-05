@@ -466,7 +466,7 @@ void GameTextManager::init()
 	}
 #endif
 
-	if ( preferModCsf && getCSFInfo( csfFile.str(), m_textCount, m_language, csfInstance ) )
+	if ( preferModCsf && getCSFInfo( csfFile.str(), m_textCount, m_language, csfInstance ) && m_textCount > 0 )
 	{
 		format = CSF_FILE;
 	}

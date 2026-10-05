@@ -59,6 +59,7 @@ instance for STR as well as CSF. No class fields/layouts were added or removed.
 This intentionally follows a mod's supplied language when it has only English,
 rather than substituting faction names from a base translation. It changes text
 selection only, not the game's SKU language, assets, INI order or simulation.
+Empty mod CSF tables do not suppress a readable base STR table.
 STR-only mods retain the pre-existing behavior of having no CSF fallback table.
 Mods must actually supply valid localization labels; missing labels are not
 invented, and missing/corrupt mod data is not repaired by hardcoded names.
@@ -93,6 +94,9 @@ labels, and construction of a fresh manager with the mod active.
 - PASS: requested-language mod table wins; English mod fallback works; UTF-16
   Arabic CSF labels remain correct.
 - PASS: mod STR beats mod CSF and loose Vanilla STR; Vanilla CSF-only still loads.
+- PASS: empty mod CSF falls back to readable Vanilla STR; this regression was
+  first reproduced as FAIL, then fixed with a nonempty-table condition.
+- PASS: all 33 existing Android/JVM tests actually rerun (zero failures/errors).
 - PASS: host regression suite with AddressSanitizer and UndefinedBehaviorSanitizer.
 - PASS: actual Android GameText.cpp compile with existing NDK configuration/PCH.
   Two existing Char/EOF comparison warnings remain; no unrelated parser cleanup.

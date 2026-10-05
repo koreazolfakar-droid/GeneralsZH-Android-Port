@@ -141,6 +141,12 @@ int main(int argc, char** argv)
     puts("PASS: mod STR precedes mod CSF and loose Vanilla STR");
     mod.entries.erase(key("data/english/generals.str"));
 
+    const auto modCsf = mod.entries[key("data/english/generals.csf")];
+    mod.entries[key("data/english/generals.csf")] = csf({});
+    text.init(); expect(text, "GUI:Faction", L"Vanilla translation"); text.deinit();
+    mod.entries[key("data/english/generals.csf")] = modCsf;
+    puts("PASS: empty mod CSF does not suppress readable Vanilla STR");
+
     // Original Vanilla CSF-only path remains valid, including arbitrary source names.
     afs.archives = {&vanilla};
     gd.m_modDir = "";
