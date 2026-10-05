@@ -634,8 +634,9 @@ jobs:
       # `actions: write` above is what authorizes the delete call itself.
       # Best-effort throughout: a delete failing (already expired, already
       # deleted by a concurrent run) must not fail the build.
+      # GeneralsX @build Codex 05/10/2026 Preserve existing APK artifacts during baseline validation.
       - name: Delete superseded artifacts across all branches
-        if: always()
+        if: ${{ false }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
