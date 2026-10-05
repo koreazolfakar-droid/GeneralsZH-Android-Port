@@ -59,6 +59,10 @@
 #include "Common/FileSystem.h"
 #include "Common/version.h"
 
+#ifdef __ANDROID__
+#include "Common/ModLocalization.h"
+#endif
+
 
 
 
@@ -195,10 +199,10 @@ class GameTextManager : public GameTextInterface
 		void						readToEndOfQuote( File *file, Char *in, Char *out, Char *wavefile, Int maxBufLen );
 		void						reverseWord ( Char *file, Char *lp );
 		void						translateCopy( WideChar *outbuf, Char *inbuf );
-		Bool						getStringCount( const Char *filename, Int& textCount );
+		Bool						getStringCount( const Char *filename, Int& textCount, FileInstance instance = 0 );
 		Bool						getCSFInfo ( const Char *filename, Int& textCount, LanguageID& language, FileInstance instance = 0 );
 		Bool						parseCSF(  const Char *filename, StringInfo *stringInfo, Int textCount, Int& maxLabelLen, FileInstance instance = 0 );
-		Bool						parseStringFile( const char *filename );
+		Bool						parseStringFile( const char *filename, FileInstance instance = 0 );
 		Bool						parseMapStringFile( const char *filename );
 		Bool						readLine( char *buffer, Int max, File *file );
 		Char						readChar( File *file );
@@ -379,6 +383,34 @@ void GameTextManager::init()
 	else
 		strFile = g_strFile;
 
+	// GeneralsX @bugfix Codex 05/10/2026 Active mod tables outrank base STR/CSF files.
+	FileInstance csfInstance = 0;
+	FileInstance strInstance = 0;
+	AsciiString fallbackCSF = csfFile;
+	FileInstance fallbackInstance = 1;
+	Bool preferModCSF = FALSE;
+#ifdef __ANDROID__
+	const ModLocalizationSource csfSource = resolveModLocalization(csfFile, textLanguage, "generals.csf");
+	const ModLocalizationSource strSource = resolveModLocalization(strFile, textLanguage, "generals.str");
+	const ModLocalizationSource vanillaSource = resolveVanillaLocalization(csfFile);
+	csfFile = csfSource.filename;
+	csfInstance = csfSource.instance;
+	strFile = strSource.filename;
+	strInstance = strSource.instance;
+	preferModCSF = csfSource.activeMod && !strSource.activeMod;
+	if (csfSource.activeMod || strSource.activeMod)
+	{
+		fallbackCSF = vanillaSource.filename;
+		fallbackInstance = vanillaSource.instance;
+	}
+	fprintf(stderr, "[GX-MOD-LANG] activeMod=%s\n", TheGlobalData == nullptr ? "Vanilla" :
+		(TheGlobalData->m_modDir.isNotEmpty() ? TheGlobalData->m_modDir.str() :
+		(TheGlobalData->m_modBIG.isNotEmpty() ? TheGlobalData->m_modBIG.str() : "Vanilla")));
+	fprintf(stderr, "[GX-MOD-LANG] language=%s\n", textLanguage.str());
+	fprintf(stderr, "[GX-MOD-LANG] csfSource=%s\n", csfSource.description.str());
+	fprintf(stderr, "[GX-MOD-LANG] strSource=%s\n", strSource.description.str());
+#endif
+
 	Int format;
 
 	// GeneralsX @bugfix BenderAI 16/02/2026 - Debug CSF init
@@ -400,11 +432,11 @@ void GameTextManager::init()
 	}
 #endif
 
-	if ( m_useStringFile && getStringCount( strFile.str(), m_textCount ) )
+	if ( m_useStringFile && !preferModCSF && getStringCount( strFile.str(), m_textCount, strInstance ) )
 	{
 		format = STRING_FILE;
 	}
-	else if ( getCSFInfo ( csfFile.str(), m_textCount, m_language ) )
+	else if ( getCSFInfo ( csfFile.str(), m_textCount, m_language, csfInstance ) )
 	{
 		fprintf(stderr, "[CSF] init() - getCSFInfo OK, textCount=%d\n", m_textCount);
 		format = CSF_FILE;
@@ -412,6 +444,9 @@ void GameTextManager::init()
 	else
 	{
 		fprintf(stderr, "[CSF] init() - getCSFInfo FAILED\n");
+#ifdef __ANDROID__
+		fprintf(stderr, "[GX-MOD-LANG] overrideVanilla=false (no readable table)\n");
+#endif
 		return;
 	}
 
@@ -432,7 +467,7 @@ void GameTextManager::init()
 
 	if ( format == STRING_FILE )
 	{
-		if( parseStringFile( strFile.str() ) == FALSE )
+		if( parseStringFile( strFile.str(), strInstance ) == FALSE )
 		{
 			deinit();
 			return;
@@ -441,7 +476,7 @@ void GameTextManager::init()
 	else
 	{
 		fprintf(stderr, "[CSF] init() - Calling parseCSF()...\n");
-		if ( !parseCSF ( csfFile.str(), m_stringInfo, m_textCount, m_maxLabelLen ) )
+		if ( !parseCSF ( csfFile.str(), m_stringInfo, m_textCount, m_maxLabelLen, csfInstance ) )
 		{
 			fprintf(stderr, "[CSF] init() - parseCSF FAILED\n");
 			deinit();
@@ -465,20 +500,30 @@ void GameTextManager::init()
 
 	qsort( m_stringLUT, m_textCount, sizeof(StringLookUp), compareLUT  );
 
+#ifdef __ANDROID__
+	const Bool overrideVanilla = format == CSF_FILE ? csfSource.activeMod : strSource.activeMod;
+	fprintf(stderr, "[GX-MOD-LANG] overrideVanilla=%s\n", overrideVanilla ? "true" : "false");
+	fprintf(stderr, "[GX-MOD-LANG] selectedFormat=%s\n", format == CSF_FILE ? "CSF" : "STR");
+#else
+	const Bool overrideVanilla = FALSE;
+#endif
+
 	// GeneralsX @bugfix BenderAI 22/05/2026 Load fallback CSF instance when a mod provides an incomplete table.
-	if ( format == CSF_FILE )
+	if ( format == CSF_FILE || overrideVanilla )
 	{
 		Int fallbackCount = 0;
+		if (format == STRING_FILE)
+			m_language = LANGUAGE_ID_US;
 		LanguageID originalLanguage = m_language;
 
-		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, 1) && fallbackCount > 0 )
+		if ( getCSFInfo(fallbackCSF.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0 )
 		{
 			m_fallbackStringInfo = NEW StringInfo[fallbackCount];
 
 			if ( m_fallbackStringInfo != nullptr )
 			{
 				Int fallbackMaxLabelLen = m_maxLabelLen;
-				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, 1) )
+				if ( parseCSF(fallbackCSF.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
 				{
 					m_fallbackTextCount = fallbackCount;
 					m_maxLabelLen = max(m_maxLabelLen, fallbackMaxLabelLen);
@@ -1035,14 +1080,14 @@ void GameTextManager::translateCopy( WideChar *outbuf, Char *inbuf )
 // GameTextManager::getStringCount
 //============================================================================
 
-Bool GameTextManager::getStringCount( const char *filename, Int& textCount )
+Bool GameTextManager::getStringCount( const char *filename, Int& textCount, FileInstance instance )
 {
 	Int ok = TRUE;
 
 	textCount = 0;
 
 	File *file;
-	file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	file = TheFileSystem->openFile(filename, File::READ | File::TEXT, File::BUFFERSIZE, instance);
 	DEBUG_LOG(("Looking in %s for string file", filename));
 
 	if ( file == nullptr )
@@ -1294,12 +1339,12 @@ quit:
 // GameTextManager::parseStringFile
 //============================================================================
 
-Bool GameTextManager::parseStringFile( const char *filename )
+Bool GameTextManager::parseStringFile( const char *filename, FileInstance instance )
 {
 	Int listCount = 0;
 	Int ok = TRUE;
 
-	File *file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	File *file = TheFileSystem->openFile(filename, File::READ | File::TEXT, File::BUFFERSIZE, instance);
 
 	if ( file == nullptr )
 	{
