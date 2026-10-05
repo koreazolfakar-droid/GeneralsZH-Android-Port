@@ -59,6 +59,7 @@ Utilities for large-scale code refactoring and fixes:
 ### `qa/` - Quality Assurance & Testing
 
 #### `qa/smoke/` - Smoke Tests
+- `test-mod-localization.py` - Compile production localization selection, CSF/STR parsers, and label lookup against synthetic BIG/loose fixtures (Python 3 + g++, with sanitizers). Uses `mod-localization-fixture.cpp`; no full engine build. Does not replace Android device QA.
 - `docker-smoke-test-zh.sh` - Quick startup validation (expects crash, checks init output)
 - `run-bundled-game.sh` - Test bundled binary after deployment
 - `collect-flatpak-vulkan-wsi-report.sh` - Collect reproducible Flatpak Vulkan/XCB diagnostics for upstream runtime issues
