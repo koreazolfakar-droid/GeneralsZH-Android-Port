@@ -46,6 +46,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #include <cstdlib>
 #include <cctype>
+#include <string>
 
 #include "GameClient/GameText.h"
 #include "Common/Language.h"
@@ -57,6 +58,9 @@
 #include "Common/GlobalData.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "Common/ArchiveFileSystem.h"
+#include "Common/ArchiveFile.h"
+#include "Common/LocalFileSystem.h"
 #include "Common/version.h"
 
 
@@ -195,10 +199,10 @@ class GameTextManager : public GameTextInterface
 		void						readToEndOfQuote( File *file, Char *in, Char *out, Char *wavefile, Int maxBufLen );
 		void						reverseWord ( Char *file, Char *lp );
 		void						translateCopy( WideChar *outbuf, Char *inbuf );
-		Bool						getStringCount( const Char *filename, Int& textCount );
+		Bool						getStringCount( const Char *filename, Int& textCount, FileInstance instance = 0 );
 		Bool						getCSFInfo ( const Char *filename, Int& textCount, LanguageID& language, FileInstance instance = 0 );
 		Bool						parseCSF(  const Char *filename, StringInfo *stringInfo, Int textCount, Int& maxLabelLen, FileInstance instance = 0 );
-		Bool						parseStringFile( const char *filename );
+		Bool						parseStringFile( const char *filename, FileInstance instance = 0 );
 		Bool						parseMapStringFile( const char *filename );
 		Bool						readLine( char *buffer, Int max, File *file );
 		Char						readChar( File *file );
@@ -341,6 +345,45 @@ GameTextManager::~GameTextManager()
 extern const Char *g_strFile;
 extern const Char *g_csfFile;
 
+// GeneralsX @bugfix Codex 05/10/2026 Choose text by active archive ownership, not format alone.
+// This only reads the existing mount order. No archives, INI or game state are changed.
+static std::string gxTextArchivePath(const AsciiString& path)
+{
+	std::string result = path.str();
+	for (size_t i = 0; i < result.size(); ++i)
+	{
+		if (result[i] == '\\') result[i] = '/';
+		result[i] = (char)std::tolower((unsigned char)result[i]);
+	}
+	while (!result.empty() && result[result.size() - 1] == '/') result.erase(result.size() - 1);
+	return result;
+}
+
+static Int gxActiveModTextInstance(const AsciiString& filename)
+{
+	if (!TheGlobalData || !TheArchiveFileSystem) return -1;
+	ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(filename);
+	if (!archive) return -1;
+	const std::string source = gxTextArchivePath(archive->getName());
+	const std::string modBig = gxTextArchivePath(TheGlobalData->m_modBIG);
+	const std::string modDir = gxTextArchivePath(TheGlobalData->m_modDir);
+	const Bool owned = (!modBig.empty() && source == modBig)
+		|| (!modDir.empty() && source.compare(0, modDir.size() + 1, modDir + "/") == 0);
+	if (!owned) return -1;
+	// FileSystem counts a loose file as instance 0; the first archive is then instance 1.
+	return TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str()) ? 1 : 0;
+}
+
+static void gxLogTextSource(const AsciiString& filename, FileInstance instance, Int format, Bool modText)
+{
+	const Bool loose = TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str());
+	ArchiveFile* archive = TheArchiveFileSystem && (!loose || instance > 0)
+		? TheArchiveFileSystem->getArchiveFile(filename, instance - (loose ? 1 : 0)) : nullptr;
+	fprintf(stderr, "[GX-TEXT] format=%s path='%s' instance=%u source='%s' activeModText=%s\n",
+		format == CSF_FILE ? "CSF" : "STR", filename.str(), (unsigned)instance,
+		archive ? archive->getName().str() : "loose", modText ? "yes" : "no");
+}
+
 void GameTextManager::init()
 {
 	// GeneralsX @feature Android port 09/09/2026 The language of the TEXT, which is not
@@ -379,6 +422,29 @@ void GameTextManager::init()
 	else
 		strFile = g_strFile;
 
+	// A base .str must not hide a CSF supplied by -mod. Prefer the active mod's
+	// selected-language table, then its English table; Vanilla keeps STR-before-CSF.
+	// English fallback changes TEXT only, never the SKU language or mod mount order.
+	Int modStrInstance = gxActiveModTextInstance(strFile);
+	Int modCsfInstance = gxActiveModTextInstance(csfFile);
+	if (modStrInstance < 0 && modCsfInstance < 0 && textLanguage.compareNoCase("english") != 0)
+	{
+		AsciiString englishStr, englishCsf;
+		englishStr.format(g_strFile, "english");
+		englishCsf.format(g_csfFile, "english");
+		const Int englishStrInstance = gxActiveModTextInstance(englishStr);
+		const Int englishCsfInstance = gxActiveModTextInstance(englishCsf);
+		if (englishStrInstance >= 0 || englishCsfInstance >= 0)
+		{
+			strFile = englishStr;
+			csfFile = englishCsf;
+			modStrInstance = englishStrInstance;
+			modCsfInstance = englishCsfInstance;
+		}
+	}
+	const FileInstance strInstance = modStrInstance >= 0 ? modStrInstance : 0;
+	const FileInstance csfInstance = modCsfInstance >= 0 ? modCsfInstance : 0;
+	const Bool preferModCsf = modCsfInstance >= 0 && !(m_useStringFile && modStrInstance >= 0);
 	Int format;
 
 	// GeneralsX @bugfix BenderAI 16/02/2026 - Debug CSF init
@@ -400,11 +466,15 @@ void GameTextManager::init()
 	}
 #endif
 
-	if ( m_useStringFile && getStringCount( strFile.str(), m_textCount ) )
+	if ( preferModCsf && getCSFInfo( csfFile.str(), m_textCount, m_language, csfInstance ) )
+	{
+		format = CSF_FILE;
+	}
+	else if ( m_useStringFile && getStringCount( strFile.str(), m_textCount, strInstance ) )
 	{
 		format = STRING_FILE;
 	}
-	else if ( getCSFInfo ( csfFile.str(), m_textCount, m_language ) )
+	else if ( getCSFInfo ( csfFile.str(), m_textCount, m_language, csfInstance ) )
 	{
 		fprintf(stderr, "[CSF] init() - getCSFInfo OK, textCount=%d\n", m_textCount);
 		format = CSF_FILE;
@@ -432,7 +502,7 @@ void GameTextManager::init()
 
 	if ( format == STRING_FILE )
 	{
-		if( parseStringFile( strFile.str() ) == FALSE )
+		if( parseStringFile( strFile.str(), strInstance ) == FALSE )
 		{
 			deinit();
 			return;
@@ -441,7 +511,7 @@ void GameTextManager::init()
 	else
 	{
 		fprintf(stderr, "[CSF] init() - Calling parseCSF()...\n");
-		if ( !parseCSF ( csfFile.str(), m_stringInfo, m_textCount, m_maxLabelLen ) )
+		if ( !parseCSF ( csfFile.str(), m_stringInfo, m_textCount, m_maxLabelLen, csfInstance ) )
 		{
 			fprintf(stderr, "[CSF] init() - parseCSF FAILED\n");
 			deinit();
@@ -464,6 +534,9 @@ void GameTextManager::init()
 	}
 
 	qsort( m_stringLUT, m_textCount, sizeof(StringLookUp), compareLUT  );
+	gxLogTextSource(format == CSF_FILE ? csfFile : strFile,
+		format == CSF_FILE ? csfInstance : strInstance, format,
+		format == CSF_FILE ? modCsfInstance >= 0 : modStrInstance >= 0);
 
 	// GeneralsX @bugfix BenderAI 22/05/2026 Load fallback CSF instance when a mod provides an incomplete table.
 	if ( format == CSF_FILE )
@@ -471,14 +544,14 @@ void GameTextManager::init()
 		Int fallbackCount = 0;
 		LanguageID originalLanguage = m_language;
 
-		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, 1) && fallbackCount > 0 )
+		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, csfInstance + 1) && fallbackCount > 0 )
 		{
 			m_fallbackStringInfo = NEW StringInfo[fallbackCount];
 
 			if ( m_fallbackStringInfo != nullptr )
 			{
 				Int fallbackMaxLabelLen = m_maxLabelLen;
-				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, 1) )
+				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, csfInstance + 1) )
 				{
 					m_fallbackTextCount = fallbackCount;
 					m_maxLabelLen = max(m_maxLabelLen, fallbackMaxLabelLen);
@@ -1035,14 +1108,14 @@ void GameTextManager::translateCopy( WideChar *outbuf, Char *inbuf )
 // GameTextManager::getStringCount
 //============================================================================
 
-Bool GameTextManager::getStringCount( const char *filename, Int& textCount )
+Bool GameTextManager::getStringCount( const char *filename, Int& textCount, FileInstance instance )
 {
 	Int ok = TRUE;
 
 	textCount = 0;
 
 	File *file;
-	file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	file = TheFileSystem->openFile(filename, File::READ | File::TEXT, File::BUFFERSIZE, instance);
 	DEBUG_LOG(("Looking in %s for string file", filename));
 
 	if ( file == nullptr )
@@ -1294,12 +1367,12 @@ quit:
 // GameTextManager::parseStringFile
 //============================================================================
 
-Bool GameTextManager::parseStringFile( const char *filename )
+Bool GameTextManager::parseStringFile( const char *filename, FileInstance instance )
 {
 	Int listCount = 0;
 	Int ok = TRUE;
 
-	File *file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	File *file = TheFileSystem->openFile(filename, File::READ | File::TEXT, File::BUFFERSIZE, instance);
 
 	if ( file == nullptr )
 	{

@@ -44,7 +44,10 @@ if [[ -z "${GAME_LIB}" ]]; then
     exit 1
 fi
 
-rm -rf "${JNILIBS}"
+# GeneralsX @build Codex 05/10/2026 Keep staged native outputs during an incremental package.
+if [[ "${GX_INCREMENTAL:-0}" != "1" ]]; then
+    rm -rf "${JNILIBS}"
+fi
 mkdir -p "${JNILIBS}"
 cp "${GAME_LIB}" "${JNILIBS}/libmain.so"
 

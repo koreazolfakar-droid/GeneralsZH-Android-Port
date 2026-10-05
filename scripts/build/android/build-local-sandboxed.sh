@@ -120,8 +120,15 @@ cmake --preset "${PRESET}" \
 # `ln -sfn` onto an existing directory nests the link inside it instead of
 # replacing it, so remove the placeholder first.
 mkdir -p "build/${PRESET}/_deps"
-rm -rf "build/${PRESET}/_deps/sdl3-src"
-ln -sfn "${FETCHCONTENT_SRC}/SDL3-src" "build/${PRESET}/_deps/sdl3-src"
+# GeneralsX @build Codex 05/10/2026 Preserve existing intermediates for incremental builds.
+if [[ "${GX_INCREMENTAL:-0}" == "1" ]]; then
+  if [[ ! -e "build/${PRESET}/_deps/sdl3-src" ]]; then
+    ln -s "${FETCHCONTENT_SRC}/SDL3-src" "build/${PRESET}/_deps/sdl3-src"
+  fi
+else
+  rm -rf "build/${PRESET}/_deps/sdl3-src"
+  ln -sfn "${FETCHCONTENT_SRC}/SDL3-src" "build/${PRESET}/_deps/sdl3-src"
+fi
 
 echo "=== [7/8] Build z_generals + DXVK d3d8/d3d9 + hooks ==="
 cmake --build "build/${PRESET}" --target z_generals dxvk_d3d8_install \
@@ -207,7 +214,9 @@ fi
 # byte, and again at 58MB where 18MB turned out to be orphaned. Re-running
 # packaging costs ~10s against a native build measured in minutes, so pay it
 # unconditionally rather than shipping a mystery-sized APK.
-rm -rf android/app/build
+if [[ "${GX_INCREMENTAL:-0}" != "1" ]]; then
+  rm -rf android/app/build
+fi
 
 ./scripts/build/android/package-android-zh.sh
 
