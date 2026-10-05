@@ -206,7 +206,8 @@ fi
 # Turnip driver at ${GX_ANDROID_STAGING}/default_driver/{meta.json,*.so} --
 # both are fetched from github.com release assets, which this script can't
 # reach itself.
-# Always package from a clean Gradle build dir. AGP's incremental packager
+# Default packaging uses a fresh Gradle build dir. GX_INCREMENTAL=1 keeps it.
+# AGP's incremental packager
 # can leave superseded entries physically in the zip when a library shrinks,
 # rewriting only the central directory -- the .apk then carries dead weight
 # that no amount of stripping removes. This has bitten twice now: once when

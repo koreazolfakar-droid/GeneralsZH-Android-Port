@@ -104,7 +104,42 @@ labels, and construction of a fresh manager with the mod active.
 - NOT RUN: physical-device Vanilla -> Project X Re -> Vanilla, restart, gameplay,
   replay/CRC or audio/render compatibility. Local Windows USB ADB is inaccessible
   from this workspace; no cloud ADB test is substituted for a local-device result.
-- Dual-Hz build and APK validation: pending at time of initial report.
+- PASS: required incremental dual-Hz build completed; native 60 Hz and 30 Hz both
+  built from the same final source tree and packaged successfully.
+- PASS: ZIP CRC, AArch64 engines, localization marker in both libraries, Debug
+  signature, 16 KiB ZIP alignment, unchanged signing certificate/package/version.
+- PASS: all non-signature APK payloads match baseline except libmain.so,
+  libmain60.so and generated assets/engine_build.txt (build serial 3293 -> 3302).
+  All 15 other native libraries, Dex, UI resources, manifest and runtime assets
+  are byte-identical. App version stays 10400 / 1.4.0.
+
+Final artifact: `apk/GeneralsZH-ModLocalization-debug.apk`.
+Exact path: `/workspace/GeneralsZH-Android-Port/apk/GeneralsZH-ModLocalization-debug.apk`.
+Size: 68,721,766 bytes (68.72 MB).
+SHA-256: `dad623da50f4ecb54d51090249fc833051d636aaebe4e563a30f381565c2a602`.
+Engine source build commit: `9b741938c608e56ed31575d11257d99a8ff91ca2`.
+Package/version: `com.generalsx.zerohour`, `10400` / `1.4.0`.
+The stable original APK remains outside the repository APK directory at
+`/workspace/scratch/mod-localization/baseline.apk`.
+
+Incremental Gradle packaging initially produced a 92,293,710-byte ZIP with
+orphaned old local entries. Only the final output archive was normalized to a
+fresh ZIP, aligned and signed with the existing `android/app/debug.keystore`
+configuration. All payloads were verified unchanged by this packaging step;
+no caches, native outputs or build directories were deleted.
+
+Warnings/retries: inherited Char/EOF and legacy macro/enum warnings remain.
+Two earlier native build attempts were deliberately interrupted for fixture
+regression fixes, then the complete dual-Hz build was rerun successfully. One
+post-pack signing attempt used the absent per-machine default key path; signing
+was corrected to the existing explicit project debug key and certificate
+identity verified. There are no final compilation, signing or alignment errors.
+
+Publication: origin/dev/mobile-v4 has independent updates (remote tip observed
+as f0f62a7ec214acf97f5c3ea692d521c637ce4b70). This tested APK preserves the local
+stable premium launcher baseline. No remote branch was overwritten or unrelated
+network changes merged; commits remain local, with APK delivery via a temporary
+direct download.
 
 Run fixtures: `python3 scripts/qa/test-mod-localization.py`.
 The adapters mock mounts/framework types; CSF/STR parsing, init, lookup and
