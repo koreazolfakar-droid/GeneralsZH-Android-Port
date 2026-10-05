@@ -1,0 +1,23 @@
+{
+  "apk": "GeneralsZH-SaveOnline-debug.apk",
+  "bytes": 68721766,
+  "sha256": "aab21499a809bc9c700bade2e7c6184a0fa94a6f5cd5e6b29794d73684bbea22",
+  "package": "com.generalsx.zerohour",
+  "version_code": 10401,
+  "version_name": "1.4.1-save-online-debug",
+  "signer_sha256": "644a3b0f8234c6ea8960ece9b55a161c00966b8dd522d2558d84883f4f77c48e",
+  "native_libraries": 17,
+  "signature_identity_zip_alignment_crc_and_AArch64": "PASS",
+  "device_tests": "NOT TESTED",
+  "native_source_commit": "7ab71998932150132c9a5890f312ca858240769d",
+  "packaging_source_commit": "79bf3f9364cf127a2df4a1efc86f1bf8559e9c96",
+  "native_build_run": 37316733729,
+  "final_packaging_verification_run": 37319710595,
+  "final_apk_artifact_id": 11349493751,
+  "original_apk_artifact_retained": 11348502039,
+  "non_signature_original_payloads_unchanged": "PASS",
+  "validation_library_matches_baseline": "PASS",
+  "android_sdk_vcpkg_dxvk_ccache_restored": "PASS",
+  "clean_build_performed": false,
+  "installation_performed": false
+}
