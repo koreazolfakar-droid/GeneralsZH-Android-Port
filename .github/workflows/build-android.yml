@@ -43,6 +43,10 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      recovery_only:
+        type: boolean
+        description: "Restore Engine 3333 caches and inventory them; never compile or package."
+        default: false
       restore_validation_layer:
         type: boolean
         description: "Repackage the existing APK with the baseline validation library; no native build."
@@ -84,7 +88,7 @@ on:
 
 jobs:
   build-android:
-    if: ${{ !inputs.verify_apk_run }}
+    if: ${{ !inputs.recovery_only && (!inputs.verify_apk_run) }}
     name: apk@${{ inputs.preset || 'android-vulkan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -759,7 +763,7 @@ jobs:
 
   # GeneralsX @build Codex 05/10/2026 Verify the existing artifact on a warm runner without recompiling.
   verify-existing-apk:
-    if: ${{ inputs.verify_apk_run != '' }}
+    if: ${{ !inputs.recovery_only && (inputs.verify_apk_run != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -871,3 +875,148 @@ jobs:
           name: GeneralsZH-SaveOnline-debug.apk
           path: verification-output/GeneralsZH-SaveOnline-debug.apk
           retention-days: 7
+
+  recover-engine-3333:
+    if: ${{ inputs.recovery_only }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: c3043dcfb89570351ca33adfa786bcede8532843
+          fetch-depth: 0
+          filter: blob:none
+          clean: false
+          persist-credentials: false
+      - name: Restore exact SDK cache used by Engine 3333
+        uses: actions/cache/restore@v5
+        id: recovery-sdk
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+          fail-on-cache-miss: true
+      - name: Restore compiler cache saved by the exact Engine 3333 run
+        uses: actions/cache/restore@v5
+        id: recovery-ccache
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-android-vulkan-37412214201
+          fail-on-cache-miss: true
+      - name: Restore exact vcpkg outputs and binary cache used by Engine 3333
+        uses: actions/cache/restore@v5
+        id: recovery-vcpkg
+        with:
+          path: |
+            /opt/vcpkg
+            ~/.cache/vcpkg
+          key: vcpkg-android-Linux-42e4e33e1505c9f47b58c21e0f557c1571b751ee-7ce4ed9d0aa429aa37ee9be4b879ea3dab54fed831f88e188df276311acd88bd
+          fail-on-cache-miss: true
+      - name: Restore exact existing DXVK build tree used by Engine 3333
+        uses: actions/cache/restore@v5
+        id: recovery-dxvk
+        with:
+          path: build/android-vulkan/_deps/dxvk-build-android
+          key: dxvk-android-Linux-koreazolfakar-droid/GeneralsZH-Android-Port-46a3bc018bcae408d49d3c500e4e536a11f6789a-8cbe1c09687c9725236c84a31c3f76c2d3ea6bc66259a85e321a11774683bb07
+          fail-on-cache-miss: true
+      - name: Download original APK strictly for hash/provenance comparison
+        uses: actions/download-artifact@v5
+        with:
+          name: GeneralsXZH-android-run8.apk
+          run-id: 37412214201
+          github-token: ${{ github.token }}
+          path: verification-input
+      - name: Inventory and export recovered cache bytes without a build
+        env:
+          SDK_CACHE: ${{ steps.recovery-sdk.outputs.cache-matched-key }}
+          CCACHE_CACHE: ${{ steps.recovery-ccache.outputs.cache-matched-key }}
+          VCPKG_CACHE: ${{ steps.recovery-vcpkg.outputs.cache-matched-key }}
+          DXVK_CACHE: ${{ steps.recovery-dxvk.outputs.cache-matched-key }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYRECOVERY'
+          
+          import collections, hashlib, json, os, pathlib, subprocess, tarfile, zipfile
+          root=pathlib.Path.cwd(); out=root/'recovery-export'; out.mkdir(exist_ok=True)
+          sha=lambda p: hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
+          source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert source=='c3043dcfb89570351ca33adfa786bcede8532843'
+          assert subprocess.check_output(['git','rev-list','--count','HEAD'],text=True).strip()=='3333'
+          ccache=pathlib.Path.home()/'.cache/ccache'
+          vcpkg=pathlib.Path('/opt/vcpkg')
+          archives=pathlib.Path.home()/'.cache/vcpkg/archives'
+          dxvk=root/'build/android-vulkan/_deps/dxvk-build-android'
+          sdk=pathlib.Path('/opt/android-sdk')
+          errors=[]
+          def inventory(directory):
+              rows=[]
+              if not directory.exists(): return rows
+              for dirname,dirs,files in os.walk(directory,onerror=lambda e:errors.append(str(e))):
+                  dirs[:]=[d for d in dirs if d!='.git']
+                  for name in files:
+                      p=pathlib.Path(dirname)/name
+                      if p.is_symlink():continue
+                      try:rows.append({'path':str(p.relative_to(directory)), 'size':p.stat().st_size})
+                      except OSError as e:errors.append(str(e))
+              return rows
+          cc=inventory(ccache); dv=inventory(dxvk); vc=inventory(vcpkg); ar=inventory(archives)
+          assert cc and dv and vc and ar,'Required exact cache content absent after restore'
+          manifest={'engine':3333,'source_commit':source,'original_build_run':37412214201,
+           'recovery_run':os.environ['GITHUB_RUN_ID'],'build_performed':False,'cache_keys':{},
+           'ccache_files':cc,'dxvk_files':dv,'vcpkg_files':vc,'binary_archive_files':ar,'access_errors':errors}
+          for name in ('SDK_CACHE','CCACHE_CACHE','VCPKG_CACHE','DXVK_CACHE'):
+              manifest['cache_keys'][name]=os.environ[name]
+          manifest['ndk_properties']=(sdk/'ndk/27.2.12479018/source.properties').read_text()
+          manifest['vcpkg_revision']=subprocess.check_output(['git','-C',str(vcpkg),'rev-parse','HEAD'],text=True).strip()
+          assert manifest['vcpkg_revision']=='42e4e33e1505c9f47b58c21e0f557c1571b751ee'
+          manifest['vcpkg_compiled_files']=[{**p,'sha256':sha(vcpkg/p['path'])} for p in vc
+           if pathlib.Path(p['path']).suffix in ('.a','.so') or '.so.' in p['path']]
+          manifest['dxvk_native_files']=[{**p,'sha256':sha(dxvk/p['path'])} for p in dv
+           if pathlib.Path(p['path']).suffix in ('.o','.a','.so')]
+          manifest['ccache_result_count']=sum(p['path'].endswith('R') for p in cc)
+          manifest['ccache_manifest_count']=sum(p['path'].endswith('M') for p in cc)
+          manifest['binary_packages']=[]
+          for row in ar:
+              p=archives/row['path']
+              if p.suffix!='.zip':continue
+              with zipfile.ZipFile(p) as z:
+                  control=z.read('CONTROL').decode() if 'CONTROL' in z.namelist() else ''
+                  manifest['binary_packages'].append({**row,'sha256':sha(p),'control':control,
+                    'compiled_entries':[n for n in z.namelist() if n.endswith(('.a','.so'))],
+                    'installed_size':sum(i.file_size for i in z.infolist())})
+          # Do not extract the APK or substitute its binary payload for missing build state.
+          apks=list((root/'verification-input').rglob('*.apk'));assert len(apks)==1
+          apk=apks[0];assert sha(apk)=='c6ba07ccca6ca10b3b5489c5ca12bdd0435608a75efcb633432dd284a4a24cbd'
+          with zipfile.ZipFile(apk) as z:
+              baseline=json.loads(z.read('assets/engine_provenance.json'))
+              assert int(z.read('assets/engine_build.txt'))==3333 and baseline['source_commit']==source
+              manifest['apk_for_verification_only']=baseline
+              for row in manifest['dxvk_native_files']:
+                  name=pathlib.Path(row['path']).name
+                  if name in baseline['native_libraries']:
+                      row['matches_verified_3333_apk']=row['sha256']==baseline['native_libraries'][name]['sha256']
+          manifest['engine_cmake_state']=(root/'build/android-vulkan/CMakeCache.txt').exists()
+          manifest['engine_ninja_state']=(root/'build/android-vulkan/build.ninja').exists()
+          manifest['engine_objects']=[str(p.relative_to(root)) for base in ('Core','GeneralsMD')
+           for p in (root/'build/android-vulkan'/base).rglob('*.o')]
+          manifest['engine_outputs']=[str(p.relative_to(root)) for p in (root/'build').rglob('libmain*.so')]
+          manifest['gradle_cache_files']=inventory(pathlib.Path.home()/'.gradle/caches')
+          for name,directory in (('ccache-3333',ccache),('dxvk-used-by-3333',dxvk)):
+              target=out/(name+'.tar.gz')
+              with tarfile.open(target,'w:gz') as t:t.add(directory,arcname=name)
+              manifest.setdefault('exports',[]).append({'name':target.name,'sha256':sha(target),'size':target.stat().st_size})
+          (out/'recovery-inventory.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          print(json.dumps({key:manifest[key] for key in ('source_commit','engine','recovery_run','engine_cmake_state',
+           'engine_ninja_state','engine_outputs','engine_objects','ccache_result_count','ccache_manifest_count','exports')},indent=2))
+          print('Restored',len(manifest['binary_packages']),'vcpkg binary package archives; no installation or compilation executed.')
+          PYRECOVERY
+      - name: Preserve recovery reports and compiler/DXVK build state
+        uses: actions/upload-artifact@v7
+        with:
+          name: engine-3333-recovery-core
+          path: recovery-export/
+          compression-level: 0
+          retention-days: 30
