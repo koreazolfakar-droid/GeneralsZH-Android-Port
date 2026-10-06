@@ -10,11 +10,13 @@ macro(gx_baseline_dependency method dependency)
       add_library(adrenotools SHARED IMPORTED GLOBAL)
       set_target_properties(adrenotools PROPERTIES
         IMPORTED_LOCATION "${_gx_assets}/libadrenotools.so"
-        INTERFACE_INCLUDE_DIRECTORIES "${_gx_assets}/adrenotools/include")
+        INTERFACE_INCLUDE_DIRECTORIES "${_gx_assets}/adrenotools/include"
+        INTERFACE_LINK_LIBRARIES android)
     endif()
     FetchContent_SetPopulated(adrenotools SOURCE_DIR "${_gx_assets}/adrenotools" BINARY_DIR "${_gx_common}/_deps/adrenotools-reused")
   elseif("$ENV{GX_REUSE_RUNTIME}" STREQUAL "1")
     if(_gx_dep STREQUAL "sdl3")
+      set(SDL3_SOURCE_DIR "${_gx_common}/_deps/sdl3-src")
       add_library(SDL3-shared SHARED IMPORTED GLOBAL)
       set_target_properties(SDL3-shared PROPERTIES IMPORTED_LOCATION "${_gx_common}/_deps/sdl3-build/libSDL3.so"
         INTERFACE_INCLUDE_DIRECTORIES "${_gx_common}/_deps/sdl3-src/include;${_gx_common}/_deps/sdl3-build/include")

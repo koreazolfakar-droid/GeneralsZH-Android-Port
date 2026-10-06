@@ -74,8 +74,13 @@ def build(directory, targets, phase):
     run(['cmake','--build',directory,'--target',*targets,'--parallel','2'], 'build-' + phase, phase)
 # Missing direct runtime dependencies only. The identical verified adrenotools
 # output is imported; DXVK's ExternalProject target is never selected.
-configure(common, False, False)
-build(common, ['SDL3-shared','SDL3_image-shared','OpenAL','gamespy'], 'missing-direct-runtime')
+runtime_outputs = [common/'_deps/sdl3-build/libSDL3.so',common/'_deps/sdl3_image-build/libSDL3_image.so',
+                   common/'_deps/openal_soft-build/libopenal.so',common/'libgamespy.so']
+if all(p.is_file() for p in runtime_outputs):
+    report['restored_runtime_state_reused_without_rebuild'] = True
+else:
+    configure(common, False, False)
+    build(common, ['SDL3-shared','SDL3_image-shared','OpenAL','gamespy'], 'missing-direct-runtime')
 runtime = {'libSDL3.so':common/'_deps/sdl3-build/libSDL3.so',
            'libSDL3_image.so':common/'_deps/sdl3_image-build/libSDL3_image.so',
            'libopenal.so':common/'_deps/openal_soft-build/libopenal.so',
@@ -86,7 +91,9 @@ comparison = []
 dependency_dir = out/'runtime-comparison'; dependency_dir.mkdir(exist_ok=True)
 for name,path in runtime.items():
     checked = dependency_dir/name
-    if name not in ('libadrenotools.so',):
+    # Production package-android-zh.sh copies the NDK C++ runtime unchanged.
+    # Only project-built dependencies use the explicit strip-unneeded pass.
+    if name not in ('libadrenotools.so','libc++_shared.so'):
         run([llvm/'llvm-strip','--strip-unneeded','-o',checked,path], 'strip-comparison-'+name)
     else: shutil.copyfile(path,checked)
     digest = sha(checked); expected = baseline['native_libraries'][name]['sha256']
