@@ -1095,7 +1095,9 @@ jobs:
           if ! command -v ccache; then
             mkdir -p host-tool-recovery
             cd host-tool-recovery
-            apt-get download ccache libhiredis0.14
+            hiredis="$(apt-cache depends ccache | awk '/Depends: libhiredis/ {print $2; exit}')"
+            test -n "$hiredis"
+            apt-get download ccache "$hiredis"
             for package in *.deb; do dpkg-deb -x "$package" extracted; done
             echo "$PWD/extracted/usr/bin" >> "$GITHUB_PATH"
             echo "LD_LIBRARY_PATH=$PWD/extracted/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
@@ -1114,6 +1116,26 @@ jobs:
           )"
           echo "identity=$identity" >> "$GITHUB_OUTPUT"
           echo "sequence=$sequence" >> "$GITHUB_OUTPUT"
+      - name: Restore any previously saved common baseline state
+        uses: actions/cache/restore@v5
+        with:
+          path: build/android-vulkan
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
+      - name: Restore any previously saved 30 Hz engine baseline
+        uses: actions/cache/restore@v5
+        with:
+          path: build/engine-baseline-30
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
+      - name: Restore any previously saved 60 Hz engine baseline
+        uses: actions/cache/restore@v5
+        with:
+          path: build/engine-baseline-60
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
+      - name: Restore augmented baseline compiler cache after original recovery
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ccache
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache
       - name: Run limited engine baseline and dependency compatibility gate
         run: python3 "$GX_BASELINE_TOOLS/build.py"
       - name: Record ccache results and every actual compiler invocation
@@ -1143,7 +1165,7 @@ jobs:
           path: build/engine-baseline-60
           key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
       - name: Preserve augmented compiler cache without deleting original
-        if: always()
+        if: ${{ always() && steps.tools.outputs.identity != '' }}
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/ccache
