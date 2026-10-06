@@ -44,7 +44,8 @@ def main():
     manifest_bytes = git('show', 'upstream/updates:manifest.json')
     manifest = json.loads(manifest_bytes)
     assert manifest['engine']['seq'] == 3277 and manifest['serial'] == 12, manifest
-    update_source = (root / 'android/app/src/main/java/com/generalsx/zerohour/UpdateManager.java').read_text()
+    # Historical upstream identity, independent of our launcher's new trust root.
+    update_source = git('show', RELEASE + ':android/app/src/main/java/com/generalsx/zerohour/UpdateManager.java').decode()
     public_key = re.search(r'PUBLIC_KEY_B64\s*=\s*"([^"]+)"', update_source).group(1)
     signature = base64.b64decode(git('show', 'upstream/updates:manifest.json.sig').strip())
     baseline = tree(RELEASE)
@@ -79,7 +80,11 @@ def main():
                if baseline.get(name) != current.get(name)]
     assert current[GPU] == baseline[GPU], 'GPU file is not the release + documented hotfix'
     config = json.loads((root / 'update/config.json').read_text())
-    assert all(config.get(key) == value for key, value in manifest['config'].items())
+    # Own-channel bootstrap changes only the data-manifest routing, not network/checksum values.
+    assert all(config.get(key) == value for key, value in manifest['config'].items()
+               if key != 'datapack_manifest_url')
+    assert config.get('datapack_manifest_url') in (manifest['config']['datapack_manifest_url'],
+                                                'https://cdn.playgenerals.online/manifest.json')
     integration = git('diff', '--name-only', START, 'HEAD').decode().splitlines()
     assert not any('/GameLogic/' in path or path.endswith(('/XferSave.cpp', '/XferLoad.cpp'))
                    for path in integration), 'unexpected simulation/serialization integration'
@@ -96,7 +101,8 @@ def main():
         'unpublished_hotfix_commit': '2cc428d1b (unavailable; documented, not independently resolved)',
         'comparison_basis': 'reconstructed release tree plus only published GPU timer delta',
         'gpu_file_matches_documented_3277': True,
-        'bundled_config_matches_signed_manifest': True,
+        'bundled_network_config_matches_signed_manifest': True,
+        'datapack_manifest_routing': config['datapack_manifest_url'],
         'full_history_count': int(git('rev-list', '--count', 'HEAD')),
         'integration_files': integration, 'difference_count': len(changed), 'differences': changed,
     }, indent=2))

@@ -3,7 +3,6 @@ package com.generalsx.zerohour;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
-import android.util.Base64;
 import android.util.Log;
 
 import org.json.JSONObject;
@@ -18,11 +17,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.MessageDigest;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
 
@@ -34,7 +29,7 @@ import java.util.zip.GZIPInputStream;
  * libmain.so.gz}, {@code libmain60.so.gz}). The launcher fetches the manifest, and uses it only if
  *
  * <ul>
- *   <li>the signature verifies against {@link #PUBLIC_KEY_B64} (ECDSA P-256 over the exact bytes;
+ *   <li>the signature verifies against the public-only APK asset (ECDSA P-256 over the exact bytes;
  *       the private key never enters the repository -- see docs/HOWTO/PUBLISH_UPDATE.md), and</li>
  *   <li>its {@code serial} is not lower than the last one accepted, so an old signed manifest
  *       cannot be replayed to roll players back.</li>
@@ -62,16 +57,12 @@ import java.util.zip.GZIPInputStream;
 final class UpdateManager {
     private static final String TAG = "GXUpdate";
 
-    static final String BASE_URL =
-        "https://raw.githubusercontent.com/MYSOREZ/GeneralsZH-Android-Port/updates/";
-
-    /** SubjectPublicKeyInfo (DER, base64) of the update signing key. */
-    static final String PUBLIC_KEY_B64 =
-        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFjy+4K0lTRmnwQe+nQqXreCMtJehCl1wiYNgq5Rr/MHWkDukps0eUbmuyxSenyFL4T5zo+WBIFeLDO5PXFoG/A==";
+    // GeneralsX @feature Codex 06/10/2026 Independent repository and public signing identity.
+    static final String BASE_URL = UpdateTrust.BASE_URL;
 
     static final String[] ENGINE_LIBS = { "libmain.so", "libmain60.so" };
 
-    private static final String PREFS = "gx_update";
+    private static final String PREFS = "gx_update_own_v1";
     private static final String KEY_SERIAL = "serial";
     private static final String KEY_AUTO = "auto_check";
     private static final String KEY_LAST_CHECK = "last_check";
@@ -90,11 +81,11 @@ final class UpdateManager {
     }
 
     private static File engineRoot(Context ctx) {
-        return new File(updateDir(ctx), "engine");
+        return new File(updateDir(ctx), "engine_own_v1");
     }
 
     private static File activeEngineMarker(Context ctx) {
-        return new File(updateDir(ctx), "engine_active.txt");
+        return new File(updateDir(ctx), "engine_active_own_v1.txt");
     }
 
     /** Written before an updated engine is loaded, deleted by the engine at its main menu. */
@@ -103,14 +94,15 @@ final class UpdateManager {
     }
 
     private static File badEngineMarker(Context ctx) {
-        return new File(updateDir(ctx), "engine_bad.txt");
+        return new File(updateDir(ctx), "engine_bad_own_v1.txt");
     }
 
     // ---------------------------------------------------------------------------------------
     // Settings
 
     static boolean isAutoCheckEnabled(Context ctx) {
-        return prefs(ctx).getBoolean(KEY_AUTO, true);
+        return prefs(ctx).getBoolean(KEY_AUTO,
+            ctx.getSharedPreferences("gx_update", Context.MODE_PRIVATE).getBoolean(KEY_AUTO, true));
     }
 
     static void setAutoCheckEnabled(Context ctx, boolean enabled) {
@@ -174,6 +166,9 @@ final class UpdateManager {
 
     /** Absolute path of an updated engine library, or null to load the APK's own. */
     static String activeEngineLibrary(Context ctx, String libName) {
+        if (!libName.equals("libmain.so") && !libName.equals("libmain60.so")) {
+            return null;
+        }
         int seq = activeEngineSeq(ctx);
         if (seq == 0) {
             return null;
@@ -250,22 +245,37 @@ final class UpdateManager {
      * @param withEngine also download a newer engine -- the Updates card on the home screen, which
      *        is the engine's place; the multiplayer screen passes false.
      */
-    static Result check(Context ctx, boolean withEngine) {
+    static synchronized Result check(Context ctx, boolean withEngine) {
         Result r = new Result();
         try {
             byte[] manifestBytes = download(BASE_URL + "manifest.json", 256 * 1024);
             byte[] signatureText = download(BASE_URL + "manifest.json.sig", 16 * 1024);
-            if (!verify(manifestBytes, signatureText)) {
+            if (!verify(ctx, manifestBytes, signatureText)) {
                 r.error = "signature";
                 return r;
             }
             JSONObject manifest = new JSONObject(new String(manifestBytes, StandardCharsets.UTF_8));
-            r.serial = manifest.optInt("serial", 0);
+            if (manifest.optInt("schema", 0) != 1
+                    || !UpdateTrust.CHANNEL.equals(manifest.optString("channel", ""))) {
+                r.error = "unsupported update channel or schema";
+                return r;
+            }
+            r.serial = manifest.getInt("serial");
+            if (r.serial <= 0) {
+                r.error = "invalid manifest serial";
+                return r;
+            }
             if (r.serial < acceptedSerial(ctx)) {
                 r.error = "older manifest (" + r.serial + " < " + acceptedSerial(ctx) + ")";
                 return r;
             }
 
+            File accepted = new File(updateDir(ctx), "manifest_own_v1.json");
+            if (r.serial == acceptedSerial(ctx) && accepted.isFile()
+                    && !java.util.Arrays.equals(readFile(accepted), manifestBytes)) {
+                r.error = "manifest serial reused with different bytes";
+                return r;
+            }
             File dir = updateDir(ctx);
             if (!dir.isDirectory() && !dir.mkdirs()) {
                 r.error = "cannot create " + dir;
@@ -281,12 +291,13 @@ final class UpdateManager {
 
             JSONObject engine = manifest.optJSONObject("engine");
             if (engine != null && withEngine) {
-                applyEngine(ctx, engine, r);
+                applyEngine(ctx, engine, manifestBytes, signatureText, r);
             }
 
             noticeNewerDatapack(ctx, r);
 
-            writeBytes(new File(dir, "manifest.json"), manifestBytes);
+            writeBytes(new File(dir, "manifest_own_v1.json"), manifestBytes);
+            writeBytes(new File(dir, "manifest_own_v1.json.sig"), signatureText);
             SharedPreferences.Editor edit = prefs(ctx).edit();
             if (r.serial != acceptedSerial(ctx) || !prefs(ctx).contains(KEY_SETTINGS_DATE)) {
                 // Players see the settings by date, not by serial. A manifest from before the
@@ -470,10 +481,12 @@ final class UpdateManager {
         }
     }
 
-    private static void applyEngine(Context ctx, JSONObject engine, Result r) throws Exception {
+    private static void applyEngine(Context ctx, JSONObject engine, byte[] manifestBytes,
+                                    byte[] signatureText, Result r) throws Exception {
         int seq = engine.optInt("seq", 0);
         r.engineSeq = seq;
-        if (seq <= bundledEngineSeq(ctx) || seq == readInt(badEngineMarker(ctx))) {
+        if (seq <= bundledEngineSeq(ctx) || seq < readInt(activeEngineMarker(ctx))
+                || seq == readInt(badEngineMarker(ctx))) {
             return;
         }
         JSONObject requires = engine.optJSONObject("requires_libs");
@@ -483,6 +496,9 @@ final class UpdateManager {
         }
         File target = new File(engineRoot(ctx), Integer.toString(seq));
         JSONObject files = engine.getJSONObject("files");
+        if (files.length() != ENGINE_LIBS.length) {
+            throw new IOException("engine entry must contain exactly both rate slots");
+        }
         boolean all = true;
         for (String lib : ENGINE_LIBS) {
             JSONObject entry = files.optJSONObject(lib);
@@ -492,17 +508,29 @@ final class UpdateManager {
             }
             File out = new File(target, lib);
             String sha = entry.getString("sha256");
+            String expectedUrl = BASE_URL + "engine/" + seq + "/" + lib + ".gz";
+            long size = entry.getLong("size");
+            if (!sha.matches("[a-fA-F0-9]{64}") || size <= 0 || size > 256L * 1024 * 1024
+                    || !expectedUrl.equals(entry.getString("url"))) {
+                throw new IOException("invalid engine file identity or URL");
+            }
             if (out.isFile() && sha.equalsIgnoreCase(sha256(out))) {
                 continue;
             }
-            downloadEngineFile(entry.getString("url"), entry.optLong("size", 0L), sha, out);
+            if (out.isFile() && readInt(activeEngineMarker(ctx)) == seq) {
+                throw new IOException("cannot replace an activated engine with different bytes");
+            }
+            downloadEngineFile(expectedUrl, size, sha, out);
         }
         if (!all) {
             r.error = "engine entry is missing a library";
             return;
         }
         boolean wasActive = readInt(activeEngineMarker(ctx)) == seq;
-        writeText(activeEngineMarker(ctx), Integer.toString(seq));
+        // Retain the signed engine manifest independently of later settings-only updates.
+        writeBytes(new File(target, "manifest.json"), manifestBytes);
+        writeBytes(new File(target, "manifest.json.sig"), signatureText);
+        writeBytes(activeEngineMarker(ctx), Integer.toString(seq).getBytes(StandardCharsets.US_ASCII));
         prefs(ctx).edit().putString(KEY_DEPS_OK_FOR, depsStamp(ctx, seq)).apply();
         pruneOtherEngines(ctx, seq);
         r.engineDownloaded = !wasActive;
@@ -513,8 +541,17 @@ final class UpdateManager {
 
     private static boolean librariesMatch(Context ctx, JSONObject requires) throws IOException {
         File libDir = new File(ctx.getApplicationInfo().nativeLibraryDir);
+        File[] installedLibraries = libDir.listFiles((dir, name) -> name.endsWith(".so")
+            && !name.equals("libmain.so") && !name.equals("libmain60.so"));
+        if (installedLibraries == null || installedLibraries.length != requires.length()) {
+            return false;
+        }
         for (Iterator<String> it = requires.keys(); it.hasNext(); ) {
             String lib = it.next();
+            if (!lib.matches("lib[A-Za-z0-9_+.-]+\\.so")
+                    || lib.contains("..") || lib.equals("libmain.so") || lib.equals("libmain60.so")) {
+                return false;
+            }
             File installed = new File(libDir, lib);
             if (!installed.isFile() || !requires.optString(lib, "").equalsIgnoreCase(sha256(installed))) {
                 Log.i(TAG, "engine needs a different " + lib + " than this APK installed");
@@ -526,23 +563,45 @@ final class UpdateManager {
 
     /** Re-checked after the APK itself is updated, since that replaces the libraries. */
     private static boolean dependenciesStillMatch(Context ctx, int seq) {
-        String stamp = depsStamp(ctx, seq);
-        if (stamp.equals(prefs(ctx).getString(KEY_DEPS_OK_FOR, ""))) {
-            return true;
-        }
         try {
-            File manifestFile = new File(updateDir(ctx), "manifest.json");
-            JSONObject engine = new JSONObject(readText(manifestFile)).optJSONObject("engine");
-            if (engine == null || engine.optInt("seq", 0) != seq) {
+            File directory = new File(engineRoot(ctx), Integer.toString(seq));
+            byte[] body = readFile(new File(directory, "manifest.json"));
+            byte[] signature = readFile(new File(directory, "manifest.json.sig"));
+            if (!verify(ctx, body, signature)) {
                 return false;
             }
-            JSONObject requires = engine.optJSONObject("requires_libs");
-            if (requires != null && librariesMatch(ctx, requires)) {
+            JSONObject manifest = new JSONObject(new String(body, StandardCharsets.UTF_8));
+            if (manifest.optInt("schema", 0) != 1
+                    || !UpdateTrust.CHANNEL.equals(manifest.optString("channel", ""))) {
+                return false;
+            }
+            JSONObject engine = manifest.getJSONObject("engine");
+            if (engine.getInt("seq") != seq) {
+                return false;
+            }
+            JSONObject files = engine.getJSONObject("files");
+            if (files.length() != ENGINE_LIBS.length) {
+                return false;
+            }
+            for (String lib : ENGINE_LIBS) {
+                JSONObject entry = files.getJSONObject(lib);
+                File installed = new File(directory, lib);
+                if (installed.length() != entry.getLong("size")
+                        || !sha256(installed).equalsIgnoreCase(entry.getString("sha256"))) {
+                    return false;
+                }
+            }
+            JSONObject requires = engine.getJSONObject("requires_libs");
+            String stamp = depsStamp(ctx, seq);
+            if (stamp.equals(prefs(ctx).getString(KEY_DEPS_OK_FOR, ""))) {
+                return true;
+            }
+            if (librariesMatch(ctx, requires)) {
                 prefs(ctx).edit().putString(KEY_DEPS_OK_FOR, stamp).apply();
                 return true;
             }
         } catch (Exception e) {
-            Log.w(TAG, "could not re-check the engine's libraries", e);
+            Log.w(TAG, "could not verify the retained engine metadata", e);
         }
         return false;
     }
@@ -579,18 +638,18 @@ final class UpdateManager {
     // ---------------------------------------------------------------------------------------
     // Crypto and transfer
 
-    static boolean verify(byte[] data, byte[] signatureText) {
-        try {
-            byte[] keyBytes = Base64.decode(PUBLIC_KEY_B64, Base64.DEFAULT);
-            PublicKey key = KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(keyBytes));
-            byte[] sig = Base64.decode(new String(signatureText, StandardCharsets.US_ASCII).trim(), Base64.DEFAULT);
-            Signature verifier = Signature.getInstance("SHA256withECDSA");
-            verifier.initVerify(key);
-            verifier.update(data);
-            return verifier.verify(sig);
-        } catch (Exception e) {
-            Log.w(TAG, "signature check failed", e);
+    static boolean verify(Context ctx, byte[] data, byte[] signatureText) {
+        try (InputStream key = ctx.getAssets().open(UpdateTrust.PUBLIC_KEY_ASSET)) {
+            return UpdateTrust.verify(readAll(key), data, signatureText);
+        } catch (IOException e) {
+            Log.w(TAG, "our public update key is not provisioned", e);
             return false;
+        }
+    }
+
+    private static byte[] readFile(File file) throws IOException {
+        try (InputStream input = new FileInputStream(file)) {
+            return readAll(input);
         }
     }
 

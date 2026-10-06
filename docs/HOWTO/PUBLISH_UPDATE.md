@@ -1,91 +1,118 @@
-# Publishing an update without a new APK
+# Our signed Engine Update channel
 
-The launcher checks the repository's `updates` branch -- from **Home → Updates** (on start and
-with **Check for updates**) and when the **GeneralsOnline account** screen opens -- and takes two
-kinds of update from it. The settings are applied by either check and shown on the account
-screen; the engine is downloaded only by the Home check.
+The Android launcher on `dev/mobile-v4` uses only
+`https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/`.
+It trusts `android/app/src/main/assets/update-public.pem`, a PUBLIC ECDSA P-256 SPKI
+key. The old MYSOREZ signing identity is not used by this launcher.
 
-- **Settings** (`update/config.json` in the main tree): values the engine reads at startup. Today
-  the STUN and TURN server lists (`stun_servers`, `turn_servers`), the PC client checksum for
-  cross-play (`pc_exe_crc`, computed with `scripts/update/pc-exe-crc.py`) and the community data
-  patch manifest address (`datapack_manifest_url`), and whether the current PC release ends its
-  logic checksum with the GeneralsOnline revision tag (`logic_crc_revision`, `1`/`0`; 100126 does
-  not -- used only when the launcher has not read it from the data package's PC executable).
-  A missing key keeps the value built in.
-  The community data patch itself comes from that manifest and is updated on the multiplayer
-  screen (GeneralsOnline account → Online game data), which checks it by itself and installs a
-  newer one on Wi-Fi; the Updates card only says when a newer one is out. It also computes the PC checksum
-  from the PC executable inside that patch, and that number wins over `pc_exe_crc`, so a new PC
-  release normally needs nothing published at all; `pc_exe_crc` covers players without the patch.
-- **Data package manifest mirror**: while `datapack_manifest_url` points at the updates branch
-  (`.../updates/datapack-manifest.json`), `publish-update.py` copies the GeneralsOnline CDN manifest
-  there with its fields trimmed -- the CDN's `sha256` starts with a space, and launchers up to 1.3.0
-  compare it untrimmed, failing every install with "checksum mismatch". The script downloads the
-  package and refuses to publish unless the trimmed digest and size match it. Newer launchers ignore
-  a mirror address and read the CDN themselves. The mirror is as current as the last publish: after
-  a new GeneralsOnline release, publish settings again so 1.3.0 players see it. Point the key back at
-  `https://cdn.playgenerals.online/manifest.json` once the CDN fixes the digest.
-- **Support card** (launchers built from 03/10/2026 on): the Help page's "Support the project"
-  card comes entirely from `update/support.json` -- its text in every language, and the
-  addresses/links. `publish-update.py` copies the file to `support/<digest>.json` (a new name for every content, so
-  GitHub's five-minute per-file cache cannot pair a new manifest with the old file) and writes its
-  SHA-256 into the signed manifest, so it is as trusted as the manifest. Nothing of it is in the
-  APK, so a new or retired address, a reworded text, or a language added or dropped is just a
-  settings publish. Format: `text` maps a language tag (`en`, `ru`, `pt-BR`, `isv`, ...) to
-  `title`, `body`, `warning`, `copy_hint`, `copied` (`%s` = the entry's label); `entries` is a list
-  of `{ "label", "value" }`, where `label` is a string or a per-language object. A value starting
-  with `https://` opens in the browser, anything else is copied. The player's language falls back
-  to `en`, which the script requires. Deleting `update/support.json` before a publish withdraws
-  the card everywhere.
-- **Engine**: a newer `libmain.so` / `libmain60.so`. It is downloaded into the app's private
-  storage and used from the next game start, instead of the engine inside the APK.
+## One-time secure setup — required before bootstrap APK assembly
 
-Nothing is used unless it is signed with the update key.
+The connected session cannot administer repository Actions secrets (HTTP 403).
+Actions audit run 37416307932 confirmed `UPDATE_SIGNING_KEY` missing.
+**Do not build or publish the bootstrap until the key has been securely installed.**
 
-## How it is protected
-
-- `manifest.json` is signed with an ECDSA P-256 key. The launcher carries only the public key
-  (`UpdateManager.PUBLIC_KEY_B64`) and refuses a manifest whose signature does not verify.
-- The engine files are checked against the SHA-256 and size written in the signed manifest.
-- Every manifest has a `serial`; the launcher never accepts a lower one than it has seen, so an
-  old signed manifest cannot be replayed to roll players back.
-- A downloaded engine runs only if its build number is higher than the APK's own engine
-  (`assets/engine_build.txt`, the commit count it was built at) and only on an install whose
-  other native libraries are byte-for-byte the ones it was built with (`requires_libs`). A change
-  to SDL, OpenAL, DXVK or anything else in `lib/` therefore still needs a new APK; the launcher
-  says so.
-- An updated engine that twice fails to reach the main menu is dropped, and the APK's own
-  engine runs again.
-
-Nothing in the manifest is secret -- the service addresses are public anyway -- so it is signed,
-not encrypted. Encryption would need the key inside the APK, where anyone can take it out.
-
-## The key
-
-`update_signing_key.pem` is the private key. Keep it out of the repository. To sign in GitHub
-Actions, store its full text (including the `-----BEGIN/END EC PRIVATE KEY-----` lines) as the
-repository secret `UPDATE_SIGNING_KEY` (Settings → Secrets and variables → Actions → New
-repository secret). If the key is ever lost, a new one means a new APK with its public key.
-
-## Publishing
-
-Settings only (after editing `update/config.json`):
+On your trusted computer, authenticate `gh` with permission to manage Actions
+secrets for **koreazolfakar-droid/GeneralsZH-Android-Port**, open a source checkout
+of `dev/mobile-v4`, then run:
 
 ```bash
-python3 scripts/update/publish-update.py --out /tmp/upd --key update_signing_key.pem
-scripts/update/push-updates-branch.sh /tmp/upd
+bash scripts/update/setup-update-key.sh
 ```
 
-With a new engine, from an APK built by `scripts/build/android/build-dual-hz.sh` on top of the
-same libraries players already have:
+This script checks secret-management permission before generating a key, refuses
+to overwrite an existing key, generates P-256 in a mode-0700 temporary directory,
+sends the PEM directly through standard input to `gh secret set`, and deletes the
+private temporary file on exit. It prints no key value. Only after secret storage
+succeeds does it write the PUBLIC PEM into the source asset path for review/commit.
+Never paste the private PEM into this conversation, an issue, a commit or artifact.
+
+GitHub location:
+**Repository → Settings → Secrets and variables → Actions → Repository secrets →
+UPDATE_SIGNING_KEY**. Verify the secret name there; do not copy its value out.
+
+If the secret already exists, do not replace it. Run **Sign update** at
+`dev/mobile-v4` with **public_identity_only = true**. The artifact
+`own-update-public-identity` contains only `update-public.pem`; place that public
+file at the asset path, verify its fingerprint and commit it. Newly added workflow
+versions may need dispatch through their file/ref or registration on the default
+branch; do not switch or reset the working source branch to fix registration.
+
+The signing workflow compares the secret's derived public key byte-for-byte with
+the source-pinned key before signing. A missing key, other curve, private PEM in
+assets, upstream identity, or mismatched secret must fail closed.
+
+## Bootstrap APK
+
+Keep `applicationId = com.generalsx.zerohour` and the existing APK signing
+certificate. Use the previously verified Engine 3333 APK/artifacts, preserve all
+17 native dependency bytes and both engine rate slots. Recompile/package only the
+changed launcher using the existing SDK/Gradle caches. Native provenance must
+continue to describe the reused Engine 3333 source, separately from the new
+launcher commit; do not relabel reused native binaries with the new source count.
+Do not run a clean, rebuild native dependencies, delete caches or replace old APKs.
+The public-key pre-build gate deliberately blocks an unprovisioned bootstrap.
+
+Verify package/signer/version, public PEM, own URL in DEX, native hashes, both rate
+slots, alignment, APK CRC and engine provenance before installation. Then:
 
 ```bash
-python3 scripts/update/publish-update.py --apk GeneralsXZH-android-local.apk \
-    --out /tmp/upd --key update_signing_key.pem --note "what changed"
-scripts/update/push-updates-branch.sh /tmp/upd
+adb install -r <bootstrap.apk>
 ```
 
-Without the key at hand, leave out `--key`, push, and run **Actions → Sign update → Run
-workflow**; it signs the manifest on the branch with the secret in a few seconds.
+Never uninstall or clear app data. Device launch/Save/Mod/Online/update activation
+checks are NOT TESTED until performed on a real device.
 
-The branch always holds a single commit, so old engines do not pile up in the history.
+## Future engine-only publication — after bootstrap device acceptance
+
+Engine 3334 is **not published** in the bootstrap phase. Future sequence numbers
+come from the complete Git history of the actual engine source; example numbers
+are not hardcoded. Keep `libmain.so` = 30 Hz and `libmain60.so` = 60 Hz from the
+same source commit. Build incrementally using the existing dependency graph and
+cache. A changed non-engine native dependency still requires a new APK.
+
+Prepare verified existing dual-engine outputs without building an APK:
+
+```bash
+python3 scripts/update/publish-update.py \
+  --engine-dir <verified-dual-engine-directory> \
+  --baseline-apk <installed-bootstrap.apk> \
+  --source-commit <exact-engine-source-commit> \
+  --out <new-empty-prepared-directory> --note "Description"
+```
+
+The publisher validates baseline provenance, all dependency hashes, the bootstrap
+public identity, both actual ELF GitSHA1/GitRevision symbols and complete-history
+sequence. It refuses identical rate slots, false Build 1 labels and missing
+provenance. It prepares unsigned bytes locally; these are never published unsigned.
+The existing `--apk` path remains available but now checks native provenance.
+Support-card publication is explicit `--support <our-card.json>`; it does not
+republish upstream donation identity by default. Community data stays on the
+existing GeneralsOnline CDN; STUN/TURN values/order and PC checksum are unchanged.
+
+Upload only the prepared directory as an Actions artifact named
+`prepared-engine-update`; never include a private key. Dispatch **Sign update** at
+`dev/mobile-v4` with `public_identity_only = false` and `prepared_run = <run ID>`.
+It validates, signs using `UPDATE_SIGNING_KEY`, re-verifies the exact manifest and
+engine payloads, and publishes with a normal fast-forward push. Concurrent
+publication is serialized; a stale serial or immutable-engine collision fails.
+No force-push is used. Settings-only publication retains the verified current
+engine so later APK dependency checks continue working.
+
+## Launcher safety
+
+The own channel has independent serial, active-engine marker and download root.
+Legacy update files remain untouched; the player's auto-check preference survives.
+Private `files/update/remote_config.ini` and native `boot_pending` acknowledgement
+remain at their existing paths. External Save/, Maps/, Options.ini, imported mods,
+account state and game data are outside publication and update cleanup.
+
+Manifest schema/channel/signature, rollback serial, engine sequence, inflated
+size/SHA-256 and complete APK dependency set must verify. Both engines and their
+signed metadata must be present before activation. Settings-only updates cannot
+replace retained engine metadata. Downloaded files are rechecked before loading;
+failed/missing/incompatible metadata uses the APK engine. Two boots that fail to
+reach the main menu retain the existing APK fallback behavior.
+
+Run host checks with `python3 scripts/qa/test-own-update-channel.py`. With a JDK,
+this also runs the production `UpdateTrust` crypto tests. Android migration tests
+are in `UpdateChannelMigrationTest`; they require the Android test environment.

@@ -167,3 +167,28 @@ dependencies {
     // Material already, but declared directly since we call its APIs.
     implementation 'androidx.core:core:1.13.1'
 }
+
+// GeneralsX @build Codex 06/10/2026 Never ship a bootstrap with no public update trust root.
+tasks.register('verifyOwnUpdatePublicKey') {
+    doLast {
+        def key = file('src/main/assets/update-public.pem')
+        if (!key.isFile()) {
+            throw new GradleException('Provision UPDATE_SIGNING_KEY securely and pin its PUBLIC PEM before building the bootstrap APK.')
+        }
+        def text = key.getText('US-ASCII').trim()
+        if (!text.startsWith('-----BEGIN PUBLIC KEY-----') || !text.endsWith('-----END PUBLIC KEY-----') || text.contains('PRIVATE')) {
+            throw new GradleException('The APK may contain only a public SPKI update key.')
+        }
+        def encoded = text.replace('-----BEGIN PUBLIC KEY-----', '').replace('-----END PUBLIC KEY-----', '').replaceAll('\\s', '')
+        def der = java.util.Base64.decoder.decode(encoded)
+        def parsed = java.security.KeyFactory.getInstance('EC').generatePublic(new java.security.spec.X509EncodedKeySpec(der))
+        def parameters = java.security.AlgorithmParameters.getInstance('EC')
+        parameters.init(new java.security.spec.ECGenParameterSpec('secp256r1'))
+        def expected = parameters.getParameterSpec(java.security.spec.ECParameterSpec)
+        if (parsed.params.curve != expected.curve || parsed.params.generator != expected.generator || parsed.params.order != expected.order || parsed.params.cofactor != expected.cofactor) {
+            throw new GradleException('The update key must be ECDSA P-256.')
+        }
+
+    }
+}
+tasks.named('preBuild').configure { dependsOn('verifyOwnUpdatePublicKey') }
