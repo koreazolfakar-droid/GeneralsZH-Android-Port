@@ -1,0 +1,102 @@
+{
+  "bundle_sha256": "4022592ae36a11691a0a147e9bfc5e85d371c01caa06f38ebec01dc4768d2875",
+  "chunk_bytes": 5242880,
+  "chunks": [
+    {
+      "sha": "c11f9a9c489141df03cb542b4b31f5405f0c29e2",
+      "size": 5242880
+    },
+    {
+      "sha": "81cbd75f945fbbda27194994e5d0f08acacdf79d",
+      "size": 5242880
+    },
+    {
+      "sha": "92e282cbb4951ef8cc63b5831164179b9dd533e5",
+      "size": 5242880
+    },
+    {
+      "sha": "d794d1162b42919bce94f90196e432d388cdcc87",
+      "size": 5242880
+    },
+    {
+      "sha": "79de37571b273dddd2aea16406e6d9ccefa11cc8",
+      "size": 5242880
+    },
+    {
+      "sha": "92c2885fdd1f2dbcd9c199ee169be88b5a2fbf11",
+      "size": 5242880
+    },
+    {
+      "sha": "93ee1a208ac0a2a8e7d69f1f81766755c9fb925b",
+      "size": 5242880
+    },
+    {
+      "sha": "f32b7ed9f98de1e05c3d9fac48df97d534272108",
+      "size": 5242880
+    },
+    {
+      "sha": "c76a4f46a19c37c39120e23552cb61b23383974d",
+      "size": 5242880
+    },
+    {
+      "sha": "96544505026f407f5381f0ff6d93ee63fdcd3670",
+      "size": 5242880
+    },
+    {
+      "sha": "6a54999cbcaeae7338e448c62d105d60c1255e02",
+      "size": 5242880
+    },
+    {
+      "sha": "85f52675dbcac725c74c4f851022b1ea5ff822bc",
+      "size": 5242880
+    },
+    {
+      "sha": "0c3d5183107ec74686a4a2da4356270e1054b714",
+      "size": 5242880
+    },
+    {
+      "sha": "164a93df1a08220e673a886ec05e72c697fb049a",
+      "size": 5242880
+    },
+    {
+      "sha": "06dafa581d696a5a2fe25acf3e9fdbf5516da6f8",
+      "size": 5242880
+    },
+    {
+      "sha": "6fd06d8b8eef9f3fed5f66595edf0819fc653c6a",
+      "size": 5242880
+    },
+    {
+      "sha": "6d343b96864a7f39f4687e6785a9b83033c092ff",
+      "size": 5242880
+    },
+    {
+      "sha": "326e36565c7bb748eafb071412e194e297b8fa14",
+      "size": 5242880
+    },
+    {
+      "sha": "d4339be9e02ae06cc88ce0161a518dd0c07d1e17",
+      "size": 5242880
+    },
+    {
+      "sha": "21f9b16f91b62b8a4cb998883c2bc98107cba2e1",
+      "size": 5242880
+    },
+    {
+      "sha": "18396dbc57ad32152b44f684b268d3a4c5b0046a",
+      "size": 5242880
+    },
+    {
+      "sha": "2fde2742309afd716936e11f6ce396cf72cb6507",
+      "size": 5242880
+    },
+    {
+      "sha": "54aeeeb0b523308bb4b30b1d49bb378a484596f3",
+      "size": 5242880
+    },
+    {
+      "sha": "70d2781c252b29c9eeef2f022d64c39221d8b0b0",
+      "size": 4823042
+    }
+  ]
+}

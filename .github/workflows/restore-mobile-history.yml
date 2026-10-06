@@ -1,0 +1,57 @@
+name: Restore protected mobile history
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/mobile-v4
+          fetch-depth: 0
+      - name: Verify and restore the exact protected Git bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, pathlib, subprocess
+          manifest = json.loads(pathlib.Path('.github/mobile-history-handoff.json').read_text())
+          bundle = pathlib.Path('/tmp/protected-mobile.bundle')
+          with bundle.open('wb') as out:
+              for chunk in manifest['chunks']:
+                  result = subprocess.check_output(['gh','api','repos/koreazolfakar-droid/GeneralsZH-Android-Port/git/blobs/'+chunk['sha']])
+                  data = base64.b64decode(json.loads(result)['content'])
+                  assert len(data) == chunk['size']
+                  assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest() == chunk['sha']
+                  out.write(data)
+          assert hashlib.sha256(bundle.read_bytes()).hexdigest() == manifest['bundle_sha256']
+          PY
+          git bundle verify /tmp/protected-mobile.bundle
+          git fetch /tmp/protected-mobile.bundle refs/heads/dev/mobile-v4:refs/remotes/handoff/mobile
+          test "$(git rev-parse refs/remotes/handoff/mobile)" = b5065b2f989b0462307a465f33266e830ed2b0f8
+          for commit in ec641ffead12b5b017ab5fba850a46a5bd2958dc b02a30b1116b88fcd89fb0d58254f2122e96449c c90627048d34b910949bb4e6cabe17233104226a; do
+            git merge-base --is-ancestor "$commit" refs/remotes/handoff/mobile
+          done
+          bootstrap_head=$(git rev-parse HEAD)
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --no-ff --no-commit refs/remotes/handoff/mobile
+          # Preserve the previous remote APK alongside the newer protected APK.
+          git restore --source="$bootstrap_head" --staged --worktree -- apk/GeneralsXZH-android-v1.4.0.apk
+          git commit -m 'ci(android): restore protected mobile history for cached APK build'
+          git merge-base --is-ancestor c90627048d34b910949bb4e6cabe17233104226a HEAD
+          git diff --exit-code "$bootstrap_head" HEAD -- .github/workflows
+          git push origin HEAD:refs/heads/dev/mobile-v4
+          git rev-parse HEAD | tee /tmp/merged-head.txt
+          git rev-list --count HEAD | tee /tmp/merged-engine-build.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protected-mobile-history-result
+          path: |
+            /tmp/merged-head.txt
+            /tmp/merged-engine-build.txt

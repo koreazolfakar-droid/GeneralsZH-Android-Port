@@ -118,14 +118,17 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref || github.ref }}
-          # GeneralsX @build Codex 05/10/2026 Fetch the requested source without historical APK blobs.
-          fetch-depth: 1
+          # GeneralsX @build Codex 05/10/2026 Count the complete commit graph without historical APK blobs.
+          fetch-depth: 0
+          filter: blob:none
           submodules: false
 
       # GeneralsX @build Codex 05/10/2026 Record the actual source when borrowing a warm workflow branch.
       - name: Record source revision
         run: |
+          set -euo pipefail
           echo "Source revision: $(git rev-parse HEAD)"
+          echo "Engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
 
       - name: Checkout DXVK fork submodule
         run: |
@@ -333,6 +336,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/qa/test-android-validation-staging.py
+          python3 scripts/qa/test-engine-build-number.py
+          python3 scripts/qa/test-engine-packaging.py
+          python3 scripts/qa/test-engine-native-version.py
+          python3 scripts/qa/test-engine-3277-hotfix.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-mod-localization.py
 
