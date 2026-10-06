@@ -43,6 +43,10 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      engine_only_baseline:
+        type: boolean
+        description: "Limited engine baseline only; no APK, DXVK build, dependency rebuild on cache miss or publication."
+        default: false
       recovery_only:
         type: boolean
         description: "Restore Engine 3333 caches and inventory them; never compile or package."
@@ -88,7 +92,7 @@ on:
 
 jobs:
   build-android:
-    if: ${{ !inputs.recovery_only && (!inputs.verify_apk_run) }}
+    if: ${{ !inputs.engine_only_baseline && (!inputs.recovery_only && (!inputs.verify_apk_run)) }}
     name: apk@${{ inputs.preset || 'android-vulkan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -763,7 +767,7 @@ jobs:
 
   # GeneralsX @build Codex 05/10/2026 Verify the existing artifact on a warm runner without recompiling.
   verify-existing-apk:
-    if: ${{ !inputs.recovery_only && (inputs.verify_apk_run != '') }}
+    if: ${{ !inputs.engine_only_baseline && (!inputs.recovery_only && (inputs.verify_apk_run != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -877,7 +881,7 @@ jobs:
           retention-days: 7
 
   recover-engine-3333:
-    if: ${{ inputs.recovery_only }}
+    if: ${{ !inputs.engine_only_baseline && (inputs.recovery_only) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -1020,3 +1024,135 @@ jobs:
           path: recovery-export/
           compression-level: 0
           retention-days: 30
+
+  limited-engine-baseline:
+    if: ${{ inputs.engine_only_baseline }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GX_SOURCE_HEAD: 054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f
+      ANDROID_NDK_HOME: /opt/android-sdk/ndk/27.2.12479018
+      VCPKG_ROOT: /opt/vcpkg
+      VCPKG_BINARY_SOURCES: clear;files,/home/runner/.cache/vcpkg/archives,read
+      CCACHE_DIR: /home/runner/.cache/ccache
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f
+          fetch-depth: 0
+          filter: blob:none
+          clean: false
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: _baseline-tools
+          clean: false
+          persist-credentials: false
+      - name: Restore exact SDK and NDK without installation
+        uses: actions/cache/restore@v5
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+          fail-on-cache-miss: true
+      - name: Restore exact vcpkg compiled outputs and package archives
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            /opt/vcpkg
+            ~/.cache/vcpkg
+          key: vcpkg-android-Linux-42e4e33e1505c9f47b58c21e0f557c1571b751ee-7ce4ed9d0aa429aa37ee9be4b879ea3dab54fed831f88e188df276311acd88bd
+          fail-on-cache-miss: true
+      - name: Restore verified DXVK Ninja and native outputs without a build
+        uses: actions/cache/restore@v5
+        with:
+          path: build/android-vulkan/_deps/dxvk-build-android
+          key: dxvk-android-Linux-koreazolfakar-droid/GeneralsZH-Android-Port-46a3bc018bcae408d49d3c500e4e536a11f6789a-8cbe1c09687c9725236c84a31c3f76c2d3ea6bc66259a85e321a11774683bb07
+          fail-on-cache-miss: true
+      - name: Restore recovered compiler cache first
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-android-vulkan-37412214201
+          fail-on-cache-miss: true
+      - uses: actions/download-artifact@v5
+        with:
+          name: GeneralsXZH-android-run8.apk
+          run-id: 37412214201
+          github-token: ${{ github.token }}
+          path: verification-input
+      - name: Select existing host tooling and resolve production engine sequence
+        id: tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v cmake ninja pkg-config python3
+          # Only the host compiler-cache executable can be absent on a fresh
+          # runner. Unpack its binary package; never install SDK/native deps.
+          if ! command -v ccache; then
+            mkdir -p host-tool-recovery
+            cd host-tool-recovery
+            apt-get download ccache libhiredis0.14
+            for package in *.deb; do dpkg-deb -x "$package" extracted; done
+            echo "$PWD/extracted/usr/bin" >> "$GITHUB_PATH"
+            echo "LD_LIBRARY_PATH=$PWD/extracted/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+            cd "$GITHUB_WORKSPACE"
+          fi
+          echo "GX_BASELINE_TOOLS=$GITHUB_WORKSPACE/_baseline-tools/.github/engine-baseline" >> "$GITHUB_ENV"
+          sequence="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
+          echo "Engine sequence from complete history: $sequence"
+          identity="$(python3 - <<'PYIDENTITY'
+          import hashlib,subprocess
+          text='\n'.join(subprocess.check_output(a,text=True).strip() for a in
+            (['cmake','--version'],['ninja','--version'],
+             ['/opt/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/clang','--version']))
+          print(hashlib.sha256(text.encode()).hexdigest()[:16])
+          PYIDENTITY
+          )"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          echo "sequence=$sequence" >> "$GITHUB_OUTPUT"
+      - name: Run limited engine baseline and dependency compatibility gate
+        run: python3 "$GX_BASELINE_TOOLS/build.py"
+      - name: Record ccache results and every actual compiler invocation
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p baseline-report
+          python3 _baseline-tools/.github/engine-baseline/summarize.py
+          if command -v ccache; then ccache --show-stats > baseline-report/ccache-stats.txt; fi
+      - name: Save complete common runtime state including dependency objects
+        if: ${{ always() && hashFiles('build/android-vulkan/build.ninja') != '' }}
+        uses: actions/cache/save@v5
+        with:
+          path: build/android-vulkan
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
+      - name: Save separate 30 Hz complete CMake Ninja and object state
+        if: ${{ always() && hashFiles('build/engine-baseline-30/build.ninja') != '' }}
+        uses: actions/cache/save@v5
+        with:
+          path: build/engine-baseline-30
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
+      - name: Save separate 60 Hz complete CMake Ninja and object state
+        if: ${{ always() && hashFiles('build/engine-baseline-60/build.ninja') != '' }}
+        uses: actions/cache/save@v5
+        with:
+          path: build/engine-baseline-60
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
+      - name: Preserve augmented compiler cache without deleting original
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/ccache
+          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache
+      - name: Preserve outputs audit logs and exact invocation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: limited-engine-baseline-${{ env.GX_SOURCE_HEAD }}
+          path: baseline-report/
+          retention-days: 30
+          compression-level: 6
