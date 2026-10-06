@@ -30,6 +30,16 @@ Scripts for Linux native and Docker-based builds:
 #### `build/windows/` - Windows Build (Pending)
 Reserved for modern Windows toolchain (VS2022 + SDL3 + DXVK + OpenAL)
 
+#### `build/android/` - Engine provenance
+- `engine-build-number.sh <repository>` - Resolve the updater sequence from complete
+  source commit history. Reject shallow checkouts; never substitute an upstream
+  sequence for a fork's source count. Fetch with `--filter=blob:none` to avoid old APK blobs.
+- `prepare-engine-history.sh <repository>` - Recover only missing CI Git history
+  before native GitRevision generation; reject shallow local/offline builds.
+- `engine-package-manifest.py write ROOT OUTPUT_JSON | verify APK EXPECTED_JSON` -
+  Record source HEAD/tree, full-history sequence and all staged native hashes;
+  compare the final APK with the linked outputs and reject stale/mismatched payloads.
+
 ### `env/` - Environment Setup
 
 #### `env/docker/` - Docker Configuration
@@ -57,6 +67,23 @@ Utilities for large-scale code refactoring and fixes:
 - `unify_move_files.py` - Move files between Generals/GeneralsMD/Core with CMakeLists.txt updates
 
 ### `qa/` - Quality Assurance & Testing
+
+- `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
+  reconstruct the documented release-only GPU delta and inventory committed
+  differences. Requires the fetched audit refs, Git and OpenSSL; never builds.
+- `test-engine-build-number.py` - Exercise the production resolver against full,
+  shallow and subsequently fetched Git graphs, including paths with spaces.
+- `test-engine-packaging.py` - Verify source/native provenance, both engine slots,
+  stale staging, tampered metadata/libraries and duplicate ZIP paths using host fixtures.
+- `test-engine-native-version.py` - Verify native GitRevision and source SHA after
+  CI history recovery using the production CMake Git watcher, without building the engine.
+- `test-engine-3277-hotfix.py` - Compile the production GPU-timer initialization
+  block with host GL adapters and check serial-12 STUN/TURN fallback ordering.
+  Neither test compiles the engine or replaces Android/device acceptance.
+
+Use `qa/test-mod-localization.py` for the current production GameText fixture
+suite. The older `qa/smoke/test-mod-localization.py` is retained but currently
+fails compilation from fixture drift; see the Engine 3277 source audit report.
 
 #### `qa/smoke/` - Smoke Tests
 - `test-mod-localization.py` - Compile production localization selection, CSF/STR parsers, and label lookup against synthetic BIG/loose fixtures (Python 3 + g++, with sanitizers). Uses `mod-localization-fixture.cpp`; no full engine build. Does not replace Android device QA.
