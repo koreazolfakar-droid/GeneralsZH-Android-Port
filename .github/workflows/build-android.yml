@@ -338,6 +338,7 @@ jobs:
           python3 scripts/qa/test-android-validation-staging.py
           python3 scripts/qa/test-engine-build-number.py
           python3 scripts/qa/test-engine-packaging.py
+          python3 scripts/qa/test-engine-native-version.py
           python3 scripts/qa/test-engine-3277-hotfix.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-mod-localization.py

@@ -37,14 +37,8 @@ ASSETS="${ANDROID_DIR}/app/src/main/assets/gamedata"
 DEFAULT_DRIVER_ASSETS="${ANDROID_DIR}/app/src/main/assets/default_driver"
 STAGING="${GX_ANDROID_STAGING:-${HOME}/GeneralsX/android-staging}"
 
-# GeneralsX @build Codex 05/10/2026 Older cached CI workflows check out one commit.
-# Recover only the Git graph; keep native outputs, caches and the checked-out HEAD.
-if [[ "${GITHUB_ACTIONS:-false}" == "true" ]] && \
-   [[ "$(git -C "${PROJECT_ROOT}" rev-parse --is-shallow-repository)" == "true" ]]; then
-    git -C "${PROJECT_ROOT}" fetch --unshallow --filter=blob:none --no-tags origin
-fi
-# Fail before staging if source history cannot identify this build.
-ENGINE_BUILD="$(bash "${SCRIPT_DIR}/engine-build-number.sh" "${PROJECT_ROOT}")"
+# GeneralsX @build Codex 05/10/2026 Share native version generation's full-history guard.
+ENGINE_BUILD="$(bash "${SCRIPT_DIR}/prepare-engine-history.sh" "${PROJECT_ROOT}")"
 
 # --- 1. native libraries -----------------------------------------------------
 GAME_LIB="${BUILD_DIR}/GeneralsMD/Code/Main/libmain.so"

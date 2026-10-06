@@ -48,7 +48,11 @@ Older cache-host workflow checkouts have depth 1. CI packaging now fetches only 
 complete Git graph (`--unshallow --filter=blob:none`) before the existing strict
 sequence resolver. It keeps the checked-out source HEAD and all compiled artifacts;
 no fixed engine number, clean task or cache-key change is introduced. Normal full
-checkouts need no fetch. The previous Build 1 root cause remains shallow commit
+checkouts need no fetch. The same history guard also runs at Android resources
+configuration, before the unchanged Git watcher generates native `GitRevision`.
+Fetching only at packaging time would leave a newly compiled native revision of 1
+despite correct APK metadata; a host fixture checks both native fields together.
+The previous Build 1 root cause remains shallow commit
 counting; the new engine sequence derives from the final complete Git history.
 
 ## Artifact and build protection
@@ -86,3 +90,14 @@ never uninstall or clear application data.
 
 Build results and final artifact hashes belong in the final handoff after the build;
 this pre-build report does not claim an APK or runtime result.
+
+## Exact-source publication blocker
+
+Normal Git HTTPS pushes with the configured GitHub credential helper return HTTP
+401, including HTTP/1.1 and Content-Length transport retries. Exact-history Git
+Data API publication rejects the first historical 71,966,725-byte APK blob with
+HTTP 422 (input too large). The remote mobile branch is unchanged. Do not replace
+the protected history with a source snapshot or discard those commits/APK objects.
+Android build/packaging and final APK acceptance remain blocked until the exact
+source HEAD can be made available to the existing cached workflow. No Android
+build or dependency installation was attempted to work around this blocker.
