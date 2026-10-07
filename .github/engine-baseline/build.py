@@ -27,7 +27,7 @@ assert capture(['git','rev-parse','--is-shallow-repository']) == 'false'
 # Retained objects keep their real timestamps. Normalize only byte-unchanged
 # tracked source files so a fresh Git checkout does not invalidate every object.
 # Changed source files keep checkout timestamps and rebuild through Ninja.
-baseline_source = '054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f'
+baseline_source = '2040c6e82cd10bd27d56deb9f5d918fed7adc621'
 changed = set(capture(['git','diff','--name-only',baseline_source,source]).splitlines())
 # Exact source checkout mtime reported by retained verified PCH diagnostics.
 epoch = 1791292742
@@ -70,7 +70,8 @@ for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
     report.setdefault('reused',{})[name] = {'path':str(path),'sha256':sha(path),'rebuilt':False}
 for name in ['test-engine-build-number.py','test-engine-packaging.py','test-engine-native-version.py',
              'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py',
-             'test-own-update-channel.py','test-android-validation-staging.py']:
+             'test-own-update-channel.py','test-android-validation-staging.py',
+             'test-engine-security.py','test-online-tls.py']:
     run(['python3','scripts/qa/'+name], name)
     report.setdefault('source_tests',[]).append({'test':name,'passed':True}); save()
 run(['ccache','--set-config=compiler_check=content'], 'ccache-content')
