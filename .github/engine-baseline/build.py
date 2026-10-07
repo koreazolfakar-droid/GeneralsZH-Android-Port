@@ -59,6 +59,11 @@ assert (ndk / 'source.properties').read_text().find('27.2.12479018') >= 0
 assert capture(['git', '-C', '/opt/vcpkg', 'rev-parse', 'HEAD']) == '42e4e33e1505c9f47b58c21e0f557c1571b751ee'
 run(['git','submodule','update','--init','--depth','1','references/fbraz3-dxvk'], 'dxvk-source-only')
 run(['git','-C','references/fbraz3-dxvk','submodule','update','--init','--depth','1'], 'dxvk-headers-only')
+# Submodule revision and all nested revisions are pinned to the retained baseline.
+assert capture(['git','rev-parse',baseline_source+':references/fbraz3-dxvk']) == capture(['git','-C','references/fbraz3-dxvk','rev-parse','HEAD'])
+for relative in capture(['git','-C','references/fbraz3-dxvk','ls-files','--recurse-submodules']).splitlines():
+    path=root/'references/fbraz3-dxvk'/relative
+    if path.is_file() and not path.is_symlink(): os.utime(path,(epoch,epoch))
 for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
     path = common / '_deps/dxvk-build-android/src' / ('d3d8' if 'd3d8' in name else 'd3d9') / name
     assert sha(path) == baseline['native_libraries'][name]['sha256']
