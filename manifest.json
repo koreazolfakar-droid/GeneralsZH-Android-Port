@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "084198a7f754c2f4b4519b0d6a7828ac626bc3e634e5ebdce28a4108fc9180c5",
+        "sha256": "112edec9abeedf478a52d018e0a0a210ec69d48cc9583c9c338380e3da740557",
         "size": 42233792,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3336/libmain.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3337/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "668fb03f710d47c358aa53bfcdb06050284e14b935135dbe8cde77f05a2d7626",
+        "sha256": "06878701a1df620ef656ff9fcddde26eb9f224d809331c6cea488594c65724da",
         "size": 42238048,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3336/libmain60.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3337/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3336,
-    "source_commit": "054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f"
+    "seq": 3337,
+    "source_commit": "2040c6e82cd10bd27d56deb9f5d918fed7adc621"
   },
-  "note": "Verified Engine 3336, 30/60 Hz. Independent signed update channel; unchanged Bootstrap dependencies and game simulation.",
+  "note": "Verified Engine 3337, 30/60 Hz. Small engine-only update-channel test; unchanged Bootstrap dependencies and game simulation.",
   "published": "2026-10-07",
   "schema": 1,
-  "serial": 1
+  "serial": 2
 }
