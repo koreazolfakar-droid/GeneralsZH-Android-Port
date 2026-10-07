@@ -1,0 +1,47 @@
+{
+  "channel": "koreazolfakar-droid/mobile-v4/v1",
+  "config": {
+    "datapack_manifest_url": "https://cdn.playgenerals.online/manifest.json",
+    "logic_crc_revision": "0",
+    "pc_exe_crc": "560676586",
+    "stun_servers": "stun:stun.playgenerals.online:3478,stun:stun.l.google.com:19302,stun:stun.playgenerals.online:53",
+    "turn_servers": "turn:turn.playgenerals.online:3478,turn:turn.playgenerals.online:53"
+  },
+  "engine": {
+    "files": {
+      "libmain.so": {
+        "sha256": "084198a7f754c2f4b4519b0d6a7828ac626bc3e634e5ebdce28a4108fc9180c5",
+        "size": 42233792,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3336/libmain.so.gz"
+      },
+      "libmain60.so": {
+        "sha256": "668fb03f710d47c358aa53bfcdb06050284e14b935135dbe8cde77f05a2d7626",
+        "size": 42238048,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3336/libmain60.so.gz"
+      }
+    },
+    "requires_libs": {
+      "libEGL_angle.so": "68bec582dab9f2466ca83d80babbb65a334c09a9e85ef83aa3448ba22990268b",
+      "libGLESv2_angle.so": "f85d6f551069a88757859088a88a3456fdfe4ac54e9c18a3c7fb533e9753efe2",
+      "libSDL3.so": "962b0ee7757c9a421ccb7e280dc30d151551f92aa70eb735eb86a24c265fced4",
+      "libSDL3_image.so": "512e722dc896e91177449752577487e9f561f506f6cd786acf62d856894a6c8e",
+      "libVkLayer_khronos_validation.so": "1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68",
+      "libadrenotools.so": "aca61d1edcd0092080ef3eeabaee47125a36d47d5a26f8ceb318e2cf75151371",
+      "libc++_shared.so": "f9992c4ba6b7c5a716e3a202fceb1ce029d6a2b0605838ac6b3219f489dd7970",
+      "libdxvk_d3d8.so": "386dfa0a56941e553bf657a80b08d2813c2e997aacfea81612b7c00b10232da4",
+      "libdxvk_d3d9.so": "ddf6a8ccf234df16384cc2921231ea43b075be4577641610a8c1782436e9429e",
+      "libfile_redirect_hook.so": "9b58a3daa3458d7bd81f5440cf8a4d206b26ae814931ce17ad6f06ff0f109bd1",
+      "libgamespy.so": "5a3a66d985f2caec095e5c37441142ca21897df6250d705491f837cb01d20e1a",
+      "libgsl_alloc_hook.so": "6430c85a8efb3dc72c8947363b315547b316614089d6387585aff170d1f6bdd0",
+      "libhook_impl.so": "882e370a9d2a773e4d5469cea7db44759bfd561be4082c0d0502bb0e581859d0",
+      "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
+      "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
+    },
+    "seq": 3336,
+    "source_commit": "054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f"
+  },
+  "note": "Verified Engine 3336, 30/60 Hz. Independent signed update channel; unchanged Bootstrap dependencies and game simulation.",
+  "published": "2026-10-07",
+  "schema": 1,
+  "serial": 1
+}
