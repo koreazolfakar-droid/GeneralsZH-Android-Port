@@ -72,6 +72,9 @@ for name in ['test-engine-build-number.py','test-engine-packaging.py','test-engi
              'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py',
              'test-own-update-channel.py','test-android-validation-staging.py',
              'test-engine-security.py','test-online-tls.py']:
+    if name == 'test-online-tls.py' and subprocess.run(['pkg-config','--exists','libcurl','openssl']).returncode != 0:
+        report.setdefault('source_tests',[]).append({'test':name,'passed':False,'status':'NOT TESTED','reason':'host libcurl development files absent; local production TLS fixture passed'})
+        save(); print('NOT TESTED in Actions: host TLS fixture needs unavailable libcurl development files', flush=True); continue
     run(['python3','scripts/qa/'+name], name)
     report.setdefault('source_tests',[]).append({'test':name,'passed':True}); save()
 run(['ccache','--set-config=compiler_check=content'], 'ccache-content')
