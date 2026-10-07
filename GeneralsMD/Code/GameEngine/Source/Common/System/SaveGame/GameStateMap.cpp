@@ -42,6 +42,10 @@
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameInfo.h"
 
+#include <array>
+#include <chrono>
+#include <filesystem>
+
 // GLOBALS ////////////////////////////////////////////////////////////////////////////////////////
 GameStateMap *TheGameStateMap = nullptr;
 
@@ -186,56 +190,43 @@ static void embedInUseMap( AsciiString map, Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Extract the map from the xfer stream and save as a file with filename 'mapToSave' */
 // ------------------------------------------------------------------------------------------------
+// GeneralsX @bugfix Codex 07/10/2026 Stream validated map blocks, retain the previous map on failed loads.
+// Save version and on-disk snapshot ordering are intentionally unchanged.
 static void extractAndSaveMap( AsciiString mapToSave, Xfer *xfer )
 {
-	UnsignedInt dataSize;
-
-	// open handle to output file
-	FILE *fp = fopen( mapToSave.str(), "w+b" );
-	if( fp == nullptr )
-	{
-
-		DEBUG_CRASH(( "extractAndSaveMap - Unable to open file '%s'", mapToSave.str() ));
-		throw SC_INVALID_DATA;
-
-	}
-
-	// read data size from file
-	dataSize = xfer->beginBlock();
-
-	// allocate buffer big enough for the entire map file
-	char *buffer = new char[ dataSize ];
-	if( buffer == nullptr )
-	{
-
-		DEBUG_CRASH(( "extractAndSaveMap - Unable to allocate buffer for file '%s'", mapToSave.str() ));
-		throw SC_INVALID_DATA;
-
-	}
-
-	// read map file
-	xfer->xferUser( buffer, dataSize );
-
-	// write contents of buffer to new file
-	if( fwrite( buffer, 1, dataSize, fp ) != dataSize )
-	{
-
-		delete[] buffer;
-
-		DEBUG_CRASH(( "extractAndSaveMap - Error writing to file '%s'", mapToSave.str() ));
-		throw SC_INVALID_DATA;
-
-	}
-
-	// close the new file
-	fclose( fp );
-
-	// end of data block
-	xfer->endBlock();
-
-	// delete the buffer
-	delete [] buffer;
-
+    const Int dataSize = xfer->beginBlock();
+    if (dataSize <= 0) throw SC_INVALID_DATA;
+    const std::string destination(mapToSave.str());
+    const std::string temporary = destination + ".loading-" + std::to_string(
+        std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";
+    struct TemporaryMap {
+        const std::string& path;
+        FILE* file;
+        bool committed = false;
+        ~TemporaryMap() {
+            if (file) fclose(file);
+            if (!committed) { std::error_code ec; std::filesystem::remove(path, ec); }
+        }
+    };
+    // Exclusive creation avoids clobbering an existing user file or following a planted symlink.
+    FILE* file = fopen(temporary.c_str(), "wbx");
+    if (file == nullptr) throw SC_INVALID_DATA;
+    TemporaryMap output{temporary, file};
+    std::array<char, 64 * 1024> buffer;
+    for (Int remaining = dataSize; remaining > 0;) {
+        const Int chunk = remaining < static_cast<Int>(buffer.size()) ? remaining : static_cast<Int>(buffer.size());
+        xfer->xferUser(buffer.data(), chunk);
+        if (fwrite(buffer.data(), 1, chunk, output.file) != static_cast<size_t>(chunk)) throw SC_INVALID_DATA;
+        remaining -= chunk;
+    }
+    xfer->endBlock();
+    const int closeResult = fclose(output.file);
+    output.file = nullptr;
+    if (closeResult != 0) throw SC_INVALID_DATA;
+    std::error_code ec;
+    std::filesystem::rename(temporary, destination, ec);
+    if (ec) throw SC_INVALID_DATA;
+    output.committed = true;
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GXTrace.h"
+#include "GameNetwork/GeneralsOnline/HTTP/OnlineTLS.h"
 
 #include <cstring>
 #include <string>
@@ -361,19 +362,13 @@ void HTTPRequest::PlatformStartRequest()
 			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "DELETE");
 		}
 
+        // System certificate and hostname validation apply in debug and release alike.
+        GXConfigureOnlineTLS(m_pCURL, false);
 #if _DEBUG
-		if (pHTTPManager->IsProxyEnabled())
-		{
-			curl_easy_setopt(m_pCURL, CURLOPT_PROXY, pHTTPManager->GetProxyAddress().c_str());
-			curl_easy_setopt(m_pCURL, CURLOPT_PROXYPORT, (long)pHTTPManager->GetProxyPort());
-		}
-
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
-#else
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+        if (pHTTPManager->IsProxyEnabled()) {
+            curl_easy_setopt(m_pCURL, CURLOPT_PROXY, pHTTPManager->GetProxyAddress().c_str());
+            curl_easy_setopt(m_pCURL, CURLOPT_PROXYPORT, (long)pHTTPManager->GetProxyPort());
+        }
 #endif
 
 		

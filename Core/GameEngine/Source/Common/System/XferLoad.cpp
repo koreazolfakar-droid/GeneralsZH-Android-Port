@@ -131,9 +131,21 @@ Int XferLoad::beginBlock()
 	{
 
 		DEBUG_CRASH(( "Xfer - Error reading block size for '%s'", m_identifier.str() ));
-		return 0;
+		throw XFER_READ_ERROR;
 
 	}
+
+    // GeneralsX @bugfix Codex 07/10/2026 Validate lengths before snapshot consumers allocate or extract.
+    // No serialized fields/version/order change; older valid save blocks remain byte-compatible.
+    const long position = ftell(m_fileFP);
+    if (blockSize < 0 || position < 0 || fseek(m_fileFP, 0, SEEK_END) != 0) {
+        throw XFER_READ_ERROR;
+    }
+    const long end = ftell(m_fileFP);
+    if (fseek(m_fileFP, position, SEEK_SET) != 0 || end < position ||
+        static_cast<unsigned long>(blockSize) > static_cast<unsigned long>(end - position)) {
+        throw XFER_READ_ERROR;
+    }
 
 	// return the block size
 	return blockSize;

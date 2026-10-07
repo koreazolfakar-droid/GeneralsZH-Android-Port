@@ -42,6 +42,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <memory>
+#include <array>
+#include <cstdint>
 
 #if defined(_UNIX)
 #include <strings.h>
@@ -54,8 +57,6 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
-
-static const char *BIGFileIdentifier = "BIGF";
 
 namespace {
 
@@ -519,106 +520,64 @@ void StdBIGFileSystem::update() {
 void StdBIGFileSystem::postProcessLoad() {
 }
 
+// GeneralsX @bugfix Codex 07/10/2026 Bound untrusted BIG table reads without limiting normal large mod payloads.
 ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
-	File *fp = TheLocalFileSystem->openFile(filename, File::READ | File::BINARY);
-	AsciiString archiveFileName;
-	archiveFileName = filename;
-	archiveFileName.toLower();
-	Int archiveFileSize = 0;
-	Int numLittleFiles = 0;
+    auto closeFile = [](File* file) { if (file != nullptr) file->close(); };
+    std::unique_ptr<File, decltype(closeFile)> fp(
+        TheLocalFileSystem->openFile(filename, File::READ | File::BINARY), closeFile);
+    if (!fp || fp->size() < 16) return nullptr;
+    const uint64_t actualSize = static_cast<uint64_t>(fp->size());
+    char magic[4];
+    uint32_t archiveSize, count, headerSize;
+    if (fp->read(magic, 4) != 4 ||
+        (std::memcmp(magic, "BIGF", 4) != 0 && std::memcmp(magic, "BIG4", 4) != 0) ||
+        fp->read(&archiveSize, 4) != 4 || fp->read(&count, 4) != 4 ||
+        fp->read(&headerSize, 4) != 4) return nullptr;
+    (void)archiveSize; // Retail header byte order differs; actual file length is authoritative.
+    count = betoh(count);
+    headerSize = betoh(headerSize);
+    if (headerSize < 16 || headerSize > actualSize || count > 200000 ||
+        count > (headerSize - 16) / 9) return nullptr;
 
-	ArchiveFile *archiveFile = NEW StdBIGFile(filename, AsciiString::TheEmptyString);
-
-	DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - opening BIG file %s", filename));
-
-	if (fp == nullptr) {
-		DEBUG_CRASH(("Could not open archive file %s for parsing", filename));
-		return nullptr;
-	}
-
-	AsciiString asciibuf;
-	char buffer[_MAX_PATH];
-	fp->read(buffer, 4); // read the "BIG" at the beginning of the file.
-	buffer[4] = 0;
-	if (strcmp(buffer, BIGFileIdentifier) != 0) {
-		DEBUG_CRASH(("Error reading BIG file identifier in file %s", filename));
-		fp->close();
-		fp = nullptr;
-		return nullptr;
-	}
-
-	// read in the file size.
-	fp->read(&archiveFileSize, 4);
-
-	DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - size of archive file is %d bytes", archiveFileSize));
-
-//	char t;
-
-	// read in the number of files contained in this BIG file.
-	// change the order of the bytes cause the file size is in reverse byte order for some reason.
-	fp->read(&numLittleFiles, 4);
-	numLittleFiles = betoh(numLittleFiles);
-
-	DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - %d are contained in archive", numLittleFiles));
-//	for (Int i = 0; i < 2; ++i) {
-//		t = buffer[i];
-//		buffer[i] = buffer[(4-i)-1];
-//		buffer[(4-i)-1] = t;
-//	}
-
-	// seek to the beginning of the directory listing.
-	fp->seek(0x10, File::START);
-	// read in each directory listing.
-	ArchivedFileInfo *fileInfo = NEW ArchivedFileInfo;
-
-	for (Int i = 0; i < numLittleFiles; ++i) {
-		Int filesize = 0;
-		Int fileOffset = 0;
-		fp->read(&fileOffset, 4);
-		fp->read(&filesize, 4);
-
-		filesize = betoh(filesize);
-		fileOffset = betoh(fileOffset);
-
-		fileInfo->m_archiveFilename = archiveFileName;
-		fileInfo->m_offset = fileOffset;
-		fileInfo->m_size = filesize;
-
-		// read in the path name of the file.
-		Int pathIndex = -1;
-		do {
-			++pathIndex;
-			fp->read(buffer + pathIndex, 1);
-		} while (buffer[pathIndex] != 0);
-
-		Int filenameIndex = pathIndex;
-		while ((filenameIndex >= 0) && (buffer[filenameIndex] != '\\') && (buffer[filenameIndex] != '/')) {
-			--filenameIndex;
-		}
-
-		fileInfo->m_filename = (char *)(buffer + filenameIndex + 1);
-		fileInfo->m_filename.toLower();
-		buffer[filenameIndex + 1] = 0;
-
-		AsciiString path;
-		path = buffer;
-
-		AsciiString debugpath;
-		debugpath = path;
-		debugpath.concat(fileInfo->m_filename);
-//		DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - adding file %s to archive file %s, file number %d", debugpath.str(), fileInfo->m_archiveFilename.str(), i));
-
-		archiveFile->addFile(path, fileInfo);
-	}
-
-	archiveFile->attachFile(fp);
-
-	delete fileInfo;
-	fileInfo = nullptr;
-
-	// leave fp open as the archive file will be using it.
-
-	return archiveFile;
+    AsciiString archiveName(filename);
+    archiveName.toLower();
+    std::unique_ptr<ArchiveFile> archive(NEW StdBIGFile(filename, AsciiString::TheEmptyString));
+    uint64_t tablePosition = 16;
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t offset, size;
+        if (headerSize - tablePosition < 9 || fp->read(&offset, 4) != 4 ||
+            fp->read(&size, 4) != 4) return nullptr;
+        tablePosition += 8;
+        offset = betoh(offset);
+        size = betoh(size);
+        if (offset > actualSize || size > actualSize - offset) return nullptr;
+        // Match the importer's 4096-byte budget including the NUL terminator.
+        std::array<char, 4096> name{};
+        size_t length = 0;
+        for (;;) {
+            if (length == name.size() || tablePosition >= headerSize ||
+                fp->read(&name[length], 1) != 1) return nullptr;
+            ++tablePosition;
+            if (name[length++] == '\0') break;
+        }
+        if (length == 1) return nullptr;
+        char* leaf = name.data();
+        for (size_t n = 0; n + 1 < length; ++n) {
+            if (name[n] == '/' || name[n] == '\\') leaf = name.data() + n + 1;
+        }
+        if (*leaf == '\0') return nullptr;
+        ArchivedFileInfo info;
+        info.m_archiveFilename = archiveName;
+        info.m_offset = static_cast<Int>(offset);
+        info.m_size = static_cast<Int>(size);
+        info.m_filename = leaf;
+        info.m_filename.toLower();
+        if (leaf != name.data()) *leaf = '\0';
+        else name[0] = '\0';
+        archive->addFile(AsciiString(name.data()), &info);
+    }
+    archive->attachFile(fp.release());
+    return archive.release();
 }
 
 void StdBIGFileSystem::closeArchiveFile(const Char *filename) {
