@@ -29,7 +29,8 @@ assert capture(['git','rev-parse','--is-shallow-repository']) == 'false'
 # Changed source files keep checkout timestamps and rebuild through Ninja.
 baseline_source = '054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f'
 changed = set(capture(['git','diff','--name-only',baseline_source,source]).splitlines())
-epoch = int(capture(['git','show','-s','--format=%ct',baseline_source]))
+# Exact source checkout mtime reported by retained verified PCH diagnostics.
+epoch = 1791292742
 for relative in capture(['git','ls-files']).splitlines():
     path = root / relative
     if relative not in changed and path.is_file() and not path.is_symlink():
@@ -72,6 +73,7 @@ run(['ccache','--set-config=sloppiness=pch_defines,time_macros'], 'ccache-pch')
 run(['ccache','--zero-stats'], 'ccache-stats-reset-only')
 launcher = 'python3;' + str(tools / 'compiler.py')
 def configure(directory, high_fps, reuse):
+    generated_before = {p:(sha(p),p.stat().st_atime_ns,p.stat().st_mtime_ns) for p in directory.rglob('*') if p.is_file() and p.suffix in ('.h','.hpp','.hxx','.cpp')}
     os.environ['GX_REUSE_RUNTIME'] = '1' if reuse else '0'
     run(['cmake','--preset','android-vulkan','-B',directory,
          '-DSAGE_HIGH_FPS_SIM=' + ('ON' if high_fps else 'OFF'),
@@ -82,9 +84,15 @@ def configure(directory, high_fps, reuse):
          '-DMESON_EXECUTABLE=/usr/bin/false','-DGLSLANG_EXECUTABLE=/usr/bin/false',
          '-DANDROID_CI_BUILD_NUMBER=' + os.environ['GITHUB_RUN_NUMBER']],
         'configure-' + directory.name)
+    for p,(digest,atime,mtime) in generated_before.items():
+        if p.is_file() and sha(p)==digest: os.utime(p,ns=(atime,mtime))
 def build(directory, targets, phase):
     plan = capture(['ninja','-C',directory,'-n',*targets])
     (out / (phase + '-plan.txt')).write_text(plan + '\n')
+    explanation = subprocess.run(['ninja','-C',str(directory),'-n','-d','explain',*targets],text=True,capture_output=True)
+    (out/(phase+'-explain.txt')).write_text(explanation.stdout+explanation.stderr)
+    planned_compiles = sum('Building CXX object' in line or 'Building C object' in line for line in plan.splitlines())
+    assert planned_compiles <= 20, 'INCREMENTAL REUSE GUARD: excessive compile plan '+str(planned_compiles)
     assert not re.search(r'(Performing (build|configure).*dxvk|meson setup|Building.*ANGLE)',plan,re.I)
     run(['cmake','--build',directory,'--target',*targets,'--parallel','2'], 'build-' + phase, phase)
 # Missing direct runtime dependencies only. The identical verified adrenotools

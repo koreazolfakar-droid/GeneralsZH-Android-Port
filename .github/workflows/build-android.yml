@@ -1120,19 +1120,19 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: build/android-vulkan
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime-${{ github.run_id }}
           restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
       - name: Restore any previously saved 30 Hz engine baseline
         uses: actions/cache/restore@v5
         with:
           path: build/engine-baseline-30
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz-${{ github.run_id }}
           restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
       - name: Restore any previously saved 60 Hz engine baseline
         uses: actions/cache/restore@v5
         with:
           path: build/engine-baseline-60
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz-${{ github.run_id }}
           restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
       - name: Restore augmented baseline compiler cache after original recovery
         uses: actions/cache/restore@v5
@@ -1157,19 +1157,19 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: build/android-vulkan
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime-${{ github.run_id }}
       - name: Save separate 30 Hz complete CMake Ninja and object state
         if: ${{ always() && hashFiles('build/engine-baseline-30/build.ninja') != '' }}
         uses: actions/cache/save@v5
         with:
           path: build/engine-baseline-30
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz-${{ github.run_id }}
       - name: Save separate 60 Hz complete CMake Ninja and object state
         if: ${{ always() && hashFiles('build/engine-baseline-60/build.ninja') != '' }}
         uses: actions/cache/save@v5
         with:
           path: build/engine-baseline-60
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz-${{ github.run_id }}
       - name: Preserve augmented compiler cache without deleting original
         if: ${{ always() && steps.tools.outputs.identity != '' }}
         uses: actions/cache/save@v5
