@@ -64,6 +64,20 @@ assert capture(['git','rev-parse',baseline_source+':references/fbraz3-dxvk']) ==
 for relative in capture(['git','-C','references/fbraz3-dxvk','ls-files','--recurse-submodules']).splitlines():
     path=root/'references/fbraz3-dxvk'/relative
     if path.is_file() and not path.is_symlink(): os.utime(path,(epoch,epoch))
+# Only byte-unchanged Git inputs can recover their original PCH mtime.
+headers = {}
+for relative in capture(['git','ls-files']).splitlines():
+    path=root/relative
+    if relative not in changed and path.is_file() and not path.is_symlink() and path.suffix in ('.h','.hpp','.hxx'):
+        headers[str(path.resolve())]=sha(path)
+assert not capture(['git','-C','references/fbraz3-dxvk','diff','--name-only'])
+for relative in capture(['git','-C','references/fbraz3-dxvk','ls-files','--recurse-submodules']).splitlines():
+    path=root/'references/fbraz3-dxvk'/relative
+    if path.is_file() and not path.is_symlink() and path.suffix in ('.h','.hpp','.hxx'):
+        headers[str(path.resolve())]=sha(path)
+verified_headers=out/'verified-unchanged-headers.json'
+verified_headers.write_text(json.dumps(headers))
+os.environ['GX_VERIFIED_HEADERS']=str(verified_headers)
 for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
     path = common / '_deps/dxvk-build-android/src' / ('d3d8' if 'd3d8' in name else 'd3d9') / name
     assert sha(path) == baseline['native_libraries'][name]['sha256']
