@@ -24,6 +24,21 @@ source = capture(['git', 'rev-parse', 'HEAD'])
 assert source == os.environ['GX_SOURCE_HEAD']
 sequence = int(capture(['bash', 'scripts/build/android/engine-build-number.sh', root]))
 assert capture(['git','rev-parse','--is-shallow-repository']) == 'false'
+# Retained objects keep their real timestamps. Normalize only byte-unchanged
+# tracked source files so a fresh Git checkout does not invalidate every object.
+# Changed source files keep checkout timestamps and rebuild through Ninja.
+baseline_source = '054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f'
+changed = set(capture(['git','diff','--name-only',baseline_source,source]).splitlines())
+epoch = int(capture(['git','show','-s','--format=%ct',baseline_source]))
+for relative in capture(['git','ls-files']).splitlines():
+    path = root / relative
+    if relative not in changed and path.is_file() and not path.is_symlink():
+        os.utime(path,(epoch,epoch))
+if source != baseline_source:
+    for mode in (30,60):
+        state=root/('build/engine-baseline-'+str(mode))
+        assert (state/'build.ninja').is_file() and (state/'GeneralsMD/Code/Main/libmain.so').is_file(), 'INCREMENTAL BUILD ENVIRONMENT REQUIRED'
+    assert all((common/p).is_file() for p in ('_deps/sdl3-build/libSDL3.so','_deps/sdl3_image-build/libSDL3_image.so','_deps/openal_soft-build/libopenal.so','libgamespy.so')), 'VERIFIED RUNTIME STATE REQUIRED'
 report = {'build_mode': 'ONE-TIME LIMITED ENGINE BASELINE REBUILD', 'source_head': source,
           'resolved_engine_sequence': sequence, 'publish': False, 'real_device': 'NOT TESTED',
           'variants': {}, 'dependency_compatibility': 'NOT TESTED', 'new_apk_required': None}

@@ -1033,7 +1033,7 @@ jobs:
       contents: read
       actions: read
     env:
-      GX_SOURCE_HEAD: 054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f
+      GX_SOURCE_HEAD: ${{ inputs.source_ref || '054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f' }}
       ANDROID_NDK_HOME: /opt/android-sdk/ndk/27.2.12479018
       VCPKG_ROOT: /opt/vcpkg
       VCPKG_BINARY_SOURCES: clear;files,/home/runner/.cache/vcpkg/archives,read
@@ -1041,7 +1041,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f
+          ref: ${{ env.GX_SOURCE_HEAD }}
           fetch-depth: 0
           filter: blob:none
           clean: false
@@ -1121,21 +1121,27 @@ jobs:
         with:
           path: build/android-vulkan
           key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
+          restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-common-runtime
       - name: Restore any previously saved 30 Hz engine baseline
         uses: actions/cache/restore@v5
         with:
           path: build/engine-baseline-30
           key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
+          restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-30hz
       - name: Restore any previously saved 60 Hz engine baseline
         uses: actions/cache/restore@v5
         with:
           path: build/engine-baseline-60
           key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
+          restore-keys: engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-60hz
       - name: Restore augmented baseline compiler cache after original recovery
         uses: actions/cache/restore@v5
         with:
           path: ~/.cache/ccache
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache-${{ github.run_id }}
+          restore-keys: |
+            engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache-
+            engine-baseline-v1-054b0a3cf6dbe0ddcd132ec5e33abb9d0507e45f-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache
       - name: Run limited engine baseline and dependency compatibility gate
         run: python3 "$GX_BASELINE_TOOLS/build.py"
       - name: Record ccache results and every actual compiler invocation
@@ -1169,7 +1175,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/ccache
-          key: engine-baseline-v1-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache
+          key: engine-baseline-v2-${{ env.GX_SOURCE_HEAD }}-ndk27.2.12479018-${{ steps.tools.outputs.identity }}-RelWithDebInfo-ccache-${{ github.run_id }}
       - name: Preserve outputs audit logs and exact invocation evidence
         if: always()
         uses: actions/upload-artifact@v7
