@@ -176,7 +176,9 @@ def preserve_host_tools(root):
             # System ABI is provided by ubuntu-24.04; hiredis is not guaranteed
             # installed and was already recovered for the successful old job.
             if 'hiredis' in library:
-                shutil.copy2(library, pinned / 'lib' / Path(library).name)
+                destination = pinned / 'lib' / Path(library).name
+                if Path(library).resolve() != destination.resolve():
+                    shutil.copy2(library, destination)
     info = capture('cmake', '--system-information')
     cmake_root = Path(re.search(r'^CMAKE_ROOT "([^"]+)"', info, re.M)[1])
     modules = pinned / 'share' / cmake_root.name

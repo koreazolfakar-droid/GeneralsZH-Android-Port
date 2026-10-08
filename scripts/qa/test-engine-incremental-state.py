@@ -257,6 +257,28 @@ class Recovery(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+    def test_retained_host_tools_can_be_backed_up_again(self):
+        with tempfile.TemporaryDirectory(prefix='engine-host-tools-tests-') as tmp:
+            root = Path(tmp)
+            pinned = root / 'host-tool-recovery/pinned'
+            (pinned / 'bin').mkdir(parents=True)
+            (pinned / 'lib').mkdir()
+            modules = pinned / 'share/cmake-fixture'
+            modules.mkdir(parents=True)
+            for name in ('cmake', 'ninja', 'ccache'):
+                (pinned / 'bin' / name).write_bytes(b'retained executable')
+            library = pinned / 'lib/libhiredis.so.1.1.0'
+            library.write_bytes(b'retained host dependency')
+            before = state.sha(library)
+            def output(*args):
+                if args[0] == 'ldd':
+                    return 'libhiredis.so.1.1.0 => ' + str(library)
+                return 'CMAKE_ROOT "' + str(modules) + '"'
+            with patch.object(state.shutil, 'which', side_effect=lambda name: str(pinned / 'bin' / name)), patch.object(state, 'capture', side_effect=output):
+                state.preserve_host_tools(root)
+                state.preserve_host_tools(root)
+            self.assertEqual(state.sha(library), before)
+
     def test_external_dependency_compile_guard(self):
         with tempfile.TemporaryDirectory(prefix='engine-compiler-tests-') as tmp:
             result = subprocess.run(['python3', str(TOOLS / 'compiler.py'), 'clang++', '-c',
