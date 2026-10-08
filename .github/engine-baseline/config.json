@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "repository": "koreazolfakar-droid/GeneralsZH-Android-Port",
+  "branch": "dev/mobile-v4",
+  "ndk": "27.2.12479018",
+  "vcpkg_commit": "42e4e33e1505c9f47b58c21e0f557c1571b751ee",
+  "sdk_cache": "android-sdk-13114758-ndk27.2.12479018-p35-bt35",
+  "vcpkg_cache": "vcpkg-android-Linux-42e4e33e1505c9f47b58c21e0f557c1571b751ee-7ce4ed9d0aa429aa37ee9be4b879ea3dab54fed831f88e188df276311acd88bd",
+  "legacy_cache_branch": "debug/android-audio-sfx-v1",
+  "legacy_run": 37668518095,
+  "legacy_source": "4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc",
+  "legacy_sequence": 3338,
+  "legacy_identity": "f02fef5519c2a25e",
+  "max_compile_requests_per_variant": 200,
+  "legacy_source_epoch": 1791292742
+}

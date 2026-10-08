@@ -1,0 +1,76 @@
+{
+  "engine_build": 3333,
+  "native_libraries": {
+    "libEGL_angle.so": {
+      "sha256": "68bec582dab9f2466ca83d80babbb65a334c09a9e85ef83aa3448ba22990268b",
+      "size": 39784
+    },
+    "libGLESv2_angle.so": {
+      "sha256": "f85d6f551069a88757859088a88a3456fdfe4ac54e9c18a3c7fb533e9753efe2",
+      "size": 5637320
+    },
+    "libSDL3.so": {
+      "sha256": "962b0ee7757c9a421ccb7e280dc30d151551f92aa70eb735eb86a24c265fced4",
+      "size": 2025480
+    },
+    "libSDL3_image.so": {
+      "sha256": "512e722dc896e91177449752577487e9f561f506f6cd786acf62d856894a6c8e",
+      "size": 235424
+    },
+    "libVkLayer_khronos_validation.so": {
+      "sha256": "1b8e4bc4701c6f7448bf6028aed4a787fb04e2e2aa8c2ad47265101ccffacc68",
+      "size": 27167728
+    },
+    "libadrenotools.so": {
+      "sha256": "aca61d1edcd0092080ef3eeabaee47125a36d47d5a26f8ceb318e2cf75151371",
+      "size": 43712
+    },
+    "libc++_shared.so": {
+      "sha256": "f9992c4ba6b7c5a716e3a202fceb1ce029d6a2b0605838ac6b3219f489dd7970",
+      "size": 1794776
+    },
+    "libdxvk_d3d8.so": {
+      "sha256": "386dfa0a56941e553bf657a80b08d2813c2e997aacfea81612b7c00b10232da4",
+      "size": 1924736
+    },
+    "libdxvk_d3d9.so": {
+      "sha256": "ddf6a8ccf234df16384cc2921231ea43b075be4577641610a8c1782436e9429e",
+      "size": 4704328
+    },
+    "libfile_redirect_hook.so": {
+      "sha256": "9b58a3daa3458d7bd81f5440cf8a4d206b26ae814931ce17ad6f06ff0f109bd1",
+      "size": 4032
+    },
+    "libgamespy.so": {
+      "sha256": "5a3a66d985f2caec095e5c37441142ca21897df6250d705491f837cb01d20e1a",
+      "size": 696104
+    },
+    "libgsl_alloc_hook.so": {
+      "sha256": "6430c85a8efb3dc72c8947363b315547b316614089d6387585aff170d1f6bdd0",
+      "size": 4344
+    },
+    "libhook_impl.so": {
+      "sha256": "882e370a9d2a773e4d5469cea7db44759bfd561be4082c0d0502bb0e581859d0",
+      "size": 39136
+    },
+    "libmain.so": {
+      "sha256": "668c79163364e4334cfc764907698c0c1e7323b1e80b87123f6abec67b42d789",
+      "size": 42233784
+    },
+    "libmain60.so": {
+      "sha256": "3ba3a8d6863b26bf9803491bc7736a5bf8e5182f9c0cac46740f401e23f3b73d",
+      "size": 42238040
+    },
+    "libmain_hook.so": {
+      "sha256": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
+      "size": 4248
+    },
+    "libopenal.so": {
+      "sha256": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b",
+      "size": 1152592
+    }
+  },
+  "schema": 1,
+  "source_commit": "c3043dcfb89570351ca33adfa786bcede8532843",
+  "source_tree": "fa3628742f4f8da31ce62119305abe31e42a1909"
+}
