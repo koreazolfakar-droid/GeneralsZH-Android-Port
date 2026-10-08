@@ -42,7 +42,9 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 360); do
-            read -r status conclusion head_sha < <(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq '[.status, (.conclusion // ""), .head_sha] | @tsv')
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq '.status')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq '.conclusion // ""')"
+            head_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq '.head_sha')"
             echo "Build $BUILD_RUN status=$status conclusion=$conclusion head=$head_sha"
             test "$head_sha" = "$SOURCE_COMMIT"
             if [ "$status" = completed ]; then
@@ -116,7 +118,8 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 120); do
-            read -r status conclusion < <(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGN_RUN" --jq '[.status, (.conclusion // "")] | @tsv')
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGN_RUN" --jq '.status')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGN_RUN" --jq '.conclusion // ""')"
             echo "Sign $SIGN_RUN status=$status conclusion=$conclusion"
             if [ "$status" = completed ]; then
               test "$conclusion" = success
