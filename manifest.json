@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "50d979336229c2a1e6bb3ac7654ade1ef7e724aac83449e1d21326769a643bc4",
-        "size": 42242544,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3338/libmain.so.gz"
+        "sha256": "cc310656e53f5e7ccfe0f309d507cf624fba64a469f3c6974ee1e813032ba973",
+        "size": 42242552,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3339/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "0398fa6bfc45b7e5a165394b66089408eb635f1a74d8195c9b00ec385240ee67",
-        "size": 42246848,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3338/libmain60.so.gz"
+        "sha256": "829101796768284d959ca6b7c1f653ee6e5b28fb5af342edd6415d742eeca6d8",
+        "size": 42246840,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3339/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3338,
-    "source_commit": "4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc"
+    "seq": 3339,
+    "source_commit": "7f65f31c7338ef6967fa7194cfb21af6bf9e5467"
   },
-  "note": "Verified Engine 3338, 30/60 Hz. Security: bound BIG/save/WebSocket input and verify Online TLS; unchanged Bootstrap dependencies, save format and game simulation.",
-  "published": "2026-10-07",
+  "note": "Impact shroud reveal: projectile/artillery impacts temporarily reveal the blast area in single-player. Multiplayer shroud behavior is unchanged.",
+  "published": "2026-10-08",
   "schema": 1,
-  "serial": 3
+  "serial": 4
 }
