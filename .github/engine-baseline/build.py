@@ -91,12 +91,20 @@ if build_requested:
     run(['ccache','--zero-stats'], 'ccache-stats-reset-only')
 launcher = 'python3;' + str(tools / 'compiler.py')
 def configure(directory, high_fps, reuse):
+    # GeneralsX @build Codex 08/10/2026 Reuse the pinned LZHL source too.
+    # Re-running FetchContent's clone would touch identical table inputs and
+    # unnecessarily invalidate the retained compression objects.
+    lzhl = directory / '_deps/lzhl-src/CompLibHeader'
+    assert lzhl.is_dir(), 'RETAINED LZHL SOURCE REQUIRED'
+    assert capture(['git', '-C', lzhl, 'rev-parse', 'HEAD']) == 'dfd96e2ca64adaddb35dd4ebadd6add7d5586783'
+    assert not capture(['git', '-C', lzhl, 'diff', 'HEAD', '--name-only']), 'Retained LZHL source changed'
     generated_before = {p:(sha(p),p.stat().st_atime_ns,p.stat().st_mtime_ns) for p in directory.rglob('*') if p.is_file() and p.suffix in ('.h','.hpp','.hxx','.cpp')}
     os.environ['GX_REUSE_RUNTIME'] = '1' if reuse else '0'
     run(['cmake','--preset','android-vulkan','-B',directory,
          '-DSAGE_HIGH_FPS_SIM=' + ('ON' if high_fps else 'OFF'),
          '-DCMAKE_C_COMPILER_LAUNCHER=' + launcher, '-DCMAKE_CXX_COMPILER_LAUNCHER=' + launcher,
          '-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=' + str(tools / 'provider.cmake'),
+         '-DFETCHCONTENT_SOURCE_DIR_LZHL=' + str(lzhl),
          '-DVCPKG_INSTALLED_DIR=' + str(common / 'vcpkg_installed'),
          '-DVCPKG_INSTALL_OPTIONS=--only-binarycaching',
          '-DMESON_EXECUTABLE=/usr/bin/false','-DGLSLANG_EXECUTABLE=/usr/bin/false',

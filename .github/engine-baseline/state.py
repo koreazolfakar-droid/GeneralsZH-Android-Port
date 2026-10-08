@@ -197,7 +197,14 @@ def backup(root, output, receipt):
             raise ValueError('Required backup directory absent: ' + name)
         destination = output / (name + '.tar.gz')
         with tarfile.open(destination, 'w:gz', compresslevel=1) as archive:
-            archive.add(directory, arcname=name)
+            # GeneralsX @bugfix Codex 08/10/2026 Ninja compares output mtimes
+            # at nanosecond precision. tarfile's float mtime loses low bits;
+            # store the original integer separately and restore it exactly.
+            def exact_timestamp(member):
+                relative = Path(member.name).relative_to(name)
+                member.pax_headers['GX.mtime_ns'] = str((directory / relative).lstat().st_mtime_ns)
+                return member
+            archive.add(directory, arcname=name, filter=exact_timestamp)
         description['archives'][name] = {'file': destination.name, 'sha256': sha(destination)}
     (output / 'backup.json').write_text(json.dumps(description) + '\n')
 
@@ -245,6 +252,10 @@ def restore(root, directory, compat=None):
                 member = prepare_member(member, name, destination)
                 if member is not None:
                     tarfile.data_filter(member, str(destination))
+                    if 'GX.mtime_ns' in member.pax_headers:
+                        value = member.pax_headers['GX.mtime_ns']
+                        if not re.fullmatch(r'[0-9]{1,19}', value):
+                            raise ValueError('Invalid exact backup timestamp')
     for name, destination in expected.items():
         destination.mkdir(parents=True, exist_ok=True)
         with tarfile.open(directory / (name + '.tar.gz'), 'r:gz') as archive:
@@ -252,6 +263,12 @@ def restore(root, directory, compat=None):
             for member in members:
                 if member is not None:
                     archive.extract(member, destination, filter='data')
+            # Apply directory mtimes last: extracting children changes them.
+            for member in reversed(members):
+                if member is not None and 'GX.mtime_ns' in member.pax_headers:
+                    path = destination / member.name
+                    mtime = int(member.pax_headers['GX.mtime_ns'])
+                    os.utime(path, ns=(path.lstat().st_atime_ns, mtime), follow_symlinks=False)
     receipt_path(root).write_text(json.dumps(description['receipt']) + '\n')
     activate_tools(root)
     compat, _ = identity(root)

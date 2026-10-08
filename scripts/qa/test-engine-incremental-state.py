@@ -138,6 +138,26 @@ class Recovery(unittest.TestCase):
             state.restore(self.root, self.backup_dir)
         self.assert_nothing_restored()
 
+    def test_output_nanoseconds_survive_backup_restore(self):
+        original = 1791292853781287193
+        outputs = [self.destinations[n] / 'CMakeFiles/engine.o' for n in ('30', '60')]
+        for path in outputs:
+            os.utime(path, ns=(original, original))
+        self.backup_and_retain()
+        state.restore(self.root, self.backup_dir, self.compat)
+        for path in outputs:
+            self.assertEqual(path.stat().st_mtime_ns, original)
+
+    def test_invalid_exact_timestamp_rejected_before_writes(self):
+        self.backup_and_retain()
+        member = state.tarfile.TarInfo('ccache/invalid-time')
+        member.size = 3
+        member.pax_headers['GX.mtime_ns'] = 'invalid'
+        self.modify_archive(member)
+        with self.assertRaisesRegex(ValueError, 'Invalid exact backup timestamp'):
+            state.restore(self.root, self.backup_dir)
+        self.assert_nothing_restored()
+
     def test_internal_absolute_symlink_restores_same_target(self):
         cache = self.destinations['ccache']
         (cache / 'absolute-src').symlink_to(cache / 'retained')
