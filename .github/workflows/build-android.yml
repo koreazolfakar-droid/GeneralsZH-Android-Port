@@ -43,6 +43,10 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      engine_report_run:
+        description: Read-only diagnostic report artifact run
+        required: false
+        type: string
       engine_incremental_mode:
         type: choice
         description: "Verified engine state only: inspect, incremental build, or one-time legacy cache export. Never publishes."
@@ -1196,7 +1200,7 @@ jobs:
 
   # GeneralsX @build Codex 08/10/2026 One reusable route for both simulation variants.
   engine-incremental:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.engine_incremental_mode != 'off' && !inputs.engine_only_baseline && !inputs.recovery_only && !inputs.verify_apk_run }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.engine_incremental_mode != 'off' && !inputs.engine_only_baseline && !inputs.recovery_only && !inputs.verify_apk_run && inputs.engine_report_run == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -1422,3 +1426,32 @@ jobs:
           name: engine-incremental-report
           path: baseline-report/
           retention-days: 90
+
+  engine-report-diagnostics:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.engine_report_run != '' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: ${{ inputs.engine_report_run }}
+          github-token: ${{ github.token }}
+          path: report
+      - name: Print retained plan evidence without any compilation
+        run: |
+          python3 - <<'PY_DIAG'
+          import pathlib,json,collections
+          root=pathlib.Path('report')
+          print((root/'result.json').read_text())
+          for path in root.glob('*explain.txt'):
+              lines=path.read_text().splitlines()
+              print('EXPLAIN',path.name,len(lines))
+              print('\n'.join(lines[:100]))
+              print(collections.Counter(line.split(' for ')[0] for line in lines if line.startswith('ninja explain:')))
+          for path in root.glob('*plan.txt'):
+              print('PLAN',path.name)
+              print('\n'.join(path.read_text().splitlines()[:12]))
+          PY_DIAG
