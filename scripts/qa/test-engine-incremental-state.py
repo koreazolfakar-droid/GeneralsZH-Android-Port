@@ -138,6 +138,16 @@ class Recovery(unittest.TestCase):
             state.restore(self.root, self.backup_dir)
         self.assert_nothing_restored()
 
+    def test_internal_absolute_symlink_restores_same_target(self):
+        cache = self.destinations['ccache']
+        (cache / 'absolute-src').symlink_to(cache / 'retained')
+        self.backup_and_retain()
+        state.restore(self.root, self.backup_dir, self.compat)
+        link = cache / 'absolute-src'
+        self.assertEqual(link.resolve(), cache / 'retained')
+        self.assertFalse(os.path.isabs(os.readlink(link)))
+        self.assertEqual(link.read_text(), 'ccache')
+
     def test_populated_directory_is_preserved(self):
         self.backup_and_retain()
         existing = self.destinations['ccache']

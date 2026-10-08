@@ -66,6 +66,24 @@ cache deletion. Wrong workspace/toolchain, missing Ninja/objects, excessive
 compile plan or changed dependency fingerprints must be diagnosed first. If
 runtime hashes change, a new APK is required; do not bypass `requires_libs`.
 
+## Prepare, sign and publish the verified pair
+
+For an owner-authorized publication, dispatch the existing `Sign update` workflow
+on `dev/mobile-v4` with `public_identity_only=false` and
+`engine_build_run=<successful-incremental-build-run-id>`. Leave `prepared_run`
+empty. The workflow downloads that run's engine report and the retained verified
+Bootstrap 1.4.3/Engine 3333 APK, then runs `prepare-engine-run.py`. This refuses
+failed regression checks, a different current source SHA, stale/mixed rate slots,
+changed dependencies or a different bootstrap trust root. Preparation uses the
+existing production publisher; it never compiles native code or builds an APK.
+
+The existing signer checks the Actions secret's public identity against the
+pinned own public key, signs the exact manifest and verifies both payloads before
+the ordinary fast-forward publication. The previous engine files remain immutable
+on `updates`. Download and independently verify the published manifest/signature
+and both URLs after success; workflow success alone is not publication acceptance.
+Record physical-device tests separately as PASS/FAIL or NOT TESTED.
+
 ## Retention
 
 Keep the complete `engine-incremental-state` artifact outside Actions too:

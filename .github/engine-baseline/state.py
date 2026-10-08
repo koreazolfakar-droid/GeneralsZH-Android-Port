@@ -200,7 +200,7 @@ def backup(root, output, receipt):
     (output / 'backup.json').write_text(json.dumps(description) + '\n')
 
 
-def prepare_member(member, name):
+def prepare_member(member, name, destination):
     if member.name == name and member.isdir():
         return None
     if not member.name.startswith(name + '/'):
@@ -210,6 +210,14 @@ def prepare_member(member, name):
         if not member.linkname.startswith(name + '/'):
             raise ValueError('Escaping backup hard link')
         member.linkname = member.linkname[len(name) + 1:]
+    # GeneralsX @bugfix Codex 08/10/2026 vcpkg buildtrees use absolute src
+    # symlinks inside the retained vcpkg root. Make only those links relative,
+    # preserving their target while keeping data_filter's escape protection.
+    if member.issym() and os.path.isabs(member.linkname):
+        target = Path(member.linkname).resolve()
+        if not target.is_relative_to(destination.resolve()):
+            raise ValueError('Escaping absolute backup symlink: ' + member.name)
+        member.linkname = os.path.relpath(target, destination / Path(member.name).parent)
     return member
 
 
@@ -232,13 +240,13 @@ def restore(root, directory, compat=None):
     for name, destination in expected.items():
         with tarfile.open(directory / (name + '.tar.gz'), 'r:gz') as archive:
             for member in archive.getmembers():
-                member = prepare_member(member, name)
+                member = prepare_member(member, name, destination)
                 if member is not None:
                     tarfile.data_filter(member, str(destination))
     for name, destination in expected.items():
         destination.mkdir(parents=True, exist_ok=True)
         with tarfile.open(directory / (name + '.tar.gz'), 'r:gz') as archive:
-            members = [prepare_member(m, name) for m in archive.getmembers()]
+            members = [prepare_member(m, name, destination) for m in archive.getmembers()]
             for member in members:
                 if member is not None:
                     archive.extract(member, destination, filter='data')

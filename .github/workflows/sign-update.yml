@@ -12,6 +12,10 @@ on:
         description: 'Actions run containing a prepared-engine-update artifact; empty for settings only'
         required: false
         type: string
+      engine_build_run:
+        description: 'Successful engine-incremental-report run to prepare, sign and publish; do not combine with prepared_run'
+        required: false
+        type: string
       note:
         description: 'Release note'
         required: false
@@ -59,6 +63,43 @@ jobs:
           ref: dev/mobile-v4
           fetch-depth: 0
           filter: blob:none
+      - name: Reject ambiguous publication input
+        env:
+          ENGINE_RUN: ${{ inputs.engine_build_run }}
+          PREPARED_RUN: ${{ inputs.prepared_run }}
+        run: |
+          test -z "$ENGINE_RUN" || test -z "$PREPARED_RUN"
+      - uses: actions/download-artifact@v5
+        if: inputs.engine_build_run != ''
+        with:
+          name: engine-incremental-report
+          run-id: ${{ inputs.engine_build_run }}
+          github-token: ${{ github.token }}
+          path: engine-build
+      - uses: actions/download-artifact@v5
+        if: inputs.engine_build_run != ''
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+      - name: Prepare exact verified incremental engine pair
+        if: inputs.engine_build_run != ''
+        env:
+          UPDATE_NOTE: ${{ inputs.note }}
+        run: |
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$(git rev-parse HEAD)" \
+            --out prepared-update --note "$UPDATE_NOTE"
+      - uses: actions/upload-artifact@v7
+        if: inputs.engine_build_run != ''
+        with:
+          name: prepared-engine-update
+          path: prepared-update/
+          if-no-files-found: error
+          retention-days: 90
       - name: Require pinned own public identity
         run: test -f android/app/src/main/assets/update-public.pem
       - uses: actions/download-artifact@v5
@@ -69,7 +110,7 @@ jobs:
           github-token: ${{ github.token }}
           path: prepared-update
       - name: Prepare settings only
-        if: inputs.prepared_run == ''
+        if: inputs.prepared_run == '' && inputs.engine_build_run == ''
         env:
           UPDATE_NOTE: ${{ inputs.note }}
         run: python3 scripts/update/publish-update.py --out prepared-update --note "$UPDATE_NOTE"

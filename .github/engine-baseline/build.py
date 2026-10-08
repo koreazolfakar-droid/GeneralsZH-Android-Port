@@ -16,7 +16,7 @@ def sha(p):
 def capture(args): return subprocess.check_output(list(map(str, args)), text=True).strip()
 def run(args, name, phase='configure'):
     env = dict(os.environ, GX_BUILD_PHASE=phase)
-    with (out / (name + '.log')).open('w') as log:
+    with (out / (name.replace('/', '-') + '.log')).open('w') as log:
         process = subprocess.Popen(list(map(str, args)), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in process.stdout:
             log.write(line); log.flush(); print(line, end='', flush=True)
@@ -72,7 +72,7 @@ for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
     report.setdefault('reused',{})[name] = {'path':str(path),'sha256':sha(path),'rebuilt':False}
 if build_requested:
     for name in ['test-engine-incremental-state.py','test-engine-build-number.py','test-engine-packaging.py','test-engine-native-version.py',
-                 'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py',
+                 'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py','smoke/test-mod-localization.py',
                  'test-own-update-channel.py','test-android-validation-staging.py',
                  'test-engine-security.py','test-online-tls.py',
                  'test-video-upload-performance.py','test-particle-removal.py']:
@@ -82,7 +82,7 @@ if build_requested:
             report.setdefault('source_tests',[]).append({'test':name,'status':'NOT TESTED','reason':'not committed in source HEAD'})
             save(); continue
         if name == 'test-online-tls.py' and subprocess.run(['pkg-config','--exists','libcurl','openssl']).returncode != 0:
-            report.setdefault('source_tests',[]).append({'test':name,'passed':False,'status':'NOT TESTED','reason':'host libcurl development files absent; local production TLS fixture passed'})
+            report.setdefault('source_tests',[]).append({'test':name,'passed':False,'status':'NOT TESTED','reason':'host libcurl development files absent'})
             save(); print('NOT TESTED in Actions: host TLS fixture needs unavailable libcurl development files', flush=True); continue
         run(['python3','scripts/qa/'+name], name)
         report.setdefault('source_tests',[]).append({'test':name,'passed':True}); save()
