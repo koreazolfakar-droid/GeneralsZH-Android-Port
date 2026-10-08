@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run build-android.yml             --repo "$GITHUB_REPOSITORY"             --ref dev/mobile-v4             -f source_ref="$SOURCE_COMMIT"             -f require_existing_caches=true             -f restore_protected_history=false             -f restore_validation_layer=false             -f verify_apk_run=             -f create_release=false
+          gh workflow run build-android.yml             --repo "$GITHUB_REPOSITORY"             --ref dev/mobile-v4             -f source_ref="$SOURCE_COMMIT"             -f require_existing_caches=false             -f restore_protected_history=false             -f restore_validation_layer=false             -f verify_apk_run=             -f create_release=false
 
           for i in $(seq 1 40); do
             run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?branch=dev%2Fmobile-v4&event=workflow_dispatch&head_sha=$SOURCE_COMMIT&per_page=10" --jq '.workflow_runs[0].id // empty')"
