@@ -43,6 +43,15 @@ on:
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
+      engine_incremental_mode:
+        type: choice
+        description: "Verified engine state only: inspect, incremental build, or one-time legacy cache export. Never publishes."
+        options: [inspect, build, export-legacy, off]
+        default: inspect
+      engine_backup_run:
+        type: string
+        description: "Optional run ID holding engine-incremental-state. Empty selects the latest retained backup."
+        default: ""
       engine_only_baseline:
         type: boolean
         description: "Limited engine baseline only; no APK, DXVK build, dependency rebuild on cache miss or publication."
@@ -92,7 +101,7 @@ on:
 
 jobs:
   build-android:
-    if: ${{ !inputs.engine_only_baseline && (!inputs.recovery_only && (!inputs.verify_apk_run)) }}
+    if: ${{ inputs.engine_incremental_mode == 'off' && !inputs.engine_only_baseline && !inputs.recovery_only && !inputs.verify_apk_run }}
     name: apk@${{ inputs.preset || 'android-vulkan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -1184,3 +1193,222 @@ jobs:
           path: baseline-report/
           retention-days: 30
           compression-level: 6
+
+  # GeneralsX @build Codex 08/10/2026 One reusable route for both simulation variants.
+  engine-incremental:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.engine_incremental_mode != 'off' && !inputs.engine_only_baseline && !inputs.recovery_only && !inputs.verify_apk_run }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: verified-engine-state-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ANDROID_NDK_HOME: /opt/android-sdk/ndk/27.2.12479018
+      VCPKG_ROOT: /opt/vcpkg
+      VCPKG_BINARY_SOURCES: clear;files,/home/runner/.cache/vcpkg/archives,read
+      CCACHE_DIR: /home/runner/.cache/ccache
+      GX_ENGINE_OPERATION: ${{ inputs.engine_incremental_mode }}
+      GX_BASELINE_TOOLS: ${{ github.workspace }}/_baseline-tools/.github/engine-baseline
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          clean: false
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          path: _baseline-tools
+          clean: false
+          persist-credentials: false
+      - name: Resolve complete source history and compatible cache namespace
+        id: source
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          test "$(git rev-parse --is-shallow-repository)" = false
+          echo "GX_SOURCE_HEAD=$sha" >> "$GITHUB_ENV"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Resolved engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
+          echo "key=engine-state-v3-${{ hashFiles('CMakePresets.json', 'cmake/**', 'vcpkg.json', 'vcpkg-lock.json', '.github/engine-baseline/config.json') }}" >> "$GITHUB_OUTPUT"
+      # Look up all components first. Never mix a half-restored cache with an
+      # artifact fallback that would overwrite populated build directories.
+      - uses: actions/cache/restore@v5
+        id: sdk-lookup
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+          lookup-only: true
+      - uses: actions/cache/restore@v5
+        id: vcpkg-lookup
+        with:
+          path: |
+            /opt/vcpkg
+            ~/.cache/vcpkg
+          key: vcpkg-android-Linux-42e4e33e1505c9f47b58c21e0f557c1571b751ee-7ce4ed9d0aa429aa37ee9be4b879ea3dab54fed831f88e188df276311acd88bd
+          lookup-only: true
+      - uses: actions/cache/restore@v5
+        id: state-lookup
+        with:
+          path: |
+            build/android-vulkan
+            build/engine-baseline-30
+            build/engine-baseline-60
+            ~/.cache/ccache
+            host-tool-recovery
+          key: ${{ steps.source.outputs.key }}-${{ steps.source.outputs.sha }}-${{ github.run_id }}
+          restore-keys: ${{ steps.source.outputs.key }}-
+          lookup-only: true
+      - name: Select atomic cache restore or verified artifact fallback
+        id: route
+        env:
+          SDK_KEY: ${{ steps.sdk-lookup.outputs.cache-matched-key }}
+          VCPKG_KEY: ${{ steps.vcpkg-lookup.outputs.cache-matched-key }}
+          STATE_KEY: ${{ steps.state-lookup.outputs.cache-matched-key }}
+          BACKUP_RUN: ${{ inputs.engine_backup_run }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$GX_ENGINE_OPERATION" = export-legacy ]; then
+            test "$GITHUB_REF_NAME" = debug/android-audio-sfx-v1 || { echo 'Legacy caches are scoped to debug/android-audio-sfx-v1; export must run there once.'; exit 1; }
+            echo 'route=legacy' >> "$GITHUB_OUTPUT"
+          elif [ -n "$SDK_KEY" ] && [ -n "$VCPKG_KEY" ] && [ -n "$STATE_KEY" ] && [ -z "$BACKUP_RUN" ]; then
+            echo 'route=cache' >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "$BACKUP_RUN" ]; then
+              BACKUP_RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=engine-incremental-state&per_page=100" --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')"
+            fi
+            [[ "$BACKUP_RUN" =~ ^[0-9]+$ ]] || { echo 'INCREMENTAL STATE BACKUP REQUIRED: export legacy caches once; no fresh build attempted.'; exit 1; }
+            echo "run=$BACKUP_RUN" >> "$GITHUB_OUTPUT"
+            echo 'route=artifact' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'cache' || steps.route.outputs.route == 'legacy'
+        with:
+          path: /opt/android-sdk
+          key: ${{ steps.sdk-lookup.outputs.cache-matched-key }}
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'cache' || steps.route.outputs.route == 'legacy'
+        with:
+          path: |
+            /opt/vcpkg
+            ~/.cache/vcpkg
+          key: ${{ steps.vcpkg-lookup.outputs.cache-matched-key }}
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'cache'
+        with:
+          path: |
+            build/android-vulkan
+            build/engine-baseline-30
+            build/engine-baseline-60
+            ~/.cache/ccache
+            host-tool-recovery
+          key: ${{ steps.state-lookup.outputs.cache-matched-key }}
+          fail-on-cache-miss: true
+      - name: Export the exact retained 3338 common state
+        uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'legacy'
+        with:
+          path: build/android-vulkan
+          key: engine-baseline-v2-4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc-ndk27.2.12479018-f02fef5519c2a25e-RelWithDebInfo-common-runtime-37668518095
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'legacy'
+        with:
+          path: build/engine-baseline-30
+          key: engine-baseline-v2-4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc-ndk27.2.12479018-f02fef5519c2a25e-RelWithDebInfo-30hz-37668518095
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'legacy'
+        with:
+          path: build/engine-baseline-60
+          key: engine-baseline-v2-4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc-ndk27.2.12479018-f02fef5519c2a25e-RelWithDebInfo-60hz-37668518095
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        if: steps.route.outputs.route == 'legacy'
+        with:
+          path: ~/.cache/ccache
+          key: engine-baseline-v2-4a9d42c1fa6b9c919995b91897a0c8faa0ead4dc-ndk27.2.12479018-f02fef5519c2a25e-RelWithDebInfo-ccache-37668518095
+          fail-on-cache-miss: true
+      - uses: actions/download-artifact@v5
+        if: steps.route.outputs.route == 'artifact'
+        with:
+          name: engine-incremental-state
+          run-id: ${{ steps.route.outputs.run }}
+          github-token: ${{ github.token }}
+          path: recovery-input
+      - name: Restore checksummed state without overwriting existing outputs
+        if: steps.route.outputs.route == 'artifact'
+        run: python3 "$GX_BASELINE_TOOLS/state.py" restore --directory recovery-input
+      - name: Activate retained host tools or recover the missing ccache executable
+        run: |
+          set -euo pipefail
+          if [ -x host-tool-recovery/pinned/bin/cmake ]; then
+            echo "$GITHUB_WORKSPACE/host-tool-recovery/pinned/bin" >> "$GITHUB_PATH"
+            echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/host-tool-recovery/pinned/lib" >> "$GITHUB_ENV"
+          elif ! command -v ccache; then
+            mkdir -p host-tool-recovery
+            cd host-tool-recovery
+            hiredis="$(apt-cache depends ccache | awk '/Depends: libhiredis/ {print $2; exit}')"
+            test -n "$hiredis"
+            apt-get download ccache "$hiredis"
+            for package in *.deb; do dpkg-deb -x "$package" extracted; done
+            echo "$PWD/extracted/usr/bin" >> "$GITHUB_PATH"
+            echo "LD_LIBRARY_PATH=$PWD/extracted/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+          fi
+      - name: Verify both engine states and unchanged bootstrap dependencies
+        env:
+          GX_LEGACY_STATE: ${{ steps.route.outputs.route == 'legacy' && '1' || '0' }}
+        run: python3 "$GX_BASELINE_TOOLS/build.py"
+      - name: Seal only successfully built matching dual-engine state
+        if: inputs.engine_incremental_mode == 'build'
+        run: python3 "$GX_BASELINE_TOOLS/state.py" seal
+      - name: Preserve complete state independently of branch cache visibility
+        env:
+          LEGACY: ${{ steps.route.outputs.route == 'legacy' && '--legacy' || '' }}
+        run: python3 "$GX_BASELINE_TOOLS/state.py" backup $LEGACY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-incremental-state
+          path: incremental-backup/
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+      - uses: actions/cache/save@v5
+        if: inputs.engine_incremental_mode != 'export-legacy'
+        with:
+          path: |
+            build/android-vulkan
+            build/engine-baseline-30
+            build/engine-baseline-60
+            ~/.cache/ccache
+            host-tool-recovery
+          key: ${{ steps.source.outputs.key }}-${{ steps.source.outputs.sha }}-${{ github.run_id }}
+      - uses: actions/cache/save@v5
+        if: steps.route.outputs.route == 'artifact' && steps.sdk-lookup.outputs.cache-matched-key == ''
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+      - uses: actions/cache/save@v5
+        if: steps.route.outputs.route == 'artifact' && steps.vcpkg-lookup.outputs.cache-matched-key == ''
+        with:
+          path: |
+            /opt/vcpkg
+            ~/.cache/vcpkg
+          key: vcpkg-android-Linux-42e4e33e1505c9f47b58c21e0f557c1571b751ee-7ce4ed9d0aa429aa37ee9be4b879ea3dab54fed831f88e188df276311acd88bd
+      - name: Record actual ccache/compiler requests and retained state
+        if: always()
+        run: python3 "$GX_BASELINE_TOOLS/summarize.py"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: engine-incremental-report
+          path: baseline-report/
+          retention-days: 90
