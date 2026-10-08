@@ -1278,7 +1278,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "$GX_ENGINE_OPERATION" = export-legacy ]; then
+          if [ "$GX_ENGINE_OPERATION" = export-legacy ] || { [ "$GX_ENGINE_OPERATION" = build ] && [ "$BACKUP_RUN" = legacy ]; }; then
             test "$GITHUB_REF_NAME" = debug/android-audio-sfx-v1 || { echo 'Legacy caches are scoped to debug/android-audio-sfx-v1; export must run there once.'; exit 1; }
             echo 'route=legacy' >> "$GITHUB_OUTPUT"
           elif [ -n "$SDK_KEY" ] && [ -n "$VCPKG_KEY" ] && [ -n "$STATE_KEY" ] && [ -z "$BACKUP_RUN" ]; then
@@ -1386,7 +1386,7 @@ jobs:
         run: python3 "$GX_BASELINE_TOOLS/state.py" seal
       - name: Preserve complete state independently of branch cache visibility
         env:
-          LEGACY: ${{ steps.route.outputs.route == 'legacy' && '--legacy' || '' }}
+          LEGACY: ${{ steps.route.outputs.route == 'legacy' && inputs.engine_incremental_mode != 'build' && '--legacy' || '' }}
         run: python3 "$GX_BASELINE_TOOLS/state.py" backup $LEGACY
       - uses: actions/upload-artifact@v7
         with:
