@@ -20,7 +20,7 @@ using Char = char;
 using WideChar = wchar_t;
 using Int = int;
 using UnsignedInt = unsigned;
-using FileInstance = unsigned;
+using FileInstance = uint8_t;
 using LanguageID = int;
 #define TRUE true
 #define FALSE false
@@ -40,6 +40,7 @@ class AsciiString {
 public:
     AsciiString(const char* s = "") : value(s) {}
     const char* str() const { return value.c_str(); }
+    int compareNoCase(const AsciiString& other) const { return strcasecmp(str(), other.str()); }
     bool isEmpty() const { return value.empty(); }
     bool isNotEmpty() const { return !value.empty(); }
     void format(const char* fmt, ...) {
@@ -196,7 +197,7 @@ public:
     Bool getStringCount(const char*, Int&, FileInstance = 0);
     Bool getCSFInfo(const Char*, Int&, LanguageID&, FileInstance = 0);
     Bool parseCSF(const Char*, StringInfo*, Int, Int&, FileInstance = 0);
-    Bool parseStringFile(const char*, FileInstance = 0);
+    Bool parseStringFile(const char*, FileInstance = 0, StringInfo* = nullptr);
     ~GameTextManager() { deinit(); }
 
 };

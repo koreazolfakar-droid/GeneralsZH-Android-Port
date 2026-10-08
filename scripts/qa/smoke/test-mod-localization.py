@@ -54,7 +54,7 @@ def big(path: Path, entries: dict[str, bytes], magic: bytes = b"BIGF") -> None:
 def main() -> int:
     repo = Path(__file__).resolve().parents[3]
     source = (repo / "Core/GameEngine/Source/GameClient/GameText.cpp").read_text()
-    names = ["isAsciiSpace", "decodeUtf8", "compareLUT"] + [
+    names = ["isAsciiSpace", "decodeUtf8", "compareLUT", "gxLogTextSource"] + [
         f"GameTextManager::{name}" for name in (
             "init", "deinit", "stripSpaces", "removeLeadingAndTrailing",
             "readToEndOfQuote", "translateCopy", "readLine", "readChar",
@@ -99,7 +99,7 @@ def main() -> int:
             result = subprocess.run([str(executable), str(game), mod, *expected, source, str(override).lower()], text=True, capture_output=True)
             if result.returncode:
                 raise RuntimeError(f"{label} failed:\n{result.stdout}\n{result.stderr}")
-            for marker in ("activeMod=", "language=English", "csfSource=", "strSource=", f"overrideVanilla={str(override).lower()}"):
+            for marker in ("activeMod=", "language=English", "csfSource=", "strSource=", f"selectedSource={'ACTIVE_MOD' if override else 'VANILLA'}"):
                 assert f"[GX-MOD-LANG] {marker}" in result.stderr, (label, marker, result.stderr)
             print(f"PASS (host fixture): {label}")
 

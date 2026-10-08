@@ -61,6 +61,7 @@
 #include "Common/ArchiveFileSystem.h"
 #include "Common/ArchiveFile.h"
 #include "Common/LocalFileSystem.h"
+#include "Common/ModLocalization.h"
 #include "Common/version.h"
 
 
@@ -202,7 +203,7 @@ class GameTextManager : public GameTextInterface
 		Bool						getStringCount( const Char *filename, Int& textCount, FileInstance instance = 0 );
 		Bool						getCSFInfo ( const Char *filename, Int& textCount, LanguageID& language, FileInstance instance = 0 );
 		Bool						parseCSF(  const Char *filename, StringInfo *stringInfo, Int textCount, Int& maxLabelLen, FileInstance instance = 0 );
-		Bool						parseStringFile( const char *filename, FileInstance instance = 0 );
+		Bool						parseStringFile( const char *filename, FileInstance instance = 0, StringInfo* destination = nullptr );
 		Bool						parseMapStringFile( const char *filename );
 		Bool						readLine( char *buffer, Int max, File *file );
 		Char						readChar( File *file );
@@ -345,35 +346,6 @@ GameTextManager::~GameTextManager()
 extern const Char *g_strFile;
 extern const Char *g_csfFile;
 
-// GeneralsX @bugfix Codex 05/10/2026 Choose text by active archive ownership, not format alone.
-// This only reads the existing mount order. No archives, INI or game state are changed.
-static std::string gxTextArchivePath(const AsciiString& path)
-{
-	std::string result = path.str();
-	for (size_t i = 0; i < result.size(); ++i)
-	{
-		if (result[i] == '\\') result[i] = '/';
-		result[i] = (char)std::tolower((unsigned char)result[i]);
-	}
-	while (!result.empty() && result[result.size() - 1] == '/') result.erase(result.size() - 1);
-	return result;
-}
-
-static Int gxActiveModTextInstance(const AsciiString& filename)
-{
-	if (!TheGlobalData || !TheArchiveFileSystem) return -1;
-	ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(filename);
-	if (!archive) return -1;
-	const std::string source = gxTextArchivePath(archive->getName());
-	const std::string modBig = gxTextArchivePath(TheGlobalData->m_modBIG);
-	const std::string modDir = gxTextArchivePath(TheGlobalData->m_modDir);
-	const Bool owned = (!modBig.empty() && source == modBig)
-		|| (!modDir.empty() && source.compare(0, modDir.size() + 1, modDir + "/") == 0);
-	if (!owned) return -1;
-	// FileSystem counts a loose file as instance 0; the first archive is then instance 1.
-	return TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str()) ? 1 : 0;
-}
-
 static void gxLogTextSource(const AsciiString& filename, FileInstance instance, Int format, Bool modText)
 {
 	const Bool loose = TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str());
@@ -386,6 +358,7 @@ static void gxLogTextSource(const AsciiString& filename, FileInstance instance, 
 
 void GameTextManager::init()
 {
+	if (m_initialized) return;
 	// GeneralsX @feature Android port 09/09/2026 The language of the TEXT, which is not
 	// necessarily the language of the game.
 	//
@@ -422,29 +395,24 @@ void GameTextManager::init()
 	else
 		strFile = g_strFile;
 
-	// A base .str must not hide a CSF supplied by -mod. Prefer the active mod's
-	// selected-language table, then its English table; Vanilla keeps STR-before-CSF.
-	// English fallback changes TEXT only, never the SKU language or mod mount order.
-	Int modStrInstance = gxActiveModTextInstance(strFile);
-	Int modCsfInstance = gxActiveModTextInstance(csfFile);
-	if (modStrInstance < 0 && modCsfInstance < 0 && textLanguage.compareNoCase("english") != 0)
-	{
-		AsciiString englishStr, englishCsf;
-		englishStr.format(g_strFile, "english");
-		englishCsf.format(g_csfFile, "english");
-		const Int englishStrInstance = gxActiveModTextInstance(englishStr);
-		const Int englishCsfInstance = gxActiveModTextInstance(englishCsf);
-		if (englishStrInstance >= 0 || englishCsfInstance >= 0)
-		{
-			strFile = englishStr;
-			csfFile = englishCsf;
-			modStrInstance = englishStrInstance;
-			modCsfInstance = englishCsfInstance;
-		}
-	}
-	const FileInstance strInstance = modStrInstance >= 0 ? modStrInstance : 0;
-	const FileInstance csfInstance = modCsfInstance >= 0 ? modCsfInstance : 0;
-	const Bool preferModCsf = modCsfInstance >= 0 && !(m_useStringFile && modStrInstance >= 0);
+	// GeneralsX @bugfix Codex 08/10/2026 Resolve all mod instances and layouts.
+	// Compare language/layout priority across formats: requested CSF beats English STR.
+	const AsciiString vanillaCSF = csfFile;
+	const AsciiString vanillaSTR = strFile;
+	const ModLocalizationSource strSource = resolveModLocalization(strFile, textLanguage, "generals.str");
+	const ModLocalizationSource csfSource = resolveModLocalization(csfFile, textLanguage, "generals.csf");
+	strFile = strSource.filename;
+	csfFile = csfSource.filename;
+	const FileInstance strInstance = strSource.instance;
+	const FileInstance csfInstance = csfSource.instance;
+	const Bool preferModCsf = csfSource.activeMod && !(m_useStringFile && strSource.activeMod
+		&& strSource.priority <= csfSource.priority);
+	fprintf(stderr, "[GX-MOD-LANG] activeMod=%s\n", !TheGlobalData ? "Vanilla" :
+		(TheGlobalData->m_modDir.isNotEmpty() ? TheGlobalData->m_modDir.str() :
+		(TheGlobalData->m_modBIG.isNotEmpty() ? TheGlobalData->m_modBIG.str() : "Vanilla")));
+	fprintf(stderr, "[GX-MOD-LANG] language=%s\n", textLanguage.str());
+	fprintf(stderr, "[GX-MOD-LANG] strSource=%s\n", strSource.description.str());
+	fprintf(stderr, "[GX-MOD-LANG] csfSource=%s\n", csfSource.description.str());
 	Int format;
 
 	// GeneralsX @bugfix BenderAI 16/02/2026 - Debug CSF init
@@ -470,7 +438,7 @@ void GameTextManager::init()
 	{
 		format = CSF_FILE;
 	}
-	else if ( m_useStringFile && getStringCount( strFile.str(), m_textCount, strInstance ) )
+	else if ( m_useStringFile && getStringCount( strFile.str(), m_textCount, strInstance ) && m_textCount > 0 )
 	{
 		format = STRING_FILE;
 	}
@@ -534,26 +502,57 @@ void GameTextManager::init()
 	}
 
 	qsort( m_stringLUT, m_textCount, sizeof(StringLookUp), compareLUT  );
+	const Bool modText = format == CSF_FILE ? csfSource.activeMod : strSource.activeMod;
 	gxLogTextSource(format == CSF_FILE ? csfFile : strFile,
-		format == CSF_FILE ? csfInstance : strInstance, format,
-		format == CSF_FILE ? modCsfInstance >= 0 : modStrInstance >= 0);
+		format == CSF_FILE ? csfInstance : strInstance, format, modText);
+	fprintf(stderr, "[GX-MOD-LANG] instance=%u\n", (unsigned)(format == CSF_FILE ? csfInstance : strInstance));
+	fprintf(stderr, "[GX-MOD-LANG] selectedSource=%s\n", modText ? "ACTIVE_MOD" : "VANILLA");
+	fprintf(stderr, "[GX-MOD-LANG] selectedFormat=%s\n", format == CSF_FILE ? "CSF" : "STR");
 
 	// GeneralsX @bugfix BenderAI 22/05/2026 Load fallback CSF instance when a mod provides an incomplete table.
-	if ( format == CSF_FILE )
+	if ( format == CSF_FILE || modText )
 	{
 		Int fallbackCount = 0;
+		if (format == STRING_FILE) m_language = LANGUAGE_ID_US;
 		LanguageID originalLanguage = m_language;
-		// If mod text skipped a loose base CSF, keep that base table as fallback.
-		const FileInstance fallbackInstance = modCsfInstance >= 0 && csfInstance > 0 ? 0 : csfInstance + 1;
+		AsciiString fallbackFile = csfFile;
+		FileInstance fallbackInstance = (FileInstance)(csfInstance + 1);
+		Bool readable = FALSE;
+		Bool fallbackSTR = FALSE;
+		// GeneralsX @bugfix Codex 08/10/2026 Missing mod labels use a genuinely
+		// non-mod table, never another BIG owned by the same active directory.
+		if (modText)
+		{
+			ModLocalizationSource fallback = resolveVanillaLocalization(vanillaCSF);
+			readable = fallback.available && getCSFInfo(fallback.filename.str(), fallbackCount, m_language, fallback.instance) && fallbackCount > 0;
+			if (!readable && textLanguage.compareNoCase("english") != 0)
+			{
+				AsciiString englishCSF;
+				englishCSF.format(g_csfFile, "english");
+				fallback = resolveVanillaLocalization(englishCSF);
+				readable = fallback.available && getCSFInfo(fallback.filename.str(), fallbackCount, m_language, fallback.instance) && fallbackCount > 0;
+			}
+			if (!readable && m_useStringFile)
+			{
+				fallback = resolveVanillaLocalization(vanillaSTR);
+				readable = fallback.available && getStringCount(fallback.filename.str(), fallbackCount, fallback.instance) && fallbackCount > 0;
+				fallbackSTR = readable;
+			}
+			fallbackFile = fallback.filename;
+			fallbackInstance = fallback.instance;
+		}
+		else if (csfInstance < (std::numeric_limits<FileInstance>::max)())
+			readable = getCSFInfo(fallbackFile.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0;
 
-		if ( getCSFInfo(csfFile.str(), fallbackCount, m_language, fallbackInstance) && fallbackCount > 0 )
+		if ( readable )
 		{
 			m_fallbackStringInfo = NEW StringInfo[fallbackCount];
 
 			if ( m_fallbackStringInfo != nullptr )
 			{
 				Int fallbackMaxLabelLen = m_maxLabelLen;
-				if ( parseCSF(csfFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
+				if ( fallbackSTR ? parseStringFile(fallbackFile.str(), fallbackInstance, m_fallbackStringInfo)
+					: parseCSF(fallbackFile.str(), m_fallbackStringInfo, fallbackCount, fallbackMaxLabelLen, fallbackInstance) )
 				{
 					m_fallbackTextCount = fallbackCount;
 					m_maxLabelLen = max(m_maxLabelLen, fallbackMaxLabelLen);
@@ -1369,8 +1368,10 @@ quit:
 // GameTextManager::parseStringFile
 //============================================================================
 
-Bool GameTextManager::parseStringFile( const char *filename, FileInstance instance )
+Bool GameTextManager::parseStringFile( const char *filename, FileInstance instance, StringInfo* destination )
 {
+	// GeneralsX @bugfix Codex 08/10/2026 Reuse the STR parser for missing-label fallback.
+	StringInfo* strings = destination ? destination : m_stringInfo;
 	Int listCount = 0;
 	Int ok = TRUE;
 
@@ -1398,13 +1399,13 @@ Bool GameTextManager::parseStringFile( const char *filename, FileInstance instan
 
 		for ( Int i = 0; i < listCount; i++ )
 		{
-			if ( stricmp ( m_stringInfo[i].label.str(), m_buffer ) == 0)
+			if ( stricmp ( strings[i].label.str(), m_buffer ) == 0)
 			{
 				DEBUG_CRASH ( ("String label '%s' multiply defined!", m_buffer ));
 			}
 		}
 
-		m_stringInfo[listCount].label = m_buffer;
+		strings[listCount].label = m_buffer;
 		len = strlen ( m_buffer );
 
 
@@ -1436,7 +1437,7 @@ Bool GameTextManager::parseStringFile( const char *filename, FileInstance instan
 				if ( readString )
 				{
 					// only one string per label allows
-						DEBUG_CRASH ( ("String label '%s' has more than one string defined!", m_stringInfo[listCount].label.str()));
+						DEBUG_CRASH ( ("String label '%s' has more than one string defined!", strings[listCount].label.str()));
 				}
 				else
 				{
@@ -1444,8 +1445,8 @@ Bool GameTextManager::parseStringFile( const char *filename, FileInstance instan
 					translateCopy( m_tbuffer, m_buffer2 );
 					stripSpaces ( m_tbuffer );
 
-					m_stringInfo[listCount].text = m_tbuffer ;
-					m_stringInfo[listCount].speech = m_buffer3;
+					strings[listCount].text = m_tbuffer ;
+					strings[listCount].speech = m_buffer3;
 					readString = TRUE;
 				}
 			}

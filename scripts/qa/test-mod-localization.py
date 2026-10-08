@@ -24,11 +24,24 @@ def main() -> int:
     source = args.source or root / 'Core/GameEngine/Source/GameClient/GameText.cpp'
     body = '\n'.join(line for line in source.read_text().splitlines()
                      if not line.startswith('#include "'))
+    # Trace the unchanged menu consumer and execute its real translation callback.
+    player = (root / 'GeneralsMD/Code/GameEngine/Source/Common/RTS/PlayerTemplate.cpp').read_text()
+    assert '"DisplayName"' in player and 'INI::parseAndTranslateLabel' in player
+    ini = (root / 'Core/GameEngine/Source/Common/INI/INI.cpp').read_text()
+    start = ini.index('void INI::parseAndTranslateLabel(')
+    end = ini.index('//-------------------------------------------------------------------------------------------------', start)
+    translate = ini[start:end]
     with tempfile.TemporaryDirectory(prefix='gx-text-test-') as work:
         work = Path(work)
         unit = work / 'loader.cpp'
+        selector = (root / 'Core/GameEngine/Include/Common/ModLocalization.h').read_text()
+        selector = '\n'.join(line for line in selector.splitlines() if not line.startswith('#include "'))
         unit.write_text('#include "mod-localization-compat.h"\n'
-                        + body + '\n#include "mod-localization-test.cpp"\n')
+                        + selector + '\n' + body
+                        + '\nstruct INI { const char* token; const char* getNextToken(){return token;} '
+                        + 'static void parseAndTranslateLabel(INI*,void*,void*,const void*); };\n'
+                        + 'const int INI_INVALID_DATA=1;\n' + translate
+                        + '\n#include "mod-localization-test.cpp"\n')
         compiler = os.environ.get('CXX', 'c++')
         subprocess.run([compiler, '-std=c++17', '-O1', '-g', '-Wall', '-Wextra',
                         '-fsanitize=address,undefined', '-fno-omit-frame-pointer',

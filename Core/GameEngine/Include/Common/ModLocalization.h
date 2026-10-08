@@ -1,4 +1,4 @@
-// GeneralsX @bugfix Codex 05/10/2026 Resolve Android mod text without changing global asset priority.
+// GeneralsX @bugfix Codex 05/10/2026 Resolve mod text without changing global asset priority.
 #pragma once
 
 #include "Common/ArchiveFile.h"
@@ -6,6 +6,8 @@
 #include "Common/GlobalData.h"
 #include "Common/LocalFileSystem.h"
 #include <algorithm>
+#include <cctype>
+#include <limits>
 #include <string>
 
 struct ModLocalizationSource
@@ -14,6 +16,8 @@ struct ModLocalizationSource
 	AsciiString description;
 	FileInstance instance = 0;
 	Bool activeMod = FALSE;
+	Bool available = FALSE;
+	Int priority = 4;
 };
 
 inline std::string modLocalizationPath(const AsciiString& path)
@@ -23,19 +27,28 @@ inline std::string modLocalizationPath(const AsciiString& path)
 	return result;
 }
 
+// GeneralsX @bugfix Codex 08/10/2026 Ownership is case/separator insensitive;
+// preserve the original spelling when opening a loose path on Android.
+inline std::string modLocalizationOwnershipPath(const AsciiString& path)
+{
+	std::string result = modLocalizationPath(path);
+	for (char& ch : result)
+		ch = (char)std::tolower((unsigned char)ch);
+	while (!result.empty() && result.back() == '/')
+		result.pop_back();
+	return result;
+}
+
 inline Bool isActiveModLocalizationArchive(ArchiveFile* archive)
 {
 	if (archive == nullptr || TheGlobalData == nullptr)
 		return FALSE;
-	const std::string name = modLocalizationPath(archive->getName());
-	if (TheGlobalData->m_modBIG.isNotEmpty() && name == modLocalizationPath(TheGlobalData->m_modBIG))
+	const std::string name = modLocalizationOwnershipPath(archive->getName());
+	const std::string big = modLocalizationOwnershipPath(TheGlobalData->m_modBIG);
+	if (!big.empty() && name == big)
 		return TRUE;
-	if (TheGlobalData->m_modDir.isEmpty())
-		return FALSE;
-	std::string directory = modLocalizationPath(TheGlobalData->m_modDir);
-	if (directory.back() != '/')
-		directory += '/';
-	return name.compare(0, directory.size(), directory) == 0;
+	const std::string directory = modLocalizationOwnershipPath(TheGlobalData->m_modDir);
+	return !directory.empty() && name.compare(0, directory.size() + 1, directory + "/") == 0;
 }
 
 inline ModLocalizationSource describeModLocalization(const AsciiString& filename, FileInstance instance = 0)
@@ -43,20 +56,22 @@ inline ModLocalizationSource describeModLocalization(const AsciiString& filename
 	ModLocalizationSource source;
 	source.filename = filename;
 	source.instance = instance;
-	if (TheLocalFileSystem->doesFileExist(filename.str()))
+	if (TheLocalFileSystem && TheLocalFileSystem->doesFileExist(filename.str()))
 	{
 		if (instance == 0)
 		{
 			source.description.format("loose:%s", filename.str());
+			source.available = TRUE;
 			return source;
 		}
 		--instance;
 	}
-	ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(filename, instance);
+	ArchiveFile* archive = TheArchiveFileSystem ? TheArchiveFileSystem->getArchiveFile(filename, instance) : nullptr;
 	if (archive != nullptr)
 	{
 		source.description.format("big:%s!%s", archive->getName().str(), filename.str());
 		source.activeMod = isActiveModLocalizationArchive(archive);
+		source.available = TRUE;
 	}
 	else
 		source.description = "none";
@@ -66,42 +81,41 @@ inline ModLocalizationSource describeModLocalization(const AsciiString& filename
 inline ModLocalizationSource resolveModLocalization(const AsciiString& defaultFile,
 	const AsciiString& language, const char* leaf)
 {
-	// Prefer the selected language, then the English tables used by most ZH mods.
-	// Also accept the development Data/Generals.str and root-level table layouts.
 	AsciiString candidates[4];
 	candidates[0].format("data/%s/%s", language.str(), leaf);
-	candidates[1].format("data/English/%s", leaf);
+	candidates[1].format("data/english/%s", leaf);
 	candidates[2].format("data/%s", leaf);
 	candidates[3] = leaf;
-	if (TheGlobalData != nullptr && TheGlobalData->m_modDir.isNotEmpty())
+	// GeneralsX @bugfix Codex 08/10/2026 Search every instance at each language/layout
+	// before trying the next. A translation/base archive cannot mask the active mod.
+	for (Int priority = 0; priority < 4; ++priority)
 	{
-		std::string directory = modLocalizationPath(TheGlobalData->m_modDir);
-		if (directory.back() != '/')
-			directory += '/';
-		for (const AsciiString& candidate : candidates)
+		const AsciiString& candidate = candidates[priority];
+		if (TheGlobalData && TheGlobalData->m_modDir.isNotEmpty() && TheLocalFileSystem)
 		{
+			std::string directory = modLocalizationPath(TheGlobalData->m_modDir);
+			if (directory.back() != '/') directory += '/';
 			AsciiString loose;
 			loose.format("%s%s", directory.c_str(), candidate.str());
 			if (TheLocalFileSystem->doesFileExist(loose.str()))
 			{
 				ModLocalizationSource source = describeModLocalization(loose);
 				source.activeMod = TRUE;
+				source.priority = priority;
 				return source;
 			}
 		}
-	}
-	for (const AsciiString& candidate : candidates)
-	{
-		for (FileInstance instance = 0; ; ++instance)
+		const Int looseOffset = TheLocalFileSystem && TheLocalFileSystem->doesFileExist(candidate.str()) ? 1 : 0;
+		// FileInstance is a byte in the engine. Never wrap it when enumerating BIGs.
+		for (Int index = 0; TheArchiveFileSystem && index <= (std::numeric_limits<FileInstance>::max)() - looseOffset; ++index)
 		{
-			ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(candidate, instance);
-			if (archive == nullptr)
-				break;
+			ArchiveFile* archive = TheArchiveFileSystem->getArchiveFile(candidate, (FileInstance)index);
+			if (archive == nullptr) break;
 			if (isActiveModLocalizationArchive(archive))
 			{
-				// FileSystem counts a loose base file as instance 0, ahead of BIGs.
-				return describeModLocalization(candidate, instance +
-					(TheLocalFileSystem->doesFileExist(candidate.str()) ? 1 : 0));
+				ModLocalizationSource source = describeModLocalization(candidate, (FileInstance)(index + looseOffset));
+				source.priority = priority;
+				return source;
 			}
 		}
 	}
@@ -110,11 +124,15 @@ inline ModLocalizationSource resolveModLocalization(const AsciiString& defaultFi
 
 inline ModLocalizationSource resolveVanillaLocalization(const AsciiString& filename)
 {
-	// Instance 1 is not necessarily vanilla: a mod can supply several BIG tables.
-	for (FileInstance instance = 0; ; ++instance)
+	// Instance 1 is not necessarily Vanilla: a mod can supply several BIG tables.
+	for (Int index = 0; index <= (std::numeric_limits<FileInstance>::max)(); ++index)
 	{
-		ModLocalizationSource source = describeModLocalization(filename, instance);
-		if (!source.activeMod)
+		ModLocalizationSource source = describeModLocalization(filename, (FileInstance)index);
+		if (!source.available || !source.activeMod)
 			return source;
 	}
+	ModLocalizationSource missing;
+	missing.filename = filename;
+	missing.description = "none";
+	return missing;
 }

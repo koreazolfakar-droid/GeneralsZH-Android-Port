@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 #include <strings.h>
-using Char=char; using WideChar=wchar_t; using Int=int; using UnsignedInt=unsigned; using Bool=bool; using FileInstance=unsigned; using LanguageID=int;
+using Char=char; using WideChar=wchar_t; using Int=int; using UnsignedInt=unsigned; using Bool=bool; using FileInstance=uint8_t; using LanguageID=int;
 #define TRUE true
 #define FALSE false
 #define NEW new
@@ -27,7 +27,7 @@ using Char=char; using WideChar=wchar_t; using Int=int; using UnsignedInt=unsign
 #define LANGUAGE_ID_US 0
 using std::max;
 struct AsciiString { std::string s; AsciiString(){} AsciiString(const char* p):s(p?p:""){} const char* str()const{return s.c_str();} bool isEmpty()const{return s.empty();} bool isNotEmpty()const{return !s.empty();} void toLower(){for(auto&c:s)c=std::tolower((unsigned char)c);} void format(const char*f,...){char b[4096];va_list a;va_start(a,f);vsnprintf(b,sizeof(b),f,a);va_end(a);s=b;} int compareNoCase(const AsciiString&o)const{return strcasecmp(str(),o.str());} };
-struct UnicodeString { std::wstring s; UnicodeString(){} UnicodeString(const wchar_t*p):s(p?p:L""){} const wchar_t* str()const{return s.c_str();} bool operator==(const UnicodeString&o)const{return s==o.s;} void format_va(const wchar_t*f,va_list a){wchar_t b[32768];vswprintf(b,32768,f,a);s=b;} void format(const wchar_t*f,...){va_list a;va_start(a,f);format_va(f,a);va_end(a);} };
+struct UnicodeString { std::wstring s; UnicodeString(){} UnicodeString(const wchar_t*p):s(p?p:L""){} const wchar_t* str()const{return s.c_str();} bool isEmpty()const{return s.empty();} void set(const wchar_t*p){s=p?p:L"";} bool operator==(const UnicodeString&o)const{return s==o.s;} void format_va(const wchar_t*f,va_list a){wchar_t b[32768];vswprintf(b,32768,f,a);s=b;} void format(const wchar_t*f,...){va_list a;va_start(a,f);format_va(f,a);va_end(a);} };
 using AsciiStringVec=std::vector<AsciiString>;
 class GameTextInterface { public: virtual ~GameTextInterface(){} virtual void init()=0; virtual void update()=0;virtual void reset()=0;virtual UnicodeString fetch(const Char*,Bool* =nullptr)=0;virtual UnicodeString fetch(AsciiString,Bool* =nullptr)=0;virtual UnicodeString fetchFormat(const Char*,...)=0; virtual UnicodeString fetchOrSubstitute(const Char*,const WideChar*)=0;virtual UnicodeString fetchOrSubstituteFormat(const Char*,const WideChar*,...)=0;virtual UnicodeString fetchOrSubstituteFormatVA(const Char*,const WideChar*,va_list)=0;virtual AsciiStringVec& getStringsWithLabelPrefix(AsciiString)=0;virtual void initMapStringFile(const AsciiString&)=0;};
 struct GlobalData { AsciiString m_modBIG,m_modDir; }; inline GlobalData gd; inline GlobalData* TheGlobalData=&gd;
