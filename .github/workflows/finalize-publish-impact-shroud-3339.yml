@@ -1,0 +1,79 @@
+name: Finalize publish impact shroud engine 3339
+
+on:
+  push:
+    branches:
+      - ops/publish-impact-shroud-3339
+    paths:
+      - '.github/workflows/finalize-publish-impact-shroud-3339.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  sign-publish-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PREPARED_RUN: 37722737377
+      SOURCE_COMMIT: 7f65f31c7338ef6967fa7194cfb21af6bf9e5467
+      RELEASE_NOTE: "Impact shroud reveal: projectile/artillery impacts temporarily reveal the blast area in single-player. Multiplayer shroud behavior is unchanged."
+    steps:
+      - name: Dispatch exact prepared Engine 3339 for signing
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100"             --jq '[.workflow_runs[] | select(.name=="Sign update") | .id] | max // 0')"
+          gh workflow run sign-update.yml             --repo "$GITHUB_REPOSITORY"             --ref dev/mobile-v4             -f public_identity_only=false             -f prepared_run="$PREPARED_RUN"             -f note="$RELEASE_NOTE"
+
+          for i in $(seq 1 60); do
+            run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100"               --jq "[.workflow_runs[] | select(.name==\"Sign update\" and .id > $before)][0].id // empty")"
+            if [ -n "$run_id" ]; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              echo "Sign update run: $run_id"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::New Sign update run was not found"
+          exit 1
+
+      - name: Wait for signed publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGN_RUN: ${{ steps.dispatch.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 120); do
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGN_RUN" --jq '.status')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGN_RUN" --jq '.conclusion // ""')"
+            echo "Sign update $SIGN_RUN status=$status conclusion=$conclusion"
+            if [ "$status" = completed ]; then
+              test "$conclusion" = success
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Sign update did not finish successfully"
+          exit 1
+
+      - name: Verify updates branch publishes Engine 3339
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates"             --jq .content | tr -d '\n' | base64 -d > /tmp/manifest.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open('/tmp/manifest.json'))
+          assert m['engine']['seq'] == 3339, m['engine']['seq']
+          assert m['engine']['source_commit'] == '7f65f31c7338ef6967fa7194cfb21af6bf9e5467'
+          assert 'Impact shroud reveal' in m.get('note','')
+          print('PASS: signed Engine Build 3339 published')
+          PY
