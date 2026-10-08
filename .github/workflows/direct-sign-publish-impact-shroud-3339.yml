@@ -1,0 +1,94 @@
+name: Direct sign publish impact shroud engine 3339
+
+on:
+  push:
+    branches:
+      - ops/publish-impact-shroud-3339
+    paths:
+      - '.github/workflows/direct-sign-publish-impact-shroud-3339.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sign-publish-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PREPARED_RUN: 37722737377
+      SOURCE_COMMIT: 7f65f31c7338ef6967fa7194cfb21af6bf9e5467
+    steps:
+      - name: Checkout publication tooling
+        uses: actions/checkout@v6
+        with:
+          ref: dev/mobile-v4
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Download exact prepared Engine 3339
+        uses: actions/download-artifact@v5
+        with:
+          name: prepared-engine-update
+          run-id: ${{ env.PREPARED_RUN }}
+          github-token: ${{ github.token }}
+          path: prepared-update
+
+      - name: Verify prepared identity before signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --is-shallow-repository)" = false
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('prepared-update/manifest.json').read_text())
+          assert m['engine']['seq'] == 3339, m['engine']['seq']
+          assert m['engine']['source_commit'] == '7f65f31c7338ef6967fa7194cfb21af6bf9e5467'
+          assert 'Impact shroud reveal' in m.get('note','')
+          print('Prepared manifest identity verified')
+          PY
+
+      - name: Sign and verify Engine 3339
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/update/sign-manifest.sh prepared-update
+
+      - name: Publish signed update branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+
+      - name: Verify published Engine 3339
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates"               --jq .content | tr -d '\n' | base64 -d > /tmp/manifest.json
+            if python3 - <<'PY'
+          import json,sys
+          m=json.load(open('/tmp/manifest.json'))
+          ok=(m.get('engine',{}).get('seq')==3339 and m.get('engine',{}).get('source_commit')=='7f65f31c7338ef6967fa7194cfb21af6bf9e5467')
+          sys.exit(0 if ok else 1)
+          PY
+            then
+              python3 - <<'PY'
+          import json
+          m=json.load(open('/tmp/manifest.json'))
+          print('PASS: published Engine Build',m['engine']['seq'],'serial',m['serial'])
+          PY
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::updates manifest did not publish Engine 3339"
+          exit 1
