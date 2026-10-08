@@ -1,94 +1,102 @@
-name: Direct sign publish impact shroud engine 3339
-
+# GeneralsX @build Codex 08/10/2026 Reuse the proven registered signer; no native build.
+name: Publish verified active mod localization engine
 on:
   push:
-    branches:
-      - ops/publish-impact-shroud-3339
-    paths:
-      - '.github/workflows/direct-sign-publish-impact-shroud-3339.yml'
-
+    branches: [ops/publish-impact-shroud-3339]
+    paths: ['.github/workflows/direct-sign-publish-impact-shroud-3339.yml']
 permissions:
   contents: write
   actions: read
-
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
 jobs:
   sign-publish-verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      PREPARED_RUN: 37722737377
-      SOURCE_COMMIT: 7f65f31c7338ef6967fa7194cfb21af6bf9e5467
+      ENGINE_RUN: '37797101176'
+      SOURCE_COMMIT: '775111c69ec93c0665d7eb610dcbfc4d50d1aa17'
     steps:
-      - name: Checkout publication tooling
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
-          ref: dev/mobile-v4
+          ref: ${{ env.SOURCE_COMMIT }}
           fetch-depth: 0
           filter: blob:none
-
-      - name: Download exact prepared Engine 3339
-        uses: actions/download-artifact@v5
-        with:
-          name: prepared-engine-update
-          run-id: ${{ env.PREPARED_RUN }}
-          github-token: ${{ github.token }}
-          path: prepared-update
-
-      - name: Verify prepared identity before signing
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse --is-shallow-repository)" = false
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          m=json.loads(Path('prepared-update/manifest.json').read_text())
-          assert m['engine']['seq'] == 3339, m['engine']['seq']
-          assert m['engine']['source_commit'] == '7f65f31c7338ef6967fa7194cfb21af6bf9e5467'
-          assert 'Impact shroud reveal' in m.get('note','')
-          print('Prepared manifest identity verified')
-          PY
-
-      - name: Sign and verify Engine 3339
-        env:
-          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/update/sign-manifest.sh prepared-update
-
-      - name: Publish signed update branch
+          clean: false
+      - name: Require exact current mobile source and successful native run
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$SOURCE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" --jq .conclusion)" = success
+          echo "Real complete-history engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: ${{ env.ENGINE_RUN }}
+          github-token: ${{ github.token }}
+          path: engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+      - name: Prepare verified dual-engine update and dependency requirements
+        run: |
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$SOURCE_COMMIT" \
+            --out prepared-update \
+            --note 'Fix active mod faction/general localization: all archive instances, mod language priority and Vanilla fallback for missing labels. No simulation, save or network format changes.'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prepared-engine-update
+          path: prepared-update/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Sign and verify exact manifest and engine payloads
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish verified signed update preserving previous engines
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh auth setup-git --hostname github.com
           bash scripts/update/push-updates-branch.sh prepared-update
-
-      - name: Verify published Engine 3339
+      - name: Verify published manifest and both payload URLs
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 30); do
-            gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates"               --jq .content | tr -d '\n' | base64 -d > /tmp/manifest.json
-            if python3 - <<'PY'
-          import json,sys
-          m=json.load(open('/tmp/manifest.json'))
-          ok=(m.get('engine',{}).get('seq')==3339 and m.get('engine',{}).get('source_commit')=='7f65f31c7338ef6967fa7194cfb21af6bf9e5467')
-          sys.exit(0 if ok else 1)
+          python3 - <<'PY'
+          import base64,hashlib,importlib.util,json,os,pathlib,subprocess,urllib.request,gzip
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          repo=os.environ['GITHUB_REPOSITORY']
+          api=lambda p:json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/'+p]))
+          head=api('git/ref/heads/updates')['object']['sha']
+          directory=pathlib.Path('published-verification');directory.mkdir()
+          for name in ('manifest.json','manifest.json.sig'):
+              (directory/name).write_bytes(base64.b64decode(api(f'contents/{name}?ref={head}')['content']))
+          manifest=a.verify_manifest(directory,'android/app/src/main/assets/update-public.pem')
+          sequence=int(subprocess.check_output(['bash','scripts/build/android/engine-build-number.sh',os.getcwd()]))
+          assert manifest['engine']['seq']==sequence
+          assert manifest['engine']['source_commit']==os.environ['SOURCE_COMMIT']
+          for name,row in manifest['engine']['files'].items():
+              relative=f'engine/{sequence}/{name}.gz'
+              assert row['url']==a.BASE_URL+relative
+              with urllib.request.urlopen(row['url'],timeout=90) as response:compressed=response.read()
+              target=directory/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(compressed)
+              data=gzip.decompress(compressed)
+              assert len(data)==row['size'] and hashlib.sha256(data).hexdigest()==row['sha256']
+              a.native_stamp(data,os.environ['SOURCE_COMMIT'],sequence)
+          a.verify_directory(directory,'android/app/src/main/assets/update-public.pem')
+          print('PASS: published signed dual-engine sequence',sequence,'source',os.environ['SOURCE_COMMIT'])
           PY
-            then
-              python3 - <<'PY'
-          import json
-          m=json.load(open('/tmp/manifest.json'))
-          print('PASS: published Engine Build',m['engine']['seq'],'serial',m['serial'])
-          PY
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::updates manifest did not publish Engine 3339"
-          exit 1
