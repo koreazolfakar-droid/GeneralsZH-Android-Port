@@ -1346,7 +1346,17 @@ jobs:
           path: recovery-input
       - name: Restore checksummed state without overwriting existing outputs
         if: steps.route.outputs.route == 'artifact'
-        run: python3 "$GX_BASELINE_TOOLS/state.py" restore --directory recovery-input
+        run: |
+          python3 - <<'PY_DIAG'
+          import pathlib,json,hashlib
+          root=pathlib.Path('recovery-input')
+          meta=json.loads((root/'backup.json').read_text())
+          for name,row in meta['archives'].items():
+              path=root/row['file']
+              with path.open('rb') as data: digest=hashlib.file_digest(data,'sha256').hexdigest()
+              print(name,path.stat().st_size,'expected='+row['sha256'],'actual='+digest,flush=True)
+          PY_DIAG
+          python3 "$GX_BASELINE_TOOLS/state.py" restore --directory recovery-input
       - name: Activate retained host tools or recover the missing ccache executable
         run: |
           set -euo pipefail
