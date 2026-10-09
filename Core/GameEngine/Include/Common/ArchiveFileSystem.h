@@ -166,6 +166,9 @@ protected:
 
 	ArchiveFileMap m_archiveFileMap;
 	ArchivedDirectoryInfo m_rootDirectory;
+	// True only after a standalone mod directory was successfully mounted. It
+	// gates virtual archive-replacement filtering during file enumeration.
+	Bool m_standaloneModOverlayActive = FALSE;
 };
 
 
