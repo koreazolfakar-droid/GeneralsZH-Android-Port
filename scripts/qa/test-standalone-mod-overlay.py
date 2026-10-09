@@ -122,6 +122,7 @@ int main() {
     ArchiveFile modZ("/game/Mods/Project/!Z.big");
     ArchiveFile baseA("/game/INIZH.big");
     ArchiveFile baseB("/game/MapsZH.big");
+    ArchiveFile siblingSameName("/sibling/INI.big");
     ArchivedDirectoryInfo tree;
 
     // Archive with matching filename is virtually replaced (even if the
@@ -141,19 +142,22 @@ int main() {
     // Preserve base archive priority on paths the mod doesn't touch.
     tree.m_files.emplace("retail-only.ini", &baseA);
     tree.m_files.emplace("retail-only.ini", &baseB);
+    tree.m_files.emplace("sibling.ini", &siblingSameName);
 
     std::set<ArchiveFile*> mods = {&modReplacement, &modA, &modZ};
+    std::set<ArchiveFile*> primaryZH = {&oldBig, &baseA, &baseB};
     std::set<AsciiString> replaced = {"ini.big", "!a.big", "!z.big"};
     StandaloneModOverlayStats stats;
-    reconcileStandaloneModDirectory(tree, mods, replaced, stats);
+    reconcileStandaloneModDirectory(tree, mods, primaryZH, replaced, stats);
     assert(winner(tree, "unique-base.ini") == nullptr);
     assert(winner(tree, "shared-model.w3d") == &modReplacement);
     assert(winner(tree, "unit.w3d") == &modA);
     assert(winner(tree, "override.ini") == &modA);
     assert(winner(tree, "retail-only.ini") == &baseA);
+    assert(winner(tree, "sibling.ini") == &siblingSameName);
     assert(stats.maskedBaseEntries == 2);
     assert(stats.affectedPaths >= 3);
-    printf("PASS: 6 scan/masking cases, 5 archive resolution cases, real production C++ helpers compiled\n");
+    printf("PASS: 6 scan/masking cases, 6 archive resolution cases, real production C++ helpers compiled\n");
 }
 """
     cpp = "\n".join((prologue, get_basename, stats, reconcile, mod_folder, checks))
