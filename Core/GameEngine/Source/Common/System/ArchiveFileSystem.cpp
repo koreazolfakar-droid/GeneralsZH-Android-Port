@@ -52,6 +52,9 @@
 #include "Common/LocalFileSystem.h"
 #include "Common/AsciiString.h"
 #include "Common/PerfTimer.h"
+#include <algorithm>
+#include <set>
+#include <vector>
 
 
 //----------------------------------------------------------------------------
@@ -120,6 +123,93 @@ static AsciiString getBaseFilename(const AsciiString& path)
 //------------------------------------------------------
 // ArchivedFileInfo
 //------------------------------------------------------
+// Standalone directory mods must behave like BIGs copied into the game root:
+// alphabetically first BIG wins a path; a same-named retail BIG is replaced
+// in its entirety. We emulate this without touching the actual game files.
+struct StandaloneModOverlayStats
+{
+	unsigned int maskedBaseEntries = 0;
+	unsigned int reorderedPaths = 0;
+	unsigned int affectedPaths = 0;
+	unsigned int sampleLines = 0;
+};
+
+static void reconcileStandaloneModDirectory(
+	ArchivedDirectoryInfo& directory,
+	const std::set<ArchiveFile*>& modArchives,
+	const std::set<ArchiveFile*>& primaryGameArchives,
+	const std::set<AsciiString>& replacedBaseNames,
+	StandaloneModOverlayStats& stats)
+{
+	ArchivedFileLocationMap::iterator it = directory.m_files.begin();
+	while (it != directory.m_files.end())
+	{
+		const AsciiString fileName = it->first;
+		const std::pair<ArchivedFileLocationMap::iterator, ArchivedFileLocationMap::iterator> range =
+			directory.m_files.equal_range(fileName);
+		const ArchivedFileLocationMap::iterator next = range.second;
+		std::vector<ArchiveFile*> before;
+		std::vector<ArchiveFile*> after;
+
+		for (ArchivedFileLocationMap::iterator entry = range.first; entry != range.second; ++entry)
+		{
+			ArchiveFile* archive = entry->second;
+			before.push_back(archive);
+			if (modArchives.find(archive) == modArchives.end() &&
+				primaryGameArchives.find(archive) != primaryGameArchives.end())
+			{
+				AsciiString name = getBaseFilename(archive->getName());
+				name.toLower();
+				if (replacedBaseNames.find(name) != replacedBaseNames.end())
+				{
+					++stats.maskedBaseEntries;
+					continue;
+				}
+			}
+			after.push_back(archive);
+		}
+
+		// Original retail priority stays unchanged. For the active mod BIGs,
+		// alphabetical FIRST wins (not the last archive mounted with TRUE).
+		std::stable_sort(after.begin(), after.end(),
+			[&modArchives](ArchiveFile* a, ArchiveFile* b) {
+				const bool aMod = modArchives.find(a) != modArchives.end();
+				const bool bMod = modArchives.find(b) != modArchives.end();
+				if (aMod != bMod)
+					return aMod;
+				if (!aMod)
+					return false;
+				const int baseCmp = getBaseFilename(a->getName()).compareNoCase(getBaseFilename(b->getName()));
+				if (baseCmp != 0)
+					return baseCmp < 0;
+				return a->getName().compareNoCase(b->getName()) < 0;
+			});
+
+		if (before != after)
+		{
+			++stats.affectedPaths;
+			if (!before.empty() && !after.empty() && before.front() != after.front())
+				++stats.reorderedPaths;
+			if (stats.sampleLines < 12)
+			{
+				fprintf(stderr, "[gxmod-overlay] path=%s%s before=%s after=%s\n",
+					directory.m_path.str(), fileName.str(),
+					before.empty() ? "<none>" : before.front()->getName().str(),
+					after.empty() ? "<masked>" : after.front()->getName().str());
+				++stats.sampleLines;
+			}
+			directory.m_files.erase(range.first, range.second);
+			for (std::vector<ArchiveFile*>::const_iterator value = after.begin(); value != after.end(); ++value)
+				directory.m_files.insert(std::make_pair(fileName, *value));
+		}
+
+		it = next;
+	}
+	for (ArchivedDirectoryInfoMap::iterator child = directory.m_directories.begin();
+		child != directory.m_directories.end(); ++child)
+		reconcileStandaloneModDirectory(child->second, modArchives, primaryGameArchives, replacedBaseNames, stats);
+}
+
 ArchiveFileSystem::ArchiveFileSystem()
 {
 }
@@ -396,9 +486,41 @@ void ArchiveFileSystem::loadMods()
 
 	if (TheGlobalData->m_modDir.isNotEmpty())
 	{
+		// Pointer snapshot identifies successfully mounted mod BIGs regardless
+		// of basename collisions with physical retail BIGs.
+		std::set<ArchiveFile*> previousArchives;
+		for (ArchiveFileMap::const_iterator existing = m_archiveFileMap.begin();
+			existing != m_archiveFileMap.end(); ++existing)
+			previousArchives.insert(existing->second);
+
 		MAYBE_UNUSED Bool ret = loadBigFilesFromDirectory(TheGlobalData->m_modDir, "*.big", TRUE);
 		(void)ret;
 		DEBUG_ASSERTLOG(ret, ("loadBigFilesFromDirectory(%s) returned FALSE!", TheGlobalData->m_modDir.str()));
+
+		std::set<ArchiveFile*> modArchives;
+		std::set<AsciiString> replacedNames;
+		for (ArchiveFileMap::const_iterator mounted = m_archiveFileMap.begin();
+			mounted != m_archiveFileMap.end(); ++mounted)
+		{
+			if (mounted->second == nullptr ||
+				previousArchives.find(mounted->second) != previousArchives.end())
+				continue;
+			modArchives.insert(mounted->second);
+			AsciiString name = getBaseFilename(mounted->second->getName());
+			name.toLower();
+			replacedNames.insert(name);
+		}
+		if (!modArchives.empty())
+		{
+			StandaloneModOverlayStats stats;
+			reconcileStandaloneModDirectory(m_rootDirectory, modArchives, m_primaryGameArchives, replacedNames, stats);
+			m_standaloneModOverlayActive = TRUE;
+			fprintf(stderr,
+				"[gxmod-overlay] active_mod_bigs=%u masked_base_entries=%u affected_paths=%u reordered_winners=%u\n",
+				(unsigned)modArchives.size(), stats.maskedBaseEntries,
+				stats.affectedPaths, stats.reorderedPaths);
+			fflush(stderr);
+		}
 	}
 }
 
@@ -498,9 +620,19 @@ ArchiveFile* ArchiveFileSystem::getArchiveFile(const AsciiString& filename, File
 
 void ArchiveFileSystem::getFileListInDirectory(const AsciiString& currentDirectory, const AsciiString& originalDirectory, const AsciiString& searchName, FilenameList &filenameList, Bool searchSubdirectories) const
 {
+	// Do not enumerate paths that belonged only to a virtually replaced BIG.
+	// Preserve loose files already inserted into filenameList by the caller.
+	FilenameList archiveNames;
+	FilenameList& output = m_standaloneModOverlayActive ? archiveNames : filenameList;
 	ArchiveFileMap::const_iterator it = m_archiveFileMap.begin();
 	while (it != m_archiveFileMap.end()) {
-		it->second->getFileListInDirectory(currentDirectory, originalDirectory, searchName, filenameList, searchSubdirectories);
+		it->second->getFileListInDirectory(currentDirectory, originalDirectory, searchName, output, searchSubdirectories);
 		it++;
+	}
+	if (m_standaloneModOverlayActive)
+	{
+		for (FilenameList::const_iterator candidate = archiveNames.begin(); candidate != archiveNames.end(); ++candidate)
+			if (getArchiveFile(*candidate) != nullptr)
+				filenameList.insert(*candidate);
 	}
 }
