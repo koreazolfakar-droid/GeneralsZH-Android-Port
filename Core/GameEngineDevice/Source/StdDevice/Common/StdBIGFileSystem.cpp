@@ -534,6 +534,12 @@ void StdBIGFileSystem::init() {
 	}
 
 #if RTS_ZEROHOUR
+	// Track *which* BIGs belong to the primary ZH root before appending
+	// original Generals data. A directory mod copied to ZH only physically
+	// replaces ZH-root BIGs, never equally named archives in the sibling game.
+	for (ArchiveFileMap::const_iterator primary = m_archiveFileMap.begin();
+		primary != m_archiveFileMap.end(); ++primary)
+		m_primaryGameArchives.insert(primary->second);
 	loadBaseGeneralsAssetsForZH(this, primaryAssetsDirectory);
 #endif
 }
