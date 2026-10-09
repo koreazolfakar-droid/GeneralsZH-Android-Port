@@ -45,6 +45,9 @@
 #include <memory>
 #include <array>
 #include <cstdint>
+#include <algorithm>
+#include <filesystem>
+#include <string>
 
 #if defined(_UNIX)
 #include <strings.h>
@@ -81,6 +84,30 @@ static Bool equalsIgnoreCase(const char* lhs, const char* rhs)
 #else
 	return strcasecmp(lhs, rhs) == 0;
 #endif
+}
+
+// The retail game root can contain the Android Mod Manager's Mods/ folder.
+// When enumerating primary/secondary retail BIGs recursively, NEVER mount
+// inactive mod archives from that folder as if they were game data. Active mod
+// directories still mount explicitly through ArchiveFileSystem::loadMods().
+static bool isStandaloneModArchiveBelowRoot(const AsciiString& rootPath, const AsciiString& archivePath)
+{
+	std::string rootText(rootPath.str());
+	std::string fileText(archivePath.str());
+	std::replace(rootText.begin(), rootText.end(), '\\', '/');
+	std::replace(fileText.begin(), fileText.end(), '\\', '/');
+	const std::filesystem::path root = std::filesystem::path(rootText).lexically_normal();
+	const std::filesystem::path file = std::filesystem::path(fileText).lexically_normal();
+
+	std::filesystem::path relative;
+	if (!rootPath.isEmpty() && root.is_absolute() == file.is_absolute())
+		relative = file.lexically_relative(root);
+	else if (file.is_relative())
+		relative = file;
+	if (relative.empty())
+		return false;
+	const std::filesystem::path::const_iterator segment = relative.begin();
+	return segment != relative.end() && equalsIgnoreCase(segment->string().c_str(), "Mods");
 }
 
 static const char* trimLeft(const char* text)
@@ -616,9 +643,18 @@ Bool StdBIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString fi
 		dir.isEmpty() ? "." : dir.str(), fileMask.str(), (unsigned)filenameList.size());
 
 	Bool actuallyAdded = FALSE;
+	unsigned int ignoredInactiveModArchives = 0;
 	FilenameListIter it = filenameList.begin();
 	while (it != filenameList.end()) {
 #if RTS_ZEROHOUR
+		// The Android Mod Manager isolates all mods beneath the retail root's
+		// Mods/ directory. A recursive base scan must never import an inactive
+		// mod (nor preload the active one ahead of -mod handling).
+		if (!overwrite && isStandaloneModArchiveBelowRoot(dir, *it)) {
+			++ignoredInactiveModArchives;
+			++it;
+			continue;
+		}
 		// TheSuperHackers @bugfix bobtista 18/11/2025 Skip duplicate INIZH.big in Data\INI to prevent CRC mismatches.
 		// English, Chinese, and Korean SKUs shipped with two INIZH.big files (one in Run directory, one in Run\Data\INI).
 		// The DeleteFile cleanup doesn't work on EA App/Origin installs because the folder is not writable, so we skip loading it instead.
@@ -647,6 +683,9 @@ Bool StdBIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString fi
 
 		it++;
 	}
+	if (ignoredInactiveModArchives != 0)
+		fprintf(stderr, "[gxbig] excluded %u inactive Mods/ BIG(s) from base scan '%s'\n",
+			ignoredInactiveModArchives, dir.str());
 
 	return actuallyAdded;
 }
