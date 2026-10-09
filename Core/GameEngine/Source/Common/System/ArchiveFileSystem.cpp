@@ -137,6 +137,7 @@ struct StandaloneModOverlayStats
 static void reconcileStandaloneModDirectory(
 	ArchivedDirectoryInfo& directory,
 	const std::set<ArchiveFile*>& modArchives,
+	const std::set<ArchiveFile*>& primaryGameArchives,
 	const std::set<AsciiString>& replacedBaseNames,
 	StandaloneModOverlayStats& stats)
 {
@@ -154,7 +155,8 @@ static void reconcileStandaloneModDirectory(
 		{
 			ArchiveFile* archive = entry->second;
 			before.push_back(archive);
-			if (modArchives.find(archive) == modArchives.end())
+			if (modArchives.find(archive) == modArchives.end() &&
+				primaryGameArchives.find(archive) != primaryGameArchives.end())
 			{
 				AsciiString name = getBaseFilename(archive->getName());
 				name.toLower();
@@ -205,7 +207,7 @@ static void reconcileStandaloneModDirectory(
 	}
 	for (ArchivedDirectoryInfoMap::iterator child = directory.m_directories.begin();
 		child != directory.m_directories.end(); ++child)
-		reconcileStandaloneModDirectory(child->second, modArchives, replacedBaseNames, stats);
+		reconcileStandaloneModDirectory(child->second, modArchives, primaryGameArchives, replacedBaseNames, stats);
 }
 
 ArchiveFileSystem::ArchiveFileSystem()
@@ -511,7 +513,7 @@ void ArchiveFileSystem::loadMods()
 		if (!modArchives.empty())
 		{
 			StandaloneModOverlayStats stats;
-			reconcileStandaloneModDirectory(m_rootDirectory, modArchives, replacedNames, stats);
+			reconcileStandaloneModDirectory(m_rootDirectory, modArchives, m_primaryGameArchives, replacedNames, stats);
 			m_standaloneModOverlayActive = TRUE;
 			fprintf(stderr,
 				"[gxmod-overlay] active_mod_bigs=%u masked_base_entries=%u affected_paths=%u reordered_winners=%u\n",
