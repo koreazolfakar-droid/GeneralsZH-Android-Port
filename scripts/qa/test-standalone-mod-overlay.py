@@ -43,7 +43,7 @@ def main():
     assert "FilenameList archiveNames;" in archive  # must not erase local-only names
 
     get_basename = extract(archive, "static AsciiString getBaseFilename(")
-    stats = extract(archive, "struct StandaloneModOverlayStats")
+    stats = extract(archive, "struct StandaloneModOverlayStats") + ";"
     reconcile = extract(archive, "static void reconcileStandaloneModDirectory(")
     mod_folder = extract(loader, "static bool isStandaloneModArchiveBelowRoot(")
 
