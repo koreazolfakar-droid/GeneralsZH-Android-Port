@@ -53,6 +53,7 @@
 #include "Common/AsciiString.h"
 #include "Common/FileSystem.h" // for typedefs, etc.
 #include "Common/STLTypedefs.h"
+#include <set>
 
 //----------------------------------------------------------------------------
 //           Forward References
@@ -166,6 +167,10 @@ protected:
 
 	ArchiveFileMap m_archiveFileMap;
 	ArchivedDirectoryInfo m_rootDirectory;
+	// Archive identity of the selected primary Zero Hour root, excluding the
+	// separately loaded original Generals assets. Only these can be virtually
+	// replaced by equal-named archives copied into the ZH root.
+	std::set<ArchiveFile*> m_primaryGameArchives;
 	// True only after a standalone mod directory was successfully mounted. It
 	// gates virtual archive-replacement filtering during file enumeration.
 	Bool m_standaloneModOverlayActive = FALSE;
