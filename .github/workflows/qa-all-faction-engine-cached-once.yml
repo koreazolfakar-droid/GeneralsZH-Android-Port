@@ -1,0 +1,62 @@
+name: QA all-factions Guard/Stop native (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/qa-all-faction-engine-cached-once.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: all-factions-guard-native-qa-only
+  cancel-in-progress: false
+jobs:
+  verify-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: 5ce0f5642de67e069b46ace34980c9073a693021
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify immutable source and all faction command tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git show -s --format=%s HEAD)" = 'ci(qa): incrementally verify all-armies Guard Stop paging without publishing'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+      - name: Dispatch and verify 30/60Hz native build using existing caches only
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          for ((i=1;i<=150;i++)); do
+            native_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $previous and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$native_run" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$native_run" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "30/60Hz cached native build $native_run: $result"
+              if [[ "$result" == "completed success" ]]; then
+                echo "PASS: compiled both engines without re-building APK; publishing remains disabled"
+                exit 0
+              fi
+              if [[ "$result" == completed* ]]; then
+                echo "::error::Native build failed ($result); stable engine channel unchanged"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Native build timed out; stable channel unchanged"
+          exit 1
