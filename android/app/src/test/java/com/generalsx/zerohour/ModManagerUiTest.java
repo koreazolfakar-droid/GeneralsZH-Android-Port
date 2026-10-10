@@ -113,6 +113,40 @@ public class ModManagerUiTest {
         return (View) label(mod.getName()).getParent().getParent().getParent().getParent();
     }
 
+    // GeneralsX @feature 10/10/2026 Health details must be real, read-only and reachable.
+    @Test public void modDetailsInspectsInstalledBigWithoutChangingActivation() throws Exception {
+        File mod = new File(mods, "ProjectXFixture");
+        assertTrue(mod.mkdir());
+        java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(16);
+        header.put("BIGF".getBytes(java.nio.charset.StandardCharsets.US_ASCII))
+              .putInt(16).putInt(0).putInt(16);
+        File archive = new File(mod, "ProjectX_INI.big");
+        Files.write(archive.toPath(), header.array());
+        byte[] original = Files.readAllBytes(archive.toPath());
+        assertTrue(ModManager.setActiveMod(context, mod));
+
+        open();
+        assertTrue(button(card(mod), R.string.mods_details_button).performClick());
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertNotNull(dialog);
+        assertTrue(dialog.isShowing());
+        drain();
+
+        boolean hasSummary = false;
+        for (View v : views(dialog.getWindow().getDecorView())) {
+            if (v instanceof TextView) {
+                String value = ((TextView) v).getText().toString();
+                if (value.contains(activity.getString(R.string.mods_health_structural_ok))
+                        && value.contains(activity.getString(R.string.mods_health_big_count, 1)))
+                    hasSummary = true;
+            }
+        }
+        assertTrue("Health report must render real scanned counts", hasSummary);
+        assertArrayEquals(original, Files.readAllBytes(archive.toPath()));
+        assertEquals(mod, ModManager.getActiveMod(context));
+        dialog.dismiss();
+    }
+
     @Test public void emptyLibraryAndMissingGameFolderAreSafe() throws Exception {
         open();
         label(activity.getString(R.string.mods_empty_title));
