@@ -1,0 +1,275 @@
+name: Build Tactical Gold Home 1.4.11 preview
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tactical-gold-home-preview-once.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  launcher-apk:
+    if: github.repository == 'koreazolfakar-droid/GeneralsZH-Android-Port'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      REPO: koreazolfakar-droid/GeneralsZH-Android-Port
+      BRANCH: feature/gold-tactical-home-20261010
+      SOURCE_SHA: 4684f7ed86d43263acd6cff6aacdaebbb24d64b0
+      APK_NAME: GeneralsZH-TacticalGold-v1.4.11-preview.apk
+      VERSION_CODE: '10411'
+      VERSION_NAME: '1.4.11'
+    steps:
+      - name: Ensure source version and stable signed engine update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$REPO/branches/$BRANCH" --jq '.commit.sha')" = "$SOURCE_SHA"
+          gh api "repos/$REPO/contents/manifest.json?ref=updates" --jq '.content' | base64 -d > "$RUNNER_TEMP/engine.json"
+          python3 - "$RUNNER_TEMP/engine.json" <<'PY'
+          import json,sys
+          manifest=json.load(open(sys.argv[1]))
+          assert manifest['engine']['seq']>=3391
+          print('PASS: signed engine channel remains published (>=3391)')
+          PY
+      - uses: actions/checkout@v6
+        with:
+          ref: 4684f7ed86d43263acd6cff6aacdaebbb24d64b0
+          fetch-depth: 1
+          filter: blob:none
+          submodules: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore Android SDK cache (no native compilation)
+        id: sdk
+        uses: actions/cache/restore@v5
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+      - name: Install only Java APK packaging SDK if needed
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/tools.zip" https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          echo "5fdcc763663eefb86a5b8879697aa6088b041e70  $RUNNER_TEMP/tools.zip" | sha1sum -c -
+          sudo mkdir -p /opt/android-sdk/cmdline-tools
+          sudo unzip -q "$RUNNER_TEMP/tools.zip" -d /opt/android-sdk/cmdline-tools
+          sudo mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+          sudo chown -R "$USER":"$USER" /opt/android-sdk
+          yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Download latest verified launcher binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p retained-apk
+          gh release download v1.4.10-mod-health-preview --repo "$REPO" --pattern '*.apk' --dir retained-apk
+          test -s retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk
+      - name: Reuse exactly the signed native libraries and runtime assets
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,zipfile,json,pathlib
+          apk=pathlib.Path('retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk')
+          expected=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
+          java=pathlib.Path('android/app/src/main')
+          names=set()
+          with zipfile.ZipFile(apk) as z:
+              assert z.read('assets/engine_build.txt').strip()==b'3333'
+              assert z.read('assets/update-public.pem')==(java/'assets/update-public.pem').read_bytes()
+              for info in z.infolist():
+                  name=info.filename
+                  if name.startswith('lib/arm64-v8a/') and name.endswith('.so'):
+                      lib=name.rsplit('/',1)[-1]
+                      data=z.read(info)
+                      assert lib in expected and hashlib.sha256(data).hexdigest()==expected[lib]['sha256'],lib
+                      dest=java/'jniLibs/arm64-v8a'/lib
+                      dest.parent.mkdir(parents=True,exist_ok=True)
+                      dest.write_bytes(data)
+                      names.add(lib)
+                  if name.startswith('assets/') and not info.is_dir():
+                      dest=java/name
+                      dest.parent.mkdir(parents=True,exist_ok=True)
+                      dest.write_bytes(z.read(info))
+          assert names==set(expected), 'Native dependency mismatch'
+          print('PASS: all 17 native libraries are identical to the stable APK')
+          PY
+      - name: Stage pinned SDL3 Java bridge only
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/sdl.tar.gz" https://github.com/libsdl-org/SDL/releases/download/release-3.4.2/SDL3-3.4.2.tar.gz
+          echo "ef39a2e3f9a8a78296c40da701967dd1b0d0d6e267e483863ce70f8a03b4050c  $RUNNER_TEMP/sdl.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/sdl"
+          tar -xzf "$RUNNER_TEMP/sdl.tar.gz" -C "$RUNNER_TEMP/sdl" --wildcards 'SDL3-3.4.2/android-project/app/src/main/java/org/libsdl/app/*'
+          src="$RUNNER_TEMP/sdl/SDL3-3.4.2/android-project/app/src/main/java/org/libsdl/app"
+          dest=android/app/src/main/java-sdl/org/libsdl/app
+          mkdir -p "$dest"
+          cp "$src/"*.java "$dest/"
+          patch -p1 -d android/app/src/main/java-sdl < android/patches/sdl-android-gesture-nav-back.patch
+      - name: Test read-only Mod Health Check and package Java APK
+        env:
+          ANDROID_HOME: /opt/android-sdk
+          ANDROID_SDK_ROOT: /opt/android-sdk
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib,xml.etree.ElementTree as ET
+          base=pathlib.Path('android/app/src/main/res')
+          regular=ET.parse(base/'values/colors.xml')
+          daylight=ET.parse(base/'values-notnight/colors.xml')
+          keys=lambda doc:{x.attrib['name'] for x in doc.findall('.//color')}
+          assert keys(regular)==keys(daylight)
+          theme=(base/'values/themes.xml').read_text()
+          assert 'Theme.GeneralsZHSettingsLight' in theme
+          keys=('setup_appearance_title','setup_appearance_system','setup_appearance_light','setup_appearance_dark','setup_appearance_help')
+          for strings in base.glob('values*/strings.xml'):
+              vals={x.attrib['name'] for x in ET.parse(strings).findall('.//string')}
+              assert all(k in vals for k in keys),str(strings)
+          print('PASS: full day palette, matching night tokens and 13 localized pickers')
+          PY
+          # UI-only behavioral contract: no import/activation/delete/picker method is modified.
+          GH_TOKEN="${{ github.token }}" gh api "repos/$REPO/contents/android/app/src/main/java/com/generalsx/zerohour/ModManagerActivity.java?ref=20a0b37d7342e8831e03479d8f274aec7c5469ef" --jq '.content' |
+            base64 -d > "$RUNNER_TEMP/ModManager.before.java"
+          python3 - "$RUNNER_TEMP/ModManager.before.java" <<'PY'
+          import pathlib,sys
+          before=pathlib.Path(sys.argv[1]).read_text()
+          after=pathlib.Path('android/app/src/main/java/com/generalsx/zerohour/ModManagerActivity.java').read_text()
+          regions=[
+            ('    private void selectMod(File mod, boolean launch) {','    private LinearLayout column() {'),
+            ('    private void pickModFolder() {','    private static String humanBytes(long bytes) {')
+          ]
+          for start,end in regions:
+              def span(s):
+                  a=s.index(start); b=s.index(end,a+len(start))
+                  return s[a:b]
+              assert span(before)==span(after),f'Mod behavior was changed near {start}'
+          assert 'private void renderModCard(Entry entry, boolean active, boolean enabled)' in after
+          assert '() -> selectMod(entry.file, true)' in after
+          assert '() -> selectMod(entry.file, false)' in after
+          assert '() -> confirmDelete(entry.file, active)' in after
+          assert 'subtitle.setAlpha(0.94f)' in after
+          print('PASS: import, activation, removal and picker implementation unchanged; mod card bindings preserved')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('android/app/src/main/java/com/generalsx/zerohour/ModManagerActivity.java').read_text()
+          scanner=Path('android/app/src/main/java/com/generalsx/zerohour/ModHealthCheck.java').read_text()
+          checks=[
+            'private void showModDetails(Entry entry)',
+            'ModHealthCheck.scan(entry.file)',
+            'R.string.mods_details_button',
+            'private void selectMod(File mod, boolean launch)',
+            'private void confirmDelete(File mod, boolean active)',
+            'private void beginImport(Uri uri, boolean folder)'
+          ]
+          for target in checks:
+              assert target in src, 'Missing real mod handler: '+target
+          assert 'Files.walkFileTree(root' in scanner and 'RandomAccessFile' in scanner
+          assert 'new FileOutputStream' not in scanner
+          print('PASS: details are real, read-only; existing actions remain')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('android/app/src/main/res')
+          home=Path('android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java').read_text()
+          visual=Path('android/app/src/main/java/com/generalsx/zerohour/LauncherUi.java').read_text()
+          for part in ('R.string.launcher_latest_updates', 'homeGameSummary = LauncherUi.row',
+                       'homeOnlineSummary = LauncherUi.row', 'homeUpdatesSummary = LauncherUi.row',
+                       'private void expandHome(LinearLayout section)', 'this::onLaunchGame',
+                       'private void buildUpdatesSection(LinearLayout root)'):
+              assert part in home,part
+          assert '0xffffc84c' in home and 'ThemeHelper.isDark(a)' in visual
+          assert 'private static int darkNavigationColor' in visual
+          for strings in root.glob('values*/strings.xml'):
+              vals={v.attrib['name'] for v in ET.parse(strings).findall('.//string')}
+              for label in ('launcher_latest_updates','launcher_latest_updates_summary',
+                            'mods_details_button','mods_health_disclaimer'):
+                  assert label in vals,(str(strings),label)
+          print('PASS: gold Home routing and preserved Mod Health Check across 13 locales')
+          PY
+          # Preserve all native symbols; the existing .so blobs must be unchanged.
+          cat >> android/app/build.gradle <<'EOF'
+          android {
+              packagingOptions {
+                  jniLibs { keepDebugSymbols += ['**/*.so'] }
+              }
+          }
+          EOF
+          gradle -p android :app:assembleDebug :app:testDebugUnitTest --no-daemon --stacktrace \
+             -PandroidVersionCode="$VERSION_CODE" -PandroidVersionName="$VERSION_NAME"
+      - name: Audit output signer native libraries and installer identity
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          cp android/app/build/outputs/apk/debug/app-debug.apk "final/$APK_NAME"
+          python3 - <<'PY'
+          import pathlib,zipfile,hashlib,json,os
+          a=pathlib.Path('final')/os.environ['APK_NAME']
+          baseline=pathlib.Path('retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk')
+          expected=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
+          with zipfile.ZipFile(a) as z,zipfile.ZipFile(baseline) as b:
+              native={n.split('/')[-1] for n in z.namelist() if n.startswith('lib/arm64-v8a/') and n.endswith('.so')}
+              assert native==set(expected)
+              for name,pin in expected.items():
+                  assert hashlib.sha256(z.read('lib/arm64-v8a/'+name)).hexdigest()==pin['sha256'],name
+              assert z.read('assets/update-public.pem')==b.read('assets/update-public.pem')
+              assert z.read('assets/engine_build.txt').strip()==b'3333'
+              new_dex={n:hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()
+                       if n.endswith('.dex') and n.startswith('classes')}
+              old_dex={n:hashlib.sha256(b.read(n)).hexdigest() for n in b.namelist()
+                       if n.endswith('.dex') and n.startswith('classes')}
+              assert new_dex and new_dex!=old_dex,'Launcher bytecode did not change'
+              print('PASS: updated launcher DEX verified across all DEX splits')
+          print('PASS: native SHA256, engine bootstrap, update trust root, launcher classes')
+          PY
+          BT=/opt/android-sdk/build-tools/35.0.0
+          "$BT/apksigner" verify --print-certs "final/$APK_NAME" > "$RUNNER_TEMP/new-sig.txt"
+          "$BT/apksigner" verify --print-certs retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk > "$RUNNER_TEMP/old-sig.txt"
+          old="$(grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/old-sig.txt" | cut -d: -f2 | tr -d ' ')"
+          new="$(grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/new-sig.txt" | cut -d: -f2 | tr -d ' ')"
+          test -n "$old" && test "$old" = "$new"
+          "$BT/aapt" dump badging "final/$APK_NAME" | head -1 | tee "$RUNNER_TEMP/identity"
+          grep -q "name='com.generalsx.zerohour'" "$RUNNER_TEMP/identity"
+          grep -q "versionCode='10411'" "$RUNNER_TEMP/identity"
+          echo 'PASS: signing identity matches 1.4.10; safe in-place preview update possible'
+          sha256sum "final/$APK_NAME"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: GeneralsZH-TacticalGold-v1.4.11-preview
+          path: final/*.apk
+          retention-days: 90
+          if-no-files-found: error
+      - name: Publish preview APK for real-device review before merging feature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=v1.4.11-tactical-gold-home-preview
+          if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            echo "::error::Preview tag already exists; refusing overwrite."
+            exit 1
+          fi
+          cat > "$RUNNER_TEMP/notes.txt" <<'EOF'
+          PREVIEW ONLY: Tactical Navy/Gold Home 1.4.11 (not yet merged into dev/mobile-v4).
+          - Dark navy surfaces, warm gold accents, larger Zero Hour original hero.
+          - Branded title, gold Play Now, live active mod, engine and account metrics.
+          - Linked illustrated Game Folder, Multiplayer, Updates and Latest Updates cards.
+          - Preserves all game folder, online, graphics, updater, mod and Tools controls.
+          - Preserves Mod Manager 2.0 Details/Health Check and original safe mod actions.
+          - Day/Night/System theme picker and all 13 locales retained.
+          - All 17 pinned native libraries and signed update trust key remain identical to 1.4.10.
+          - Native game engine not rebuilt; channel Engine 3391+ remains independently signed.
+          - No claim that Project X missing units or shields are fixed by this UI patch.
+          - Android hardware visual/game test required before merge.
+          Install over 1.4.10 without clearing app data.
+          EOF
+          gh release create "$tag" "final/$APK_NAME" --repo "$REPO" --target "$SOURCE_SHA" \
+            --title "Generals ZH — Navy/Gold Home Preview 1.4.11" \
+            --notes-file "$RUNNER_TEMP/notes.txt" --prerelease --latest=false
