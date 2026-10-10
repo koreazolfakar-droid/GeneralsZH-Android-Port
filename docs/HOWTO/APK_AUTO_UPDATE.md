@@ -4,7 +4,7 @@ This feature is **separate** from the existing `UpdateManager` engine-only signe
 
 ## Behaviour
 
-- Once per launcher process when auto-check is enabled, query the latest non-prerelease GitHub Release. The Updates section has its own APK-only check button and auto-check preference; the existing engine-only check button and preference are unchanged.
+- When the launcher opens or resumes after six hours since its previous check, query the latest non-prerelease GitHub Release (if APK auto-check is enabled). The Updates section has its own APK-only check button and auto-check preference; the existing engine-only check button and preference are unchanged.
 - Show a blue "Update Now" strip immediately above bottom navigation only for a newer release with an APK asset, SHA-256 digest and sensible size.
 - Download on demand into `getCacheDir()/apk-updates/`; interrupted transfers retain a digest-named `.part` file and use HTTP Range on retry.
 - Before requesting installation, verify bytes/size against GitHub's SHA-256, Android package name, strictly increasing APK `versionCode`, and the installed APK's actual signing certificates.
