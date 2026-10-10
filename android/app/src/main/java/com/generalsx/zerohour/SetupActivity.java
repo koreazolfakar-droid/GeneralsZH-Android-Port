@@ -276,7 +276,7 @@ public class SetupActivity extends Activity {
     static final int TAB_MODS = 6;
     private BottomNavigationView bottomNav;
     private TextView heroReady, heroMod, homeModSummary, homeEngineSummary,
-        homeAccountSummary, homeGameSummary, homeOnlineSummary, homeUpdatesSummary;
+        homeAccountSummary, homeFolderMetric, homeGameSummary, homeOnlineSummary, homeUpdatesSummary;
     private LinearLayout homeGameData, homeOnlineDetails, homeUpdateDetails;
 
 
@@ -427,7 +427,7 @@ public class SetupActivity extends Activity {
     /** Forgets every page-scoped view so a stale one is never written to. */
     private void clearPageReferences() {
         statusText = null;
-        heroReady = heroMod = homeModSummary = homeEngineSummary = homeAccountSummary = null;
+        heroReady = heroMod = homeModSummary = homeEngineSummary = homeAccountSummary = homeFolderMetric = null;
         homeGameSummary = homeOnlineSummary = homeUpdatesSummary = null;
         homeGameData = homeOnlineDetails = homeUpdateDetails = null;
         onlineStatusView = null;
@@ -452,34 +452,46 @@ public class SetupActivity extends Activity {
 
     // ------------------------------------------------------------ Home page
 
-    // GeneralsX @feature Android port 04/10/2026 Approved tactical Home presentation.
+    // GeneralsX @feature 10/10/2026 Premium launcher Stage 1.
+    // Home is a visual composition only: all original launch, storage, account, signed
+    // update and tab handlers below are retained, including their expandable details.
     private void buildHomeSection(LinearLayout page) {
         page.setPadding(dp(16), dp(6), dp(16), dp(12));
+
+        // Keep the original Zero Hour artwork but give the title a readable dark scrim,
+        // independently of whether Android is in Day, Night or System appearance.
         LinearLayout hero = LauncherUi.panel(this, page);
-        hero.setPadding(0, 0, 0, dp(10));
-        ((LinearLayout.LayoutParams)hero.getLayoutParams()).topMargin = dp(6);
+        hero.setPadding(0, 0, 0, 0);
+        ((LinearLayout.LayoutParams) hero.getLayoutParams()).topMargin = dp(6);
         FrameLayout scene = LauncherUi.artwork(this, hero, 148);
         LinearLayout overlay = LauncherUi.column(this);
-        overlay.setPadding(dp(14), dp(6), dp(14), dp(10));
+        overlay.setPadding(dp(14), dp(8), dp(14), dp(12));
         overlay.setBackground(new android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[] {0x00090d14, 0xee090d14}));
+            new int[] {0x20090d14, 0xf5090d14}));
         FrameLayout.LayoutParams overlayLp = new FrameLayout.LayoutParams(-1, -2,
             android.view.Gravity.BOTTOM);
         scene.addView(overlay, overlayLp);
         heroReady = LauncherUi.text(this, overlay, getString(R.string.launcher_setup_needed),
             12, LauncherUi.warning(this), true);
-        heroReady.setCompoundDrawablePadding(dp(6));
         heroReady.setPadding(dp(10), dp(5), dp(10), dp(5));
         heroReady.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
-        LauncherUi.text(this, overlay, getString(R.string.mods_status_title), 10, LauncherUi.muted(this), false);
-        heroMod = LauncherUi.text(this, overlay, "", 14, LauncherUi.textColor(this), true);
+
+        // Separate the active-mod name from the battle image so it stays readable
+        // in both themes, even for long custom mod folder names.
+        heroMod = LauncherUi.row(this, page, R.drawable.ic_gzh_folder,
+            R.string.mods_status_title, "", () -> navigateLauncher(TAB_MODS));
+        heroMod.setMaxLines(2);
+
+        // Exactly one prominent game-launch action and the original options menu.
+        LinearLayout playPanel = LauncherUi.panel(this, page);
+        playPanel.setPadding(dp(10), dp(6), dp(10), dp(6));
         LinearLayout playRow = new LinearLayout(this);
         playRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        playRow.setPadding(dp(10), 0, dp(10), 0);
-        hero.addView(playRow, new LinearLayout.LayoutParams(-1, dp(56)));
+        playPanel.addView(playRow, new LinearLayout.LayoutParams(-1, dp(56)));
         com.google.android.material.button.MaterialButton play = UiKit.button(playRow,
-            UiKit.BTN_PRIMARY, R.drawable.ic_gzh_play, getString(R.string.launcher_play_now), this::onLaunchGame);
+            UiKit.BTN_PRIMARY, R.drawable.ic_gzh_play,
+            getString(R.string.launcher_play_now), this::onLaunchGame);
         LauncherUi.purple(this, play);
         UiKit.share(play, true);
         play.setMinHeight(dp(52));
@@ -493,13 +505,31 @@ public class SetupActivity extends Activity {
 
         LinearLayout metrics = new LinearLayout(this);
         LinearLayout.LayoutParams metricLp = new LinearLayout.LayoutParams(-1, -2);
-        metricLp.topMargin = dp(6);
+        metricLp.topMargin = dp(10);
         page.addView(metrics, metricLp);
-        homeModSummary = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.mods_status_title);
         homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
         homeAccountSummary = homeMetric(metrics, R.drawable.ic_gzh_account, R.string.launcher_account);
+        homeFolderMetric = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.setup_card_game_folder);
 
-        // GeneralsX @tweak Android port 04/10/2026 Keep one navigation entry per destination.
+        LinearLayout shortcuts = LauncherUi.panel(this, page);
+        shortcuts.setPadding(dp(12), dp(12), dp(12), dp(12));
+        LauncherUi.text(this, shortcuts, getString(R.string.launcher_premium_quick_actions), 16,
+            LauncherUi.textColor(this), true);
+        LinearLayout actionRow = new LinearLayout(this);
+        LinearLayout.LayoutParams actionsLp = new LinearLayout.LayoutParams(-1, -2);
+        actionsLp.topMargin = dp(10);
+        shortcuts.addView(actionRow, actionsLp);
+        homeShortcut(actionRow, R.drawable.ic_gzh_folder,
+            R.string.launcher_premium_mod_library, () -> navigateLauncher(TAB_MODS));
+        homeShortcut(actionRow, R.drawable.ic_gzh_chip,
+            R.string.launcher_premium_display, () -> openLauncherTab(TAB_GRAPHICS));
+        homeShortcut(actionRow, R.drawable.ic_gzh_sliders,
+            R.string.launcher_premium_utilities, () -> openLauncherTab(TAB_TOOLS));
+        homeShortcut(actionRow, R.drawable.ic_gzh_refresh,
+            R.string.launcher_premium_check_updates, () -> expandHome(homeUpdateDetails));
+
+        // Preserve each original destination and full set of controls: no fake
+        // Verify Files, Downloads or Favorites feature is added for this stage.
         homeGameSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_check,
             R.string.setup_card_game_folder, "", () -> expandHome(homeGameData));
         homeOnlineSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_account,
@@ -507,7 +537,6 @@ public class SetupActivity extends Activity {
         homeUpdatesSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_refresh,
             R.string.setup_card_updates, "", () -> expandHome(homeUpdateDetails));
 
-        // Keep every original action and supporting note available in expandable sections.
         homeGameData = LauncherUi.column(this);
         page.addView(homeGameData, new LinearLayout.LayoutParams(-1, -2));
         buildGameFolderControls(homeGameData);
@@ -521,6 +550,34 @@ public class SetupActivity extends Activity {
         buildUpdatesSection(homeUpdateDetails);
         homeUpdateDetails.setVisibility(View.GONE);
         refreshModStatus();
+    }
+
+    private void homeShortcut(LinearLayout row, int icon, int titleId, Runnable action) {
+        LinearLayout item = LauncherUi.column(this);
+        item.setGravity(android.view.Gravity.CENTER);
+        item.setPadding(dp(3), dp(10), dp(3), dp(8));
+        item.setBackground(LauncherUi.shape(this,
+            UiKit.color(this, R.color.gzh_surface_container_low),
+            UiKit.color(this, R.color.gzh_outline_variant), 14));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(78), 1f);
+        if (row.getChildCount() > 0) lp.setMarginStart(dp(6));
+        row.addView(item, lp);
+        ImageView glyph = new ImageView(this);
+        glyph.setImageResource(icon);
+        glyph.setImageTintList(UiKit.tint(this, R.color.gzh_primary));
+        item.addView(glyph, new LinearLayout.LayoutParams(dp(23), dp(23)));
+        TextView label = LauncherUi.text(this, item, getString(titleId), 11,
+            LauncherUi.textColor(this), true);
+        label.setGravity(android.view.Gravity.CENTER);
+        label.setPadding(dp(1), dp(7), dp(1), 0);
+        label.setMaxLines(2);
+        item.setContentDescription(getString(titleId));
+        item.setClickable(true);
+        item.setFocusable(true);
+        item.setOnClickListener(v -> action.run());
+        item.setForeground(new android.graphics.drawable.RippleDrawable(
+            UiKit.tint(this, R.color.gzh_ripple_primary), null,
+            LauncherUi.shape(this, 0xffffffff, 0xffffffff, 14)));
     }
 
     private void showPlayOptions(View anchor) {
@@ -537,7 +594,7 @@ public class SetupActivity extends Activity {
         LinearLayout cell = LauncherUi.column(this);
         cell.setPadding(dp(8), dp(7), dp(8), dp(7));
         cell.setBackground(LauncherUi.shape(this, LauncherUi.surface(this), LauncherUi.outline(this), 10));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(58), 1);
         if (row.getChildCount() > 0) lp.setMarginStart(dp(6));
         row.addView(cell, lp);
         TextView value = LauncherUi.text(this, cell, "", 12, LauncherUi.textColor(this), true);
@@ -2584,6 +2641,10 @@ public class SetupActivity extends Activity {
             heroReady.setText(verdict);
             heroReady.setTextColor(color);
             heroReady.setBackground(LauncherUi.shape(this, ready ? 0xe00c241b : 0xe0282415, color, 18));
+            if (homeFolderMetric != null) {
+                homeFolderMetric.setText(verdict);
+                homeFolderMetric.setTextColor(color);
+            }
             if (homeGameSummary != null) {
                 homeGameSummary.setText(verdict);
                 homeGameSummary.setTextColor(color);
