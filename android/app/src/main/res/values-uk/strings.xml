@@ -407,4 +407,27 @@
     <!-- Tactical Home illustrated update summary. -->
     <string name="launcher_latest_updates">Останні оновлення</string>
     <string name="launcher_latest_updates_summary">Нові версії рушія надходять із GitHub із підписом. Перевірте їх у розділі оновлень.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Деталі</string>
+    <string name="mods_details_title">Відомості та перевірка мода</string>
+    <string name="mods_health_scanning">Перевірка встановлених файлів…</string>
+    <string name="mods_health_unavailable">Не вдалося безпечно перевірити мод.</string>
+    <string name="mods_health_warning">Виявлено структурні помилки.</string>
+    <string name="mods_health_incomplete">Перевірку не завершено.</string>
+    <string name="mods_health_no_big">Архіви BIG не знайдено.</string>
+    <string name="mods_health_structural_ok">Індекси BIG перевірено (не тест гри).</string>
+    <string name="mods_health_big_count">Архіви BIG: %1$d</string>
+    <string name="mods_health_valid_count">Читабельні BIG: %1$d</string>
+    <string name="mods_health_invalid_count">Пошкоджені BIG: %1$d</string>
+    <string name="mods_health_entry_count">Записи BIG: %1$d</string>
+    <string name="mods_health_loose_count">Окремі файли: %1$d</string>
+    <string name="mods_health_nested_count">BIG у підтеках: %1$d</string>
+    <string name="mods_health_data_folder">Тека Data: %1$s</string>
+    <string name="mods_health_window_folder">Тека Window: %1$s</string>
+    <string name="mods_health_present">Є</string>
+    <string name="mods_health_absent">Немає</string>
+    <string name="mods_health_fs_issues">Пропущено посилань: %1$d · Непрочитані: %2$d</string>
+    <string name="mods_health_nested_warning">Порядок завантаження BIG у підтеках може відрізнятись.</string>
+    <string name="mods_health_invalid_files">Пошкоджені BIG (до 8):</string>
+    <string name="mods_health_disclaimer">Перевіряється лише структура, без змін файлів. Роботу моделей, щитів, звуків і скриптів у грі не підтверджено.</string>
 </resources>

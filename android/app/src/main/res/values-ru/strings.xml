@@ -409,4 +409,27 @@
     <!-- Tactical Home illustrated update summary. -->
     <string name="launcher_latest_updates">Последние обновления</string>
     <string name="launcher_latest_updates_summary">Новые версии движка подписаны и поступают с GitHub. Откройте «Обновления», чтобы проверить версию.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Подробнее</string>
+    <string name="mods_details_title">Сведения и проверка мода</string>
+    <string name="mods_health_scanning">Проверка файлов мода…</string>
+    <string name="mods_health_unavailable">Не удалось безопасно проверить мод.</string>
+    <string name="mods_health_warning">Обнаружены структурные ошибки.</string>
+    <string name="mods_health_incomplete">Проверка не завершена.</string>
+    <string name="mods_health_no_big">Архивы BIG не найдены.</string>
+    <string name="mods_health_structural_ok">Индексы BIG проверены (не тест игры).</string>
+    <string name="mods_health_big_count">Архивы BIG: %1$d</string>
+    <string name="mods_health_valid_count">Читаемые BIG: %1$d</string>
+    <string name="mods_health_invalid_count">Повреждённые BIG: %1$d</string>
+    <string name="mods_health_entry_count">Записи в BIG: %1$d</string>
+    <string name="mods_health_loose_count">Отдельные файлы: %1$d</string>
+    <string name="mods_health_nested_count">BIG в подпапках: %1$d</string>
+    <string name="mods_health_data_folder">Папка Data: %1$s</string>
+    <string name="mods_health_window_folder">Папка Window: %1$s</string>
+    <string name="mods_health_present">Есть</string>
+    <string name="mods_health_absent">Нет</string>
+    <string name="mods_health_fs_issues">Пропущено ссылок: %1$d · Не прочитано: %2$d</string>
+    <string name="mods_health_nested_warning">Порядок загрузки BIG в подпапках может отличаться.</string>
+    <string name="mods_health_invalid_files">Повреждённые BIG (до 8):</string>
+    <string name="mods_health_disclaimer">Проверяется только структура, без изменения файлов. Работа моделей, щитов, звуков и скриптов не подтверждается.</string>
 </resources>
