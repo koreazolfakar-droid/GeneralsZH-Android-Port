@@ -1,0 +1,206 @@
+# Launcher-only APK QA. Uses the exactly verified v1.4.12 APK as native/runtime baseline;
+# compiles only the Android Java shell. No CMake, NDK, engine build, clean, or publishing.
+name: Launcher-Only APK Update QA 1.4.13
+on:
+  push:
+    branches:
+      - feature/apk-update-v1.4.13-preview
+    paths:
+      - .github/workflows/launcher-apk-only-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launcher-apk-only-qa-1-4-13
+  cancel-in-progress: false
+
+jobs:
+  launcher-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_TAG: v1.4.12-ui-refinement-responsive-preview
+      BASE_APK: GeneralsZH-ResponsiveUI-v1.4.12-preview.apk
+      BASE_SHA256: 70bfe1be50feac72db19c1af1ffbbc24764ae55fe7d356e0b468995daefdc0c1
+      VERSION_NAME: 1.4.13
+      VERSION_CODE: '10413'
+      OUTPUT_APK: GeneralsZH-APKUpdate-v1.4.13-QA.apk
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout only this pinned integration branch
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Refuse source or branch substitution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "koreazolfakar-droid/GeneralsZH-Android-Port"
+          test "$GITHUB_REF_NAME" = "feature/apk-update-v1.4.13-preview"
+          # Preserve all current launcher features from the verified 1.4.12 source.
+          python3 - <<'PY'
+          from pathlib import Path
+          main=Path('android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java').read_text()
+          assert 'Math.min(236, Math.round(windowDp * 0.56f))' in main
+          assert 'ApkUpdateManager.download' in main
+          assert Path('android/app/src/main/java/com/generalsx/zerohour/ModHealthCheck.java').is_file()
+          assert 'sameVersion(candidate.versionName, expectedRelease)' in Path('android/app/src/main/java/com/generalsx/zerohour/ApkUpdateManager.java').read_text()
+          print('PASS: v1.4.12 launcher behavior and new APK updater both present')
+          PY
+
+      - name: Set up Java 17 (shell app only)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK (no NDK or native compilation)
+        uses: android-actions/setup-android@v3
+
+      - name: Ensure only SDK platform 35 and APK build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+
+      - name: Set up cached Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Download exact previously published v1.4.12 baseline APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p retained-apk
+          gh release download "$BASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$BASE_APK" --dir retained-apk
+          echo "$BASE_SHA256  retained-apk/$BASE_APK" | sha256sum -c -
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "retained-apk/$BASE_APK"
+          test "$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "retained-apk/$BASE_APK" |
+            sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)" = "com.generalsx.zerohour"
+
+      - name: Stage all verified native binaries and assets, no engine rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, hashlib
+          apk=Path('retained-apk/GeneralsZH-ResponsiveUI-v1.4.12-preview.apk')
+          app=Path('android/app/src/main')
+          expected=json.loads(Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
+          seen=set()
+          with zipfile.ZipFile(apk) as archive:
+              assert archive.read('assets/engine_build.txt').strip() == b'3333'
+              assert archive.read('assets/update-public.pem') == (app/'assets/update-public.pem').read_bytes()
+              for item in archive.infolist():
+                  name=item.filename
+                  if item.is_dir():
+                      continue
+                  if name.startswith('lib/arm64-v8a/') and name.endswith('.so'):
+                      lib=name.split('/')[-1]
+                      binary=archive.read(item)
+                      assert lib in expected
+                      assert hashlib.sha256(binary).hexdigest() == expected[lib]['sha256'], lib
+                      out=app/'jniLibs/arm64-v8a'/lib
+                      out.parent.mkdir(parents=True,exist_ok=True)
+                      out.write_bytes(binary)
+                      seen.add(lib)
+                  if name.startswith('assets/'):
+                      dest=app/name
+                      if dest.is_file():
+                          assert dest.read_bytes()==archive.read(item), f'Bundled runtime asset changed: {name}'
+                      else:
+                          dest.parent.mkdir(parents=True,exist_ok=True)
+                          dest.write_bytes(archive.read(item))
+          assert set(expected) == seen, f'Missing/extra native libraries: {set(expected)^seen}'
+          assert len(seen)==17, len(seen)
+          print('PASS: all 17 original native files verified and staged without modification')
+          PY
+
+      - name: Stage pinned SDL3 Java glue only (no native build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/sdl3.tar.gz" \
+            https://github.com/libsdl-org/SDL/releases/download/release-3.4.2/SDL3-3.4.2.tar.gz
+          echo "ef39a2e3f9a8a78296c40da701967dd1b0d0d6e267e483863ce70f8a03b4050c  $RUNNER_TEMP/sdl3.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/sdl3"
+          tar -xzf "$RUNNER_TEMP/sdl3.tar.gz" -C "$RUNNER_TEMP/sdl3" --wildcards \
+            'SDL3-3.4.2/android-project/app/src/main/java/org/libsdl/app/*'
+          src="$RUNNER_TEMP/sdl3/SDL3-3.4.2/android-project/app/src/main/java/org/libsdl/app"
+          dest="android/app/src/main/java-sdl/org/libsdl/app"
+          mkdir -p "$dest"
+          cp "$src/"*.java "$dest/"
+          patch -p1 -d android/app/src/main/java-sdl < android/patches/sdl-android-gesture-nav-back.patch
+
+      - name: Compile and test launcher Java, then package APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # AGP normally strips most native release symbols. Preserve their exact bytes.
+          cat >> android/app/build.gradle <<'EOF'
+          android {
+              packagingOptions {
+                  jniLibs { keepDebugSymbols += ['**/*.so'] }
+              }
+          }
+          EOF
+          gradle -p android :app:testDebugUnitTest :app:assembleDebug \
+            --no-daemon --stacktrace \
+            -PandroidVersionCode="$VERSION_CODE" \
+            -PandroidVersionName="$VERSION_NAME"
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Refuse any native, signer, package or version regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk "qa-output/$OUTPUT_APK"
+          bash scripts/qa/verify-apk-update-candidate.sh \
+            "qa-output/$OUTPUT_APK" "retained-apk/$BASE_APK"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib,zipfile,os
+          orig=Path('retained-apk')/os.environ['BASE_APK']
+          fresh=Path('qa-output')/os.environ['OUTPUT_APK']
+          expected=json.loads(Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
+          with zipfile.ZipFile(orig) as before, zipfile.ZipFile(fresh) as after:
+              for name in ('assets/engine_build.txt','assets/update-public.pem'):
+                  assert before.read(name)==after.read(name),f'Unexpected asset difference: {name}'
+              assert before.read('assets/engine_build.txt').strip()==b'3333'
+              oldlibs={n for n in before.namelist() if n.startswith('lib/arm64-v8a/') and n.endswith('.so')}
+              newlibs={n for n in after.namelist() if n.startswith('lib/arm64-v8a/') and n.endswith('.so')}
+              assert oldlibs==newlibs
+              assert len(oldlibs)==17
+              for name in oldlibs:
+                  beforebytes=before.read(name)
+                  afterbytes=after.read(name)
+                  assert beforebytes==afterbytes, f'Changed native library: {name}'
+                  assert hashlib.sha256(afterbytes).hexdigest()==expected[name.rsplit('/',1)[1]]['sha256']
+              assert any(n.endswith('.dex') for n in after.namelist())
+          meta={'apk':fresh.name,'size':fresh.stat().st_size,
+                'sha256':hashlib.sha256(fresh.read_bytes()).hexdigest(),
+                'source':os.environ['GITHUB_SHA'],'baseline_sha256':os.environ['BASE_SHA256'],
+                'native_libraries':len(oldlibs),'native_binary_identity':'PASS',
+                'launcher_unit_tests':'PASS','device_tests':'NOT TESTED',
+                'release_status':'QA ARTIFACT ONLY'}
+          Path('qa-output/qa-report.json').write_text(json.dumps(meta,indent=2)+'\n')
+          print('PASS: APK package/signer/version and all native/engine payloads preserved')
+          PY
+
+      - name: Upload QA APK and verification report (never publish Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: GeneralsZH-LauncherAPKUpdate-v1.4.13-QA
+          path: qa-output/
+          if-no-files-found: error
+          retention-days: 14
