@@ -455,4 +455,15 @@
     <string name="setup_appearance_light">Day</string>
     <string name="setup_appearance_dark">Night</string>
     <string name="setup_appearance_help">Change only the app interface. System follows your phone; Day and Night stay selected across launches. Game graphics are unchanged.</string>
+    <!-- Full APK update banner (separate from the engine-only updater). -->
+    <string name="launcher_apk_update_accessibility">Install new app version</string>
+    <string name="launcher_apk_update_now">↻ Update Now · %1$s</string>
+    <string name="launcher_apk_update_retry">↻ Retry App Update</string>
+    <string name="launcher_apk_update_starting">Starting APK download…</string>
+    <string name="launcher_apk_update_progress">Downloading APK · %1$d%%</string>
+    <string name="launcher_apk_update_install">Install App Update</string>
+    <string name="launcher_apk_update_current">The app is up to date.</string>
+    <string name="launcher_apk_update_check_failed">Could not check for an APK update: %1$s</string>
+    <string name="launcher_apk_update_permission">Allow installs from this app, then return to finish updating.</string>
+    <string name="launcher_apk_update_failed">APK update failed: %1$s</string>
 </resources>
