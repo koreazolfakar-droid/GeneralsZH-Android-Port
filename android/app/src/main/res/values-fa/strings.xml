@@ -407,4 +407,27 @@
     <!-- Tactical Home illustrated update summary. -->
     <string name="launcher_latest_updates">آخرین به‌روزرسانی‌ها</string>
     <string name="launcher_latest_updates_summary">نسخه‌های جدید موتور با امضای معتبر از GitHub دریافت می‌شوند. از بخش به‌روزرسانی‌ها بررسی کنید.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">جزئیات</string>
+    <string name="mods_details_title">جزئیات ماد و بررسی فایل‌ها</string>
+    <string name="mods_health_scanning">در حال بررسی فایل‌ها…</string>
+    <string name="mods_health_unavailable">بررسی ایمن ماد ممکن نیست.</string>
+    <string name="mods_health_warning">مشکلات ساختاری پیدا شد.</string>
+    <string name="mods_health_incomplete">بررسی کامل نشد.</string>
+    <string name="mods_health_no_big">هیچ آرشیو BIG یافت نشد.</string>
+    <string name="mods_health_structural_ok">ساختار فهرست BIG بررسی شد (نه آزمون بازی).</string>
+    <string name="mods_health_big_count">آرشیوهای BIG: %1$d</string>
+    <string name="mods_health_valid_count">BIG قابل خواندن: %1$d</string>
+    <string name="mods_health_invalid_count">BIG نامعتبر: %1$d</string>
+    <string name="mods_health_entry_count">ورودی‌های BIG: %1$d</string>
+    <string name="mods_health_loose_count">فایل‌های جداگانه: %1$d</string>
+    <string name="mods_health_nested_count">BIG در پوشه فرعی: %1$d</string>
+    <string name="mods_health_data_folder">پوشه Data: %1$s</string>
+    <string name="mods_health_window_folder">پوشه Window: %1$s</string>
+    <string name="mods_health_present">موجود</string>
+    <string name="mods_health_absent">پیدا نشد</string>
+    <string name="mods_health_fs_issues">پیوندهای رد شده: %1$d · موارد ناخوانا: %2$d</string>
+    <string name="mods_health_nested_warning">ترتیب بارگذاری BIGهای پوشه‌های فرعی ممکن است متفاوت باشد.</string>
+    <string name="mods_health_invalid_files">فایل‌های BIG نامعتبر (حداکثر ۸):</string>
+    <string name="mods_health_disclaimer">این بررسی فقط ساختار فایل را بدون تغییر می‌سنجد و کارکرد مدل‌ها، سپرها، صدا یا اسکریپت‌ها را در بازی تأیید نمی‌کند.</string>
 </resources>

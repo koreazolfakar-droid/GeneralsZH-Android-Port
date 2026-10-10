@@ -407,4 +407,27 @@
     <!-- Tactical Home illustrated update summary. -->
     <string name="launcher_latest_updates">Dernières mises à jour</string>
     <string name="launcher_latest_updates_summary">Les nouvelles versions du moteur sont signées et viennent de GitHub. Ouvrez Mises à jour pour vérifier.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Détails</string>
+    <string name="mods_details_title">Détails et vérification du mod</string>
+    <string name="mods_health_scanning">Vérification des fichiers installés…</string>
+    <string name="mods_health_unavailable">Impossible de vérifier ce mod en sécurité.</string>
+    <string name="mods_health_warning">Problèmes de structure détectés.</string>
+    <string name="mods_health_incomplete">Vérification incomplète.</string>
+    <string name="mods_health_no_big">Aucune archive BIG trouvée.</string>
+    <string name="mods_health_structural_ok">Index BIG vérifiés (pas un test en jeu).</string>
+    <string name="mods_health_big_count">Archives BIG : %1$d</string>
+    <string name="mods_health_valid_count">Archives BIG lisibles : %1$d</string>
+    <string name="mods_health_invalid_count">Archives BIG invalides : %1$d</string>
+    <string name="mods_health_entry_count">Entrées BIG indexées : %1$d</string>
+    <string name="mods_health_loose_count">Fichiers externes : %1$d</string>
+    <string name="mods_health_nested_count">Archives BIG imbriquées : %1$d</string>
+    <string name="mods_health_data_folder">Dossier Data : %1$s</string>
+    <string name="mods_health_window_folder">Dossier Window : %1$s</string>
+    <string name="mods_health_present">Présent</string>
+    <string name="mods_health_absent">Introuvable</string>
+    <string name="mods_health_fs_issues">Liens ignorés : %1$d · Éléments illisibles : %2$d</string>
+    <string name="mods_health_nested_warning">L\'ordre de chargement des BIG imbriqués peut différer de celui du dossier du jeu.</string>
+    <string name="mods_health_invalid_files">BIG invalides (8 max.) :</string>
+    <string name="mods_health_disclaimer">Vérification structurelle en lecture seule ; elle ne garantit pas les modèles, boucliers, sons ou scripts en jeu.</string>
 </resources>
