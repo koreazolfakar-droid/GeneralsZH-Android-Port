@@ -461,4 +461,5 @@
     <string name="launcher_apk_update_failed">فشل تحديث APK: %1$s</string>
     <string name="launcher_apk_auto_check">التحقق تلقائيًا من تحديثات التطبيق</string>
     <string name="launcher_apk_auto_check_desc">إظهار شريط تحديث التطبيق عند صدور APK جديد، بشكل مستقل عن تحديثات المحرك.</string>
+    <string name="launcher_apk_check_button">التحقق من تحديث التطبيق APK</string>
 </resources>
