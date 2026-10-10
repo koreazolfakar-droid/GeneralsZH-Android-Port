@@ -307,7 +307,7 @@ public class SetupActivity extends Activity {
         LinearLayout identity = LauncherUi.column(this);
         bar.addView(identity, new LinearLayout.LayoutParams(0, -2, 1));
         appBarTitle = new TextView(this);
-        appBarTitle.setTextSize(25);
+        appBarTitle.setTextSize(getResources().getConfiguration().screenWidthDp < 360 ? 22 : 25);
         appBarTitle.setTextColor(LauncherUi.textColor(this));
         appBarTitle.setTypeface(Typeface.DEFAULT_BOLD);
         appBarTitle.setMaxLines(2);
@@ -330,8 +330,10 @@ public class SetupActivity extends Activity {
         shell.addView(contentHost, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
+        // Respect large system fonts: avoid clipping Home / Mods / Graphics / Tools.
+        int navHeight = getResources().getConfiguration().fontScale >= 1.3f ? 82 : 68;
         shell.addView(buildBottomNav(), new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(68)));
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(navHeight)));
 
         if (contentHost.getChildCount() == 0) {
             showTab(currentTab);
@@ -485,7 +487,11 @@ public class SetupActivity extends Activity {
         hero.setPadding(0, 0, 0, dp(8));
         hero.setClipToOutline(true);
         ((LinearLayout.LayoutParams)hero.getLayoutParams()).topMargin = dp(5);
-        FrameLayout scene = LauncherUi.artwork(this, hero, 220);
+        // Hero uses the available WINDOW width, not a fixed dp height.
+        // Works on 320dp compact devices, tablets and landscape split-screen windows.
+        int windowDp = Math.max(280, getResources().getConfiguration().screenWidthDp);
+        int heroHeightDp = Math.max(180, Math.min(236, Math.round(windowDp * 0.56f)));
+        FrameLayout scene = LauncherUi.artwork(this, hero, heroHeightDp);
         LinearLayout overlay = LauncherUi.column(this);
         overlay.setPadding(dp(14), dp(6), dp(14), dp(10));
         overlay.setBackground(new android.graphics.drawable.GradientDrawable(
@@ -523,13 +529,17 @@ public class SetupActivity extends Activity {
         options.setOnClickListener(v -> showPlayOptions(v));
         playRow.addView(options);
 
+        // No truncated 3-column chips on phones: two full-width metrics below 480dp,
+        // or two flexible columns on wider windows. Online already displays account.
         LinearLayout metrics = new LinearLayout(this);
+        metrics.setOrientation(windowDp < 480
+            ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams metricLp = new LinearLayout.LayoutParams(-1, -2);
-        metricLp.topMargin = dp(10);
+        metricLp.topMargin = dp(9);
         page.addView(metrics, metricLp);
         homeModSummary = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.mods_status_title);
         homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
-        homeAccountSummary = homeMetric(metrics, R.drawable.ic_gzh_account, R.string.launcher_account);
+        homeAccountSummary = null; // Sign-in status is already visible on Online Multiplayer.
 
         // GeneralsX @tweak Android port 04/10/2026 Keep one navigation entry per destination.
         homeGameSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_check,
@@ -538,10 +548,8 @@ public class SetupActivity extends Activity {
             R.string.setup_card_online, "", () -> expandHome(homeOnlineDetails));
         homeUpdatesSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_refresh,
             R.string.setup_card_updates, "", () -> expandHome(homeUpdateDetails));
-        LauncherUi.row(this, page, R.drawable.ic_gzh_info,
-            R.string.launcher_latest_updates, getString(R.string.launcher_latest_updates_summary),
-            () -> expandHome(homeUpdateDetails));
-
+        // Keep Latest Updates explanatory content inside the actual Updates panel.
+        // The duplicated fourth full-height card added no new destination.
         // Keep every original action and supporting note available in expandable sections.
         homeGameData = LauncherUi.column(this);
         page.addView(homeGameData, new LinearLayout.LayoutParams(-1, -2));
@@ -569,35 +577,52 @@ public class SetupActivity extends Activity {
     }
 
     private TextView homeMetric(LinearLayout row, int icon, int caption) {
-        // Square gold icon + two-line status, with RTL-safe spacing and live values.
+        boolean stacked = row.getOrientation() == LinearLayout.VERTICAL;
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.HORIZONTAL);
         cell.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        cell.setPadding(dp(8), dp(8), dp(6), dp(8));
+        cell.setMinimumHeight(dp(66));  // can grow naturally for 1.5x font and long mod names
+        cell.setPadding(dp(12), dp(10), dp(12), dp(10));
         cell.setBackground(LauncherUi.shape(this,
             LauncherUi.surface(this), LauncherUi.outline(this), 14));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(65), 1f);
-        if (row.getChildCount() > 0) lp.setMarginStart(dp(5));
+        LinearLayout.LayoutParams lp = stacked
+            ? new LinearLayout.LayoutParams(-1, -2)
+            : new LinearLayout.LayoutParams(0, -2, 1f);
+        if (row.getChildCount() > 0) {
+            if (stacked) lp.topMargin = dp(8);
+            else lp.setMarginStart(dp(8));
+        }
         row.addView(cell, lp);
         android.widget.ImageView glyph = new android.widget.ImageView(this);
         glyph.setImageResource(icon);
         glyph.setImageTintList(UiKit.tint(this, R.color.gzh_primary));
-        glyph.setPadding(dp(7), dp(7), dp(7), dp(7));
+        glyph.setPadding(dp(8), dp(8), dp(8), dp(8));
         glyph.setBackground(LauncherUi.shape(this,
             UiKit.color(this, R.color.gzh_surface_container_high),
-            UiKit.color(this, R.color.gzh_outline_variant), 10));
-        LinearLayout.LayoutParams glyphLp = new LinearLayout.LayoutParams(dp(34), dp(34));
-        glyphLp.setMarginEnd(dp(7));
+            UiKit.color(this, R.color.gzh_outline_variant), 11));
+        LinearLayout.LayoutParams glyphLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        glyphLp.setMarginEnd(dp(12));
         cell.addView(glyph, glyphLp);
         LinearLayout copy = LauncherUi.column(this);
         cell.addView(copy, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView captionLabel = LauncherUi.text(this, copy, getString(caption), 9,
+        TextView captionLabel = LauncherUi.text(this, copy, getString(caption), 12,
             LauncherUi.muted(this), false);
-        captionLabel.setSingleLine(true);
-        TextView value = LauncherUi.text(this, copy, "", 12,
+        captionLabel.setMaxLines(2);
+        TextView value = LauncherUi.text(this, copy, "", 14,
             LauncherUi.textColor(this), true);
-        value.setSingleLine(true);
+        value.setMaxLines(stacked ? 3 : 2);
         value.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (caption == R.string.mods_status_title) {
+            cell.setOnClickListener(v -> navigateLauncher(TAB_MODS));
+        } else if (caption == R.string.launcher_engine_build) {
+            cell.setOnClickListener(v -> expandHome(homeUpdateDetails));
+        }
+        cell.setFocusable(true);
+        if (cell.isClickable()) {
+            cell.setForeground(new android.graphics.drawable.RippleDrawable(
+                UiKit.tint(this, R.color.gzh_ripple_primary), null,
+                LauncherUi.shape(this, 0xffffffff, 0xffffffff, 14)));
+        }
         return value;
     }
 
@@ -2629,7 +2654,9 @@ public class SetupActivity extends Activity {
         }
         statusText.setText(sb.subSequence(0, end));
         if (heroReady != null) {
-            int color = ready ? LauncherUi.success(this) : LauncherUi.warning(this);
+            // Hero artwork stays dark in BOTH app themes; keep badge ink bright
+            // independently of the Day-mode palette's darker status colors.
+            int color = ready ? 0xff8be6b3 : 0xffffce5d;
             String verdict = getString(ready ? R.string.launcher_ready : R.string.launcher_setup_needed);
             heroReady.setText(verdict);
             heroReady.setTextColor(color);
