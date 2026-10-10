@@ -34,7 +34,24 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -f scripts/qa/test-projectile-impact-shroud.py
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREFLIGHT_RUN" --jq .conclusion)" = success
+          # Do not touch the updates channel until the immutable branch
+          # has passed its real cached 30/60Hz native build.
+          for ((n=1;n<=200;n++)); do
+            check="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREFLIGHT_RUN" --jq '[.status, (.conclusion // "pending"), .head_sha] | join("|")')"
+            if [[ "$check" == "completed|success|d1c03331cce603c231bb239f535f6c88c159dabc" ]]; then
+              echo "PASS: independently verified Project X native preflight $PREFLIGHT_RUN"
+              break
+            fi
+            if [[ "$check" == completed* ]]; then
+              echo "::error::Project X native preflight not successful: $check. Preserve existing signed update."
+              exit 1
+            fi
+            if [[ "$n" -eq 200 ]]; then
+              echo "::error::Project X native preflight timed out. No update published."
+              exit 1
+            fi
+            sleep 25
+          done
           test "$(git show -s --format=%s HEAD)" = 'Merge pull request #14 from koreazolfakar-droid/fix/projectx-impact-visibility-20261011'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq '.content' | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
@@ -149,6 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$EXPECTED_BUILD_SOURCE"
           gh auth setup-git --hostname github.com
           bash scripts/update/push-updates-branch.sh prepared-update
       - name: Verify published signed manifest and both downloadable 30/60Hz engine binaries
