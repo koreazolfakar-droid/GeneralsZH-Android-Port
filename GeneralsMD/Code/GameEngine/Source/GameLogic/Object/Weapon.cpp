@@ -45,6 +45,7 @@
 #include "Common/INI.h"
 #include "Common/PerfTimer.h"
 #include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
 #include "Common/Xfer.h"
@@ -1620,8 +1621,82 @@ WeaponStore::~WeaponStore()
 }
 
 //-------------------------------------------------------------------------------------------------
+// Reveal the impact area for the projectile owner's alliance in
+// single-player games.  Called at the shared detonation entry point so guided
+// missiles and ballistic shells use the same event. Network games must wait
+// for PC parity because PartitionManager shroud participates in CRC.
+static void revealProjectileImpactShroud(const Object *projectile, const WeaponTemplate *detonationWeapon)
+{
+	if (projectile == nullptr || detonationWeapon == nullptr || TheGameLogic == nullptr ||
+			ThePartitionManager == nullptr || ThePlayerList == nullptr)
+	{
+		return;
+	}
+
+	if (TheGameLogic->isInMultiplayerGame())
+	{
+		return;
+	}
+
+	const Player *owner = projectile->getControllingPlayer();
+	if (owner == nullptr)
+	{
+		return;
+	}
+
+	WeaponBonus noBonus;
+	Real impactRadius = detonationWeapon->getPrimaryDamageRadius(noBonus);
+	const Real secondaryRadius = detonationWeapon->getSecondaryDamageRadius(noBonus);
+	const Real shockWaveRadius = detonationWeapon->getShockWaveRadius();
+
+	if (secondaryRadius > impactRadius)
+		impactRadius = secondaryRadius;
+	if (shockWaveRadius > impactRadius)
+		impactRadius = shockWaveRadius;
+
+	// Do not turn bullets or zero-radius projectiles into reconnaissance.
+	if (impactRadius <= 0.0f)
+	{
+		return;
+	}
+
+	// Give the player enough context to see the impact without allowing large
+	// superweapons or modded blast radii to reveal huge parts of the map.
+	Real revealRadius = impactRadius * 1.25f;
+	const Real MIN_IMPACT_REVEAL_RADIUS = 40.0f;
+	const Real MAX_IMPACT_REVEAL_RADIUS = 180.0f;
+
+	if (revealRadius < MIN_IMPACT_REVEAL_RADIUS)
+		revealRadius = MIN_IMPACT_REVEAL_RADIUS;
+	if (revealRadius > MAX_IMPACT_REVEAL_RADIUS)
+		revealRadius = MAX_IMPACT_REVEAL_RADIUS;
+
+	PlayerMaskType revealMask = 0;
+	for (Int currentIndex = ThePlayerList->getPlayerCount() - 1; currentIndex >= 0; --currentIndex)
+	{
+		const Player *currentPlayer = ThePlayerList->getNthPlayer(currentIndex);
+		if (currentPlayer != nullptr && owner->getRelationship(currentPlayer->getDefaultTeam()) == ALLIES)
+		{
+			revealMask |= currentPlayer->getPlayerMask();
+		}
+	}
+
+	if (revealMask == 0)
+	{
+		return;
+	}
+
+	const Coord3D *impactPos = projectile->getPosition();
+	ThePartitionManager->doShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
+	ThePartitionManager->queueUndoShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
+}
+
+//-------------------------------------------------------------------------------------------------
 void WeaponStore::handleProjectileDetonation(const WeaponTemplate* wt, const Object *source, const Coord3D* pos, WeaponBonusConditionFlags extraBonusFlags, Bool inflictDamage )
 {
+	// Reveal before firing the detonation weapon: FXList suppresses impact effects
+	// in shrouded cells, and MissileAIUpdate reaches this shared entry point.
+	revealProjectileImpactShroud(source, wt);
 	Weapon* w = allocateNewWeapon(wt, PRIMARY_WEAPON);
 	w->loadAmmoNow(source);
 	w->fireProjectileDetonationWeapon( source, pos, extraBonusFlags, inflictDamage );
