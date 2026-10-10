@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "63dcc4eb42d377565860cf70dd81190b74763448d19147bc86bc207f9de098c3",
-        "size": 42267488,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3411/libmain.so.gz"
+        "sha256": "b2149f6fa34e4140f23696e34d08f8e90516f9297b309afcffc6241bd9bb575d",
+        "size": 42267456,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3428/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "a56e4ee5cc9dd7f4b3902dff2d4873a5d835af2c2305581961d957c9a9ad8ec9",
-        "size": 42271712,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3411/libmain60.so.gz"
+        "sha256": "0c7acb1d79f465b4ec77c4f6584e19977a69e35dbb7e1b6ac7105432bc5aaf61",
+        "size": 42271728,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3428/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3411,
-    "source_commit": "79f5f8b09d80c850567e06dd45fcd929a7ec03c4"
+    "seq": 3428,
+    "source_commit": "dbbe94cd9780d0fb329ebffdf6a99d541989469e"
   },
-  "note": "Restore the green Guard shield, Attack Move and Stop orders on Android for sparse Project X CommandSets when the extra-page arrow is inaccessible; retain 3402 construction and factory page behavior. No simulation, mod-file, save or network changes; physical device verification pending.",
+  "note": "Android Guard/Stop/Attack Move visibility improvements across America, China, GLA, Russia and Europe, including passenger carriers and shared multi-selection; full passenger-only WarFortress page remains limited by physical HUD space. Gameplay, save, network and mod archives unchanged. Device validation required.",
   "published": "2026-10-10",
   "schema": 1,
-  "serial": 9
+  "serial": 10
 }
