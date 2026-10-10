@@ -155,19 +155,22 @@ public class ModManagerActivity extends Activity {
         shell.addView(host, new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout page = UiKit.scrollingPage(host);
         page.setPadding(dp(16), dp(12), dp(16), dp(12));
-        FrameLayout battlefield = LauncherUi.artwork(this, page, 140);
+        // GeneralsX @feature 10/10/2026 Premium Mod Library phase 1: compact hero, same original art.
+        FrameLayout battlefield = LauncherUi.artwork(this, page, 122);
         ((ImageView) battlefield.getChildAt(0)).setImageResource(R.drawable.launcher_mods_battlefield);
         LinearLayout header = column();
-        header.setPadding(dp(14), dp(12), dp(14), dp(14));
+        header.setPadding(dp(16), dp(12), dp(16), dp(12));
         header.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[] {0x99090d14, 0x00090d14, 0xdd090d14}));
+            new int[] {0xc6090d14, 0x33090d14, 0xf2090d14}));
         battlefield.addView(header, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout tools = new LinearLayout(this);
         tools.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(tools, new LinearLayout.LayoutParams(-1, -2));
         TextView title = new TextView(this);
         title.setText(R.string.mods_title);
-        title.setTextSize(32);
+        title.setTextSize(27);
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(android.graphics.Color.WHITE);
         tools.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
@@ -177,16 +180,39 @@ public class ModManagerActivity extends Activity {
             getString(R.string.launcher_settings), () -> LauncherUi.open(this, SetupActivity.TAB_INTERFACE));
         settings.setOnClickListener(v -> LauncherUi.settings(this, v, tab -> LauncherUi.open(this, tab)));
         tools.addView(settings);
-        text(header, getString(R.string.mods_library_subtitle), 13, textColor(), false);
+        // Always white over the battlefield; light mode must not render dark ink on artwork.
+        TextView subtitle = text(header, getString(R.string.mods_library_subtitle), 13,
+            android.graphics.Color.WHITE, false);
+        subtitle.setMaxLines(2);
+        subtitle.setAlpha(0.94f);
 
         LinearLayout summary = panel(page, false);
         summary.setOrientation(LinearLayout.HORIZONTAL);
-        summary.setPadding(dp(12), dp(16), dp(12), dp(16));
+        summary.setPadding(dp(10), dp(12), dp(10), dp(12));
         countValue = metric(summary, R.string.mods_library_title);
         storageValue = metric(summary, R.string.mods_storage_used);
         freeValue = metric(summary, R.string.mods_free_space);
-        selection = text(page, getString(R.string.mods_library_loading), 13, muted(), false);
-        selection.setPadding(dp(2), dp(8), 0, dp(6));
+        // One clearly labelled active-mode strip, with full-name room and RTL-safe spacing.
+        LinearLayout activeStrip = new LinearLayout(this);
+        activeStrip.setGravity(Gravity.CENTER_VERTICAL);
+        activeStrip.setPadding(dp(12), dp(10), dp(12), dp(10));
+        activeStrip.setBackground(LauncherUi.shape(this,
+            UiKit.color(this, R.color.gzh_surface_container_high),
+            UiKit.color(this, R.color.gzh_outline_variant), 16));
+        LinearLayout.LayoutParams activeParams = new LinearLayout.LayoutParams(-1, -2);
+        activeParams.topMargin = dp(12);
+        activeParams.bottomMargin = dp(4);
+        page.addView(activeStrip, activeParams);
+        ImageView activeIcon = new ImageView(this);
+        activeIcon.setImageResource(R.drawable.ic_gzh_check);
+        activeIcon.setImageTintList(UiKit.tint(this, R.color.gzh_primary));
+        LinearLayout.LayoutParams activeIconParams = new LinearLayout.LayoutParams(dp(22), dp(22));
+        activeIconParams.setMarginEnd(dp(10));
+        activeStrip.addView(activeIcon, activeIconParams);
+        LinearLayout activeLabels = column();
+        activeStrip.addView(activeLabels, new LinearLayout.LayoutParams(0, -2, 1f));
+        text(activeLabels, getString(R.string.mods_status_title), 11, muted(), false);
+        selection = text(activeLabels, getString(R.string.mods_library_loading), 14, textColor(), true);
         libraryProgress = new ProgressBar(this);
         libraryProgress.setIndeterminate(true);
         libraryProgress.setIndeterminateTintList(ColorStateList.valueOf(gold()));
@@ -275,7 +301,7 @@ public class ModManagerActivity extends Activity {
         freeValue.setText(snapshot.storageReady ? sizeLabel(snapshot.free) : getString(R.string.mods_size_unknown));
         selection.setText(snapshot.active == null ? getString(R.string.mods_active_vanilla)
             : getString(R.string.mods_active_mod, snapshot.active.getName()));
-        selection.setMaxLines(2);
+        selection.setMaxLines(3);
         selection.setEllipsize(TextUtils.TruncateAt.END);
         boolean enabled = snapshot.storageReady && !importRunning && !actionRunning;
         importButton.setEnabled(enabled);
@@ -302,74 +328,7 @@ public class ModManagerActivity extends Activity {
         for (Entry entry : ordered) {
             if (!entry.file.getName().toLowerCase(Locale.ROOT).contains(libraryQuery.toLowerCase(Locale.ROOT))) continue;
             shown++;
-            boolean active = entry.file.equals(snapshot.active);
-            LinearLayout card = panel(library, active);
-            LinearLayout heading = new LinearLayout(this);
-            heading.setGravity(Gravity.CENTER_VERTICAL);
-            card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
-            FrameLayout preview = new FrameLayout(this);
-            preview.setBackground(shape(UiKit.color(this, R.color.gzh_surface_container_high), outline()));
-            preview.setClipToOutline(true);
-            ImageView artwork = new ImageView(this);
-            artwork.setImageResource(R.drawable.launcher_mods_battlefield);
-            artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            preview.addView(artwork, new FrameLayout.LayoutParams(-1, -1));
-            // Shared decorative artwork, never claimed as mod-specific cover metadata.
-            ImageView icon = new ImageView(this);
-            icon.setImageResource(R.drawable.ic_gzh_folder);
-            icon.setImageTintList(ColorStateList.valueOf(active ? gold() : LauncherUi.primary(this)));
-            icon.setBackground(shape(UiKit.color(this, R.color.gzh_surface_container_high), outline()));
-            icon.setPadding(dp(5), dp(5), dp(5), dp(5));
-            FrameLayout.LayoutParams glyph = new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM | Gravity.END);
-            glyph.setMargins(dp(4), dp(4), dp(4), dp(4));
-            preview.addView(icon, glyph);
-            LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(68), dp(104));
-            imageParams.setMarginEnd(dp(12));
-            heading.addView(preview, imageParams);
-            LinearLayout info = column();
-            heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-            LinearLayout titleRow = new LinearLayout(this);
-            titleRow.setGravity(Gravity.CENTER_VERTICAL);
-            info.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
-            TextView name = new TextView(this);
-            name.setText(entry.file.getName());
-            name.setTextSize(16);
-            name.setTextColor(textColor());
-            name.setTypeface(Typeface.DEFAULT_BOLD);
-            name.setMaxLines(2);
-            name.setEllipsize(TextUtils.TruncateAt.END);
-            titleRow.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-            TextView badge = new TextView(this);
-            badge.setText(active ? R.string.mods_active_button : R.string.mods_installed_badge);
-            badge.setTextSize(10);
-            badge.setTypeface(Typeface.DEFAULT_BOLD);
-            badge.setTextColor(active ? gold() : LauncherUi.success(this));
-            badge.setPadding(dp(6), dp(4), dp(6), dp(4));
-            badge.setBackground(shape(active ? UiKit.color(this, R.color.gzh_primary_container)
-                : UiKit.color(this, R.color.gzh_surface_container_high),
-                active ? gold() : LauncherUi.success(this)));
-            LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(-2, -2);
-            badgeLp.setMarginStart(dp(6));
-            titleRow.addView(badge, badgeLp);
-            View delete = UiKit.iconButton(this, android.R.drawable.ic_menu_delete,
-                getString(R.string.mods_delete_button), () -> confirmDelete(entry.file, active));
-            delete.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
-            ((ImageView) delete).setImageTintList(new ColorStateList(
-                new int[][] { {-android.R.attr.state_enabled}, {} },
-                new int[] { muted(), 0xffff6b78 }));
-            delete.setEnabled(enabled);
-            titleRow.addView(delete);
-            TextView type = text(info, sizeLabel(entry.bytes) + "  ·  " + getString(entry.directory
-                ? R.string.mods_type_folder : R.string.mods_type_big), 11, muted(), false);
-            type.setPadding(0, dp(4), 0, 0);
-            LinearLayout actions = UiKit.buttonRow(info);
-            MaterialButton launch = action(actions, R.string.mods_launch_button, R.drawable.ic_gzh_play,
-                active, () -> selectMod(entry.file, true));
-            MaterialButton activate = action(actions, R.string.mods_activate_button, R.drawable.ic_gzh_refresh,
-                false, () -> selectMod(entry.file, false));
-            launch.setEnabled(enabled);
-            activate.setEnabled(enabled && !active);
+            renderModCard(entry, entry.file.equals(snapshot.active), enabled);
         }
         if (shown == 0 && !snapshot.entries.isEmpty()) {
             text(library, getString(R.string.launcher_no_matches), 14, muted(), false);
@@ -377,6 +336,84 @@ public class ModManagerActivity extends Activity {
         TextView path = text(library, getString(R.string.mods_folder_path,
             snapshot.root.getAbsolutePath()), 11, muted(), false);
         path.setPadding(dp(2), dp(14), dp(2), dp(4));
+    }
+
+    /**
+     * GeneralsX @feature 10/10/2026 Phase 1: consistent square thumbnail + full-width
+     * actions. Presentation-only: delegates activate, launch and delete to the exact
+     * same guarded methods as the original Mod Library. No mod file is moved here.
+     */
+    private void renderModCard(Entry entry, boolean active, boolean enabled) {
+        LinearLayout card = panel(library, active);
+        card.setPadding(dp(14), dp(14), dp(14), dp(12));
+
+        LinearLayout heading = new LinearLayout(this);
+        heading.setGravity(Gravity.TOP);
+        heading.setOrientation(LinearLayout.HORIZONTAL);
+        card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+
+        // The shared battle image is deliberately not repeated as fake mod-specific artwork.
+        ImageView preview = new ImageView(this);
+        preview.setImageResource(R.drawable.ic_gzh_folder);
+        preview.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        preview.setImageTintList(UiKit.tint(this, R.color.gzh_primary));
+        preview.setPadding(dp(17), dp(17), dp(17), dp(17));
+        preview.setBackground(LauncherUi.shape(this,
+            UiKit.color(this, R.color.gzh_surface_container_high),
+            UiKit.color(this, R.color.gzh_outline_variant), 14));
+        LinearLayout.LayoutParams thumbParams = new LinearLayout.LayoutParams(dp(72), dp(72));
+        thumbParams.setMarginEnd(dp(12));
+        heading.addView(preview, thumbParams);
+
+        LinearLayout info = column();
+        heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView name = text(info, entry.file.getName(), 16, textColor(), true);
+        name.setMaxLines(3);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        TextView meta = text(info, sizeLabel(entry.bytes) + "  ·  " + getString(entry.directory
+            ? R.string.mods_type_folder : R.string.mods_type_big), 12, muted(), false);
+        meta.setPadding(0, dp(5), 0, 0);
+        meta.setMaxLines(2);
+
+        TextView badge = text(info, getString(active ? R.string.mods_active_button
+            : R.string.mods_installed_badge), 11,
+            active ? UiKit.color(this, R.color.gzh_on_primary_container)
+                : UiKit.color(this, R.color.gzh_on_surface_variant), true);
+        badge.setPadding(dp(10), dp(5), dp(10), dp(5));
+        badge.setBackground(LauncherUi.shape(this,
+            active ? UiKit.color(this, R.color.gzh_primary_container)
+                : UiKit.color(this, R.color.gzh_surface_container_high),
+            active ? UiKit.color(this, R.color.gzh_primary)
+                : UiKit.color(this, R.color.gzh_outline_variant), 18));
+        LinearLayout.LayoutParams badgeParams = (LinearLayout.LayoutParams) badge.getLayoutParams();
+        badgeParams.width = -2;
+        badgeParams.topMargin = dp(8);
+        badge.setLayoutParams(badgeParams);
+
+        // Destructive action is separated from the title and retains confirmation.
+        View delete = UiKit.iconButton(this, android.R.drawable.ic_menu_delete,
+            getString(R.string.mods_delete_button), () -> confirmDelete(entry.file, active));
+        delete.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(44)));
+        ((ImageView) delete).setImageTintList(UiKit.tint(this, R.color.gzh_on_surface_variant));
+        delete.setEnabled(enabled);
+        heading.addView(delete);
+
+        View divider = new View(this);
+        divider.setBackgroundColor(UiKit.color(this, R.color.gzh_outline_variant));
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1)));
+        dividerParams.topMargin = dp(12);
+        dividerParams.bottomMargin = dp(10);
+        card.addView(divider, dividerParams);
+
+        // Full card width for actions, including long translated labels on narrow phones.
+        LinearLayout actions = UiKit.buttonRow(card);
+        MaterialButton launch = action(actions, R.string.mods_launch_button,
+            R.drawable.ic_gzh_play, true, () -> selectMod(entry.file, true));
+        MaterialButton activate = action(actions, R.string.mods_activate_button,
+            R.drawable.ic_gzh_refresh, false, () -> selectMod(entry.file, false));
+        launch.setEnabled(enabled);
+        activate.setEnabled(enabled && !active);
+        activate.setText(active ? R.string.mods_active_button : R.string.mods_activate_button);
     }
 
     private void selectMod(File mod, boolean launch) {
@@ -452,7 +489,7 @@ public class ModManagerActivity extends Activity {
     private GradientDrawable shape(int fill, int stroke) {
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(fill);
-        shape.setCornerRadius(dp(10));
+        shape.setCornerRadius(dp(16));
         shape.setStroke(dp(1), stroke);
         return shape;
     }
@@ -460,7 +497,8 @@ public class ModManagerActivity extends Activity {
     private LinearLayout panel(LinearLayout parent, boolean active) {
         LinearLayout panel = column();
         panel.setPadding(dp(14), dp(14), dp(14), dp(14));
-        panel.setBackground(shape(active ? UiKit.color(this, R.color.gzh_primary_container) : surface(), active ? gold() : outline()));
+        panel.setBackground(shape(active ? UiKit.color(this, R.color.gzh_primary_container) : surface(),
+            active ? UiKit.color(this, R.color.gzh_primary) : outline()));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(12);
         parent.addView(panel, lp);
@@ -480,10 +518,10 @@ public class ModManagerActivity extends Activity {
 
     private TextView metric(LinearLayout parent, int label) {
         LinearLayout cell = column();
-        cell.setPadding(dp(3), 0, dp(3), 0);
+        cell.setPadding(dp(6), 0, dp(6), 0);
         parent.addView(cell, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView value = text(cell, getString(R.string.mods_size_unknown), 18, textColor(), true);
-        TextView caption = text(cell, getString(label), 10, muted(), false);
+        TextView value = text(cell, getString(R.string.mods_size_unknown), 17, textColor(), true);
+        TextView caption = text(cell, getString(label), 11, muted(), false);
         caption.setMaxLines(2);
         return value;
     }
@@ -492,16 +530,17 @@ public class ModManagerActivity extends Activity {
         boolean first = row.getChildCount() == 0;
         MaterialButton button = UiKit.button(row, UiKit.BTN_TONAL, icon, getString(label), run);
         UiKit.share(button, first);
-        button.setCornerRadius(dp(8));
+        button.setCornerRadius(dp(14));
         button.setTextSize(13);
         button.setStrokeWidth(dp(1));
-        button.setStrokeColor(ColorStateList.valueOf(primary ? gold() : outline()));
-        int foreground = primary ? background() : textColor();
+        button.setStrokeColor(ColorStateList.valueOf(primary ? UiKit.color(this, R.color.gzh_primary) : outline()));
+        int foreground = primary ? UiKit.color(this, R.color.gzh_on_primary) : textColor();
         button.setTextColor(new ColorStateList(new int[][] { {-android.R.attr.state_enabled}, {} },
             new int[] { muted(), foreground }));
         button.setIconTint(button.getTextColors());
         button.setBackgroundTintList(new ColorStateList(new int[][] { {-android.R.attr.state_enabled}, {} },
-            new int[] { surface(), primary ? gold() : UiKit.color(this, R.color.gzh_surface_container_high) }));
+            new int[] { surface(), primary ? UiKit.color(this, R.color.gzh_primary)
+                : UiKit.color(this, R.color.gzh_surface_container_high) }));
         return button;
     }
 
