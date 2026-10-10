@@ -468,4 +468,5 @@
     <string name="launcher_apk_update_failed">APK update failed: %1$s</string>
     <string name="launcher_apk_auto_check">Check for app APK updates automatically</string>
     <string name="launcher_apk_auto_check_desc">Show an Update Now banner for new app releases. Separate from engine updates.</string>
+    <string name="launcher_apk_check_button">Check for app APK updates</string>
 </resources>
