@@ -52,8 +52,10 @@ class VehicleAIV1Safety(unittest.TestCase):
         self.assertIn('#include <cstdint>',p)
         self.assertIn('currentFrame - lastBlockedRepathFrame >= minimumFrames',p)
         self.assertIn('currentFrame < lastBlockedRepathFrame',p)
+        # Reject executable side effects, not words appearing in comments.
+        executable='\n'.join(line.split('//',1)[0] for line in p.splitlines())
         for forbidden in ('rand(', 'time(', 'sleep(', 'malloc(', 'new ', 'static std::', 'std::chrono'):
-            self.assertNotIn(forbidden,p)
+            self.assertNotIn(forbidden,executable)
         self.assertNotIn('xfer->xfer',p)
 
     def test_guards_reuse_original_state_and_preserve_game_orders(self):
