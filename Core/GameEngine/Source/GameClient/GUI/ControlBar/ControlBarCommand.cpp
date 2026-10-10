@@ -258,6 +258,10 @@ void ControlBar::doTransportInventoryUI( Object *transport, const CommandSet *co
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+// Forward declaration: the mobile command promotion must never rewrite a
+// dozer/worker construction palette (handled by addBuilderPageButtons).
+static Bool isBuilderCommandSet( const CommandSet *commandSet );
+
 void ControlBar::populateCommand( Object *obj )
 {
 	const CommandSet *commandSet;
@@ -301,8 +305,50 @@ void ControlBar::populateCommand( Object *obj )
 	// The original CommandButton objects stay intact: production, prerequisites,
 	// upgrades and multiplayer protocol are never rewritten.
 	const Int overflowPageSlot = 13; // zero-based slot 14
+
+	// Most mod units have ordinary commands in slots 1-12 but put Guard,
+	// Attack Move and Stop in 15-18. Their page arrow at physical slot 14
+	// can itself be clipped by mobile layouts or be unavailable when its image
+	// is missing. Move *all* commands from slots 13-18 into genuinely vacant
+	// windows among physical 1-12 whenever they fit. This is presentation
+	// only: the original CommandButton, science checks and order dispatch stay
+	// unchanged. If they do not fit, retain the verified 3402 paging path.
+	Int compactCommandIndices[ MAX_COMMANDS_PER_SET ];
+	for( Int slot = 0; slot < MAX_COMMANDS_PER_SET; ++slot )
+		compactCommandIndices[ slot ] = slot;
+	Bool compactPossible = TRUE;
+	Bool hasCompactCommands = FALSE;
+	if( !isBuilderCommandSet( commandSet ) &&
+		( obj->getContain() == nullptr || !obj->getContain()->isDisplayedOnControlBar() ) )
+	{
+		for( Int source = 12; source < MAX_COMMANDS_PER_SET; ++source )
+		{
+			const CommandButton *candidate = commandSet->getCommandButton( source );
+			if( candidate == nullptr || BitIsSet( candidate->getOptions(), SCRIPT_ONLY ) )
+				continue;
+			hasCompactCommands = TRUE;
+			Int destination = -1;
+			for( Int physical = 0; physical < 12; ++physical )
+			{
+				if( m_commandWindows[ physical ] &&
+					commandSet->getCommandButton( physical ) == nullptr &&
+					compactCommandIndices[ physical ] == physical )
+				{
+					destination = physical;
+					break;
+				}
+			}
+			if( destination < 0 )
+			{
+				compactPossible = FALSE;
+				break;
+			}
+			compactCommandIndices[ destination ] = source;
+		}
+	}
+	const Bool compactCommandBar = compactPossible && hasCompactCommands;
 	Bool hasOverflowPage = FALSE;
-	if( m_touchBuilderMoreButton && m_touchBuilderBackButton &&
+	if( !compactCommandBar && m_touchBuilderMoreButton && m_touchBuilderBackButton &&
 		m_commandWindows[ overflowPageSlot ] &&
 		( obj->getContain() == nullptr || !obj->getContain()->isDisplayedOnControlBar() ) )
 	{
@@ -328,6 +374,17 @@ void ControlBar::populateCommand( Object *obj )
 
 		Int commandIndex = i;
 #if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+		if( compactCommandBar )
+		{
+			// High logical windows may sit outside the clipped mobile panel.
+			// Their commands now live in spare physical windows 1-12 instead.
+			if( i >= 12 )
+			{
+				m_commandWindows[ i ]->winHide( TRUE );
+				continue;
+			}
+			commandIndex = compactCommandIndices[ i ];
+		}
 		if( hasOverflowPage )
 		{
 			// The page arrow occupies slot 14; only the original windows 1-13
@@ -709,7 +766,9 @@ void ControlBar::addTouchModeButtons( const CommandSet *commandSet )
 			const Bool slotTaken = commandSet
 				? ( commandSet->getCommandButton( i ) != nullptr )
 				: ( m_commonCommands[ i ] != nullptr );
-			if( slotTaken )
+			// An empty *INI* slot can now display a promoted high-slot
+			// command. Never overwrite Guard/Stop/Attack Move with a touch mode.
+			if( slotTaken || !win->winIsHidden() )
 				continue;
 
 			win->winHide( FALSE );
