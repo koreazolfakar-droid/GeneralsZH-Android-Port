@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">Dzień</string>
     <string name="setup_appearance_dark">Noc</string>
     <string name="setup_appearance_help">Zmienia wyłącznie wygląd aplikacji. System dopasowuje go do telefonu; Dzień i Noc są zapamiętywane. Grafika gry bez zmian.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">Szybkie akcje</string>
+    <string name="launcher_premium_mod_library">Biblioteka modów</string>
+    <string name="launcher_premium_display">Grafika</string>
+    <string name="launcher_premium_utilities">Narzędzia</string>
+    <string name="launcher_premium_check_updates">Sprawdź aktualizacje</string>
 </resources>

@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">روز</string>
     <string name="setup_appearance_dark">شب</string>
     <string name="setup_appearance_help">فقط ظاهر برنامه تغییر می‌کند. حالت سیستم از تنظیمات گوشی پیروی می‌کند و روز و شب ذخیره می‌شوند. گرافیک بازی تغییر نمی‌کند.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">دسترسی سریع</string>
+    <string name="launcher_premium_mod_library">کتابخانه مادها</string>
+    <string name="launcher_premium_display">گرافیک</string>
+    <string name="launcher_premium_utilities">ابزارها</string>
+    <string name="launcher_premium_check_updates">بررسی به‌روزرسانی</string>
 </resources>

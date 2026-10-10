@@ -455,4 +455,10 @@
     <string name="setup_appearance_light">Day</string>
     <string name="setup_appearance_dark">Night</string>
     <string name="setup_appearance_help">Change only the app interface. System follows your phone; Day and Night stay selected across launches. Game graphics are unchanged.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">Quick Actions</string>
+    <string name="launcher_premium_mod_library">Mod Library</string>
+    <string name="launcher_premium_display">Display</string>
+    <string name="launcher_premium_utilities">Utilities</string>
+    <string name="launcher_premium_check_updates">Check Updates</string>
 </resources>

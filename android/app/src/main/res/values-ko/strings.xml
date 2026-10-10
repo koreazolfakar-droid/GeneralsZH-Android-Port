@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">낮</string>
     <string name="setup_appearance_dark">밤</string>
     <string name="setup_appearance_help">앱 화면만 변경합니다. 시스템은 휴대폰 설정을 따르고 낮과 밤 설정은 저장됩니다. 게임 그래픽은 변경되지 않습니다.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">빠른 실행</string>
+    <string name="launcher_premium_mod_library">모드 라이브러리</string>
+    <string name="launcher_premium_display">그래픽</string>
+    <string name="launcher_premium_utilities">도구</string>
+    <string name="launcher_premium_check_updates">업데이트 확인</string>
 </resources>

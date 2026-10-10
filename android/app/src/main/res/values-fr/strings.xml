@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">Jour</string>
     <string name="setup_appearance_dark">Nuit</string>
     <string name="setup_appearance_help">Modifie uniquement l\'interface. Système suit le téléphone ; Jour et Nuit restent enregistrés. Les graphismes du jeu ne changent pas.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">Accès rapides</string>
+    <string name="launcher_premium_mod_library">Bibliothèque de mods</string>
+    <string name="launcher_premium_display">Affichage</string>
+    <string name="launcher_premium_utilities">Outils</string>
+    <string name="launcher_premium_check_updates">Vérifier les mises à jour</string>
 </resources>

@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">Tag</string>
     <string name="setup_appearance_dark">Nacht</string>
     <string name="setup_appearance_help">Ändert nur die App-Oberfläche. System folgt dem Gerät; Tag und Nacht bleiben gespeichert. Die Spielgrafik bleibt unverändert.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">Schnellzugriff</string>
+    <string name="launcher_premium_mod_library">Mod-Bibliothek</string>
+    <string name="launcher_premium_display">Grafik</string>
+    <string name="launcher_premium_utilities">Werkzeuge</string>
+    <string name="launcher_premium_check_updates">Updates prüfen</string>
 </resources>

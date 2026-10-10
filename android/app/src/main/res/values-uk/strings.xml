@@ -404,4 +404,10 @@
     <string name="setup_appearance_light">День</string>
     <string name="setup_appearance_dark">Ніч</string>
     <string name="setup_appearance_help">Змінюється лише вигляд застосунку. Система наслідує налаштування телефону; вибір Дня чи Ночі зберігається. Графіка гри не змінюється.</string>
+    <!-- Premium launcher Stage 1: Home quick actions. -->
+    <string name="launcher_premium_quick_actions">Швидкі дії</string>
+    <string name="launcher_premium_mod_library">Бібліотека модів</string>
+    <string name="launcher_premium_display">Графіка</string>
+    <string name="launcher_premium_utilities">Інструменти</string>
+    <string name="launcher_premium_check_updates">Перевірити оновлення</string>
 </resources>
