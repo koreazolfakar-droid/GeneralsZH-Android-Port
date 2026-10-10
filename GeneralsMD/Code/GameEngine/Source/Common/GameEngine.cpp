@@ -573,15 +573,10 @@ void GameEngine::init()
 		{
 			fprintf(stderr, "[gxmod-early] mount before GameData: modDir='%s' modBIG='%s'\n",
 				TheGlobalData->m_modDir.str(), TheGlobalData->m_modBIG.str());
-	#if defined(__ANDROID__) && RTS_ZEROHOUR
-		// Only mount here if the early pass had no active -mod. Never mount twice.
-		// Vanilla and non-Android startup retain their original ordering.
-		if (!activeModMountedBeforeGameData)
-#endif
 			TheArchiveFileSystem->loadMods();
 			// Archive winner only: loose files can still override the archive source.
 			ArchiveFile* gameDataArchive = TheArchiveFileSystem->getArchiveFile("Data\\INI\\GameData.ini");
-			fprintf(stderr, "[gxmod-early] GameData archive candidate: %s\\n",
+			fprintf(stderr, "[gxmod-early] GameData archive candidate: %s\n",
 				gameDataArchive ? gameDataArchive->getName().str() : "<none>");
 		}
 #endif
@@ -658,7 +653,12 @@ void GameEngine::init()
 		// special-case: parse command-line parameters after loading global data
 		CommandLine::parseCommandLineForEngineInit();
 
-		TheArchiveFileSystem->loadMods();
+#if defined(__ANDROID__) && RTS_ZEROHOUR
+		// A standalone mod was already mounted before GameData.ini; do not
+		// reinsert it. Vanilla and non-Android preserve the original late load.
+		if (!activeModMountedBeforeGameData)
+#endif
+			TheArchiveFileSystem->loadMods();
 
 		// doesn't require resets so just create a single instance here.
 		TheGameLODManager = MSGNEW("GameEngineSubsystem") GameLODManager;
