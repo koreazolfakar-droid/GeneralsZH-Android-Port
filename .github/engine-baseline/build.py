@@ -63,6 +63,14 @@ for relative in capture(['git','-C','references/fbraz3-dxvk','ls-files','--recur
     path=root/'references/fbraz3-dxvk'/relative
     if path.is_file() and not path.is_symlink() and path.suffix in ('.h','.hpp','.hxx'):
         headers[str(path.resolve())]=sha(path)
+# The separately cached SDK has newer, byte-identical headers than the sealed
+# objects/PCH. Verify the pinned NDK contents before normalizing its *metadata*.
+# Each exact historical timestamp required by Clang is subsequently restored by
+# the checksum-checked compiler launcher. Do not disable Ninja's compile guard.
+if build_requested:
+    from ndk_cache import prepare as prepare_ndk_pch
+    report['ndk_cache'] = prepare_ndk_pch(ndk, epoch, headers, out)
+    save()
 verified_headers=out/'verified-unchanged-headers.json'
 verified_headers.write_text(json.dumps(headers))
 os.environ['GX_VERIFIED_HEADERS']=str(verified_headers)
