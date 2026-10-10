@@ -204,19 +204,77 @@ public class LauncherHomeUiTest {
 
     // GeneralsX @feature 10/10/2026 Test reference-driven navy and gold Home
     // while guarding original interactive destinations and runtime values.
-    @Test public void navyGoldHomeRetainsLiveStateAndLatestUpdateLink() {
+    @Test public void navyGoldHomeKeepsRealUpdateControlsWithoutDuplicateCard() {
         open();
         assertEquals(0xffffc84c, LauncherUi.primary(activity));
         assertNotNull(field("heroMod"));
         assertNotNull(field("homeEngineSummary"));
-        assertNotNull(field("homeAccountSummary"));
-        assertNotNull(label(R.string.launcher_latest_updates));
+        assertNull("Account is now shown in the real Online row, not a cramped metric",
+            field("homeAccountSummary"));
         assertNotNull(label(R.string.launcher_play_now));
         assertEquals(activity.getString(R.string.launcher_build_value, UpdateManager.bundledEngineSeq(context)),
             ((TextView) field("homeEngineSummary")).getText().toString());
-        click(R.string.launcher_latest_updates);
+        click(R.string.setup_card_updates);
         assertEquals(View.VISIBLE, ((LinearLayout) field("homeUpdateDetails")).getVisibility());
         label(R.string.setup_button_check_updates);
+    }
+
+    private LinearLayout metricGroup() {
+        TextView value = (TextView)field("homeModSummary");
+        return (LinearLayout)((View)((View)value.getParent()).getParent()).getParent();
+    }
+    private View linkedRow(TextView status) {
+        return (View)((View)status.getParent()).getParent();
+    }
+    private void measureAt(int width, int height) {
+        View root = activity.getWindow().getDecorView();
+        root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));
+        root.layout(0,0,width,height);
+    }
+
+    @Test @Config(sdk=28, qualifiers="w320dp-h640dp-mdpi")
+    public void compactPhoneUsesUnclippedStackedMetricsAndTappableRows() {
+        open();
+        measureAt(320, 640);
+        LinearLayout metric = metricGroup();
+        assertEquals(LinearLayout.VERTICAL,metric.getOrientation());
+        assertEquals(2, metric.getChildCount());
+        assertEquals(activity.getString(R.string.mods_active_vanilla),
+            ((TextView) field("homeModSummary")).getText().toString());
+        for (String key : new String[]{"homeGameSummary","homeOnlineSummary","homeUpdatesSummary"}) {
+            View card = linkedRow((TextView) field(key));
+            assertTrue("Destination should be compact, not image-height stretched: "+key,
+                card.getHeight() >= 80 && card.getHeight() <= 140);
+            assertTrue("Full-width destination must not overflow the 320dp viewport",
+                card.getWidth() <= 320 && card.getWidth() >= 270);
+            assertTrue("Entire row should be clickable",card.isClickable());
+            assertTrue("No full-size image frame on destination cards",card instanceof LinearLayout);
+        }
+        int duplicates = 0;
+        for (View v : views(activity.getWindow().getDecorView())) {
+            if (v instanceof TextView && activity.getString(R.string.launcher_latest_updates)
+                .contentEquals(((TextView)v).getText())) duplicates++;
+        }
+        assertEquals("No duplicate Latest Updates card",0,duplicates);
+        click(R.string.setup_card_game_folder);
+        assertEquals(View.VISIBLE, ((LinearLayout)field("homeGameData")).getVisibility());
+    }
+
+    @Test @Config(sdk=28, qualifiers="w600dp-h900dp-mdpi")
+    public void wideScreenUsesTwoFlexibleMetricsAndStillHasCompactRows() {
+        open();
+        measureAt(600,900);
+        LinearLayout metric = metricGroup();
+        assertEquals(LinearLayout.HORIZONTAL,metric.getOrientation());
+        assertEquals(2,metric.getChildCount());
+        assertTrue(((View)metric.getChildAt(0)).getWidth() >= 240);
+        assertTrue(((View)metric.getChildAt(1)).getWidth() >= 240);
+        View gameCard = linkedRow((TextView)field("homeGameSummary"));
+        assertTrue("Only content height, not a stretched illustration",gameCard.getHeight() <= 140);
+        assertTrue(gameCard.getWidth() >= 540);
+        click(R.string.setup_card_online);
+        assertEquals(View.VISIBLE,((LinearLayout)field("homeOnlineDetails")).getVisibility());
     }
 
     @Test public void daylightGoldHomePreservesFolderAndThemeSettings() {
