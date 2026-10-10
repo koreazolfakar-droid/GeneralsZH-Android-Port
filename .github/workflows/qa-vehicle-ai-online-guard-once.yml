@@ -1,0 +1,48 @@
+name: QA Vehicle AI V1 offline safety (one time)
+on:
+  push:
+    branches: [fix/vehicle-ai-v1-online-replay-guard-20261011]
+    paths: [.github/workflows/qa-vehicle-ai-online-guard-once.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github
+            Core
+            GeneralsMD
+            GeneralsZH
+            android
+            scripts
+          fetch-depth: 8
+      - name: Verify network/replay guard and host safety tests
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-vehicle-ai-v1.py
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+          python3 scripts/qa/test-save-map-safety.py
+          python3 scripts/qa/test-engine-build-number.py
+      - name: Compile actual deterministic policy in C++ with GCC and Clang ASAN/UBSAN
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -I GeneralsMD/Code/GameEngine/Include scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp -o /tmp/vehicle-ai-asan
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/vehicle-ai-asan
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -I GeneralsMD/Code/GameEngine/Include scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp -o /tmp/vehicle-ai-gcc
+          /tmp/vehicle-ai-gcc
+      - name: Confirm only source and host test changed after validated base
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          changes=set(subprocess.check_output(['git','diff','--name-only','d1b9a25c9d83c0ca0161a0ee5f2c1916787f6ae1','HEAD'],text=True).splitlines())
+          allowed={'GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIStates.cpp','scripts/qa/test-vehicle-ai-v1.py','.github/workflows/qa-vehicle-ai-online-guard-once.yml'}
+          assert changes==allowed, (changes-allowed,allowed-changes)
+          print('PASS: no changes to online protocol, save format, Android APK or mods')
+          PY

@@ -1820,7 +1820,15 @@ StateReturnType AIInternalMoveToState::update()
 		// from repeatedly requesting a blocked path every simulation tick.
 		// Leave missing paths, infantry, aircraft and special modes unchanged.
 		// No new state: the timestamp is already serialized in saved games.
-		const Bool throttleVehicleRepath = obj->isKindOf( KINDOF_VEHICLE ) &&
+		// A gameplay/simulation change on Android alone would desync PC
+		// network peers and invalidate deterministic playback of old replays.
+		// Keep the exact historical pathfinding cadence in those modes.
+		// The enhancement applies only to local offline play.
+		const Bool safeOfflineMode = TheGameLogic &&
+			!TheGameLogic->isInMultiplayerGame() &&
+			!TheGameLogic->isInReplayGame();
+		const Bool throttleVehicleRepath = safeOfflineMode &&
+			obj->isKindOf( KINDOF_VEHICLE ) &&
 			ai->isDoingGroundMovement() && thePath != nullptr &&
 			!ai->isWaitingForPath();
 		if( !throttleVehicleRepath ||

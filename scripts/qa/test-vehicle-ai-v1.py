@@ -38,6 +38,16 @@ class VehicleAIV1Safety(unittest.TestCase):
         self.assertIn('#else\n\t\tforceRecompute = true;\n\t\tm_blockedRepathTimestamp = currentFrame;\n#endif',x)
         self.assertEqual(x.count('VehicleBlockedRepathPolicy::shouldRetry('),1)
 
+    def test_online_and_replay_always_use_original_repath(self):
+        x=self.movement
+        self.assertIn('const Bool safeOfflineMode = TheGameLogic &&',x)
+        self.assertIn('!TheGameLogic->isInMultiplayerGame()',x)
+        self.assertIn('!TheGameLogic->isInReplayGame()',x)
+        self.assertIn('const Bool throttleVehicleRepath = safeOfflineMode &&',x)
+        self.assertIn('if( !throttleVehicleRepath ||',x)
+        self.assertIn('forceRecompute = true;',x)
+        self.assertIn('m_blockedRepathTimestamp = currentFrame;',x)
+
     def test_unblocked_path_following_and_new_goal_unchanged(self):
         x=self.movement
         self.assertIn('if (thePath==nullptr) {\n\t\tforceRecompute = true;',x)
