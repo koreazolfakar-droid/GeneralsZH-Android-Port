@@ -1,0 +1,150 @@
+# One-time signature-verified native engine update; reuses build 38081757447.
+# Never cleans caches, recompiles game code, rebuilds APK or alters the stable channel on QA failure.
+name: Publish Guard visibility update (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-guard-visible-once.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: 79f5f8b09d80c850567e06dd45fcd929a7ec03c4
+      EXPECTED_BUILD_SOURCE: 79f5f8b09d80c850567e06dd45fcd929a7ec03c4
+      EXPECTED_BUILD_RUN: '38081757447'
+      MIN_PUBLISHED_SEQ: '3402'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify one-time request and immutable successful dual-engine build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish verified Guard visibility fix from retained engine build'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_BUILD_RUN" --jq \
+            '[(.id | tostring), .status, .conclusion, .head_sha, .path, .head_repository.full_name] | join("|")' \
+            | grep -Fx "$EXPECTED_BUILD_RUN|completed|success|$EXPECTED_BUILD_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq '.content' | base64 --decode > "$RUNNER_TEMP/previous-manifest.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'previous-manifest.json').read_text())
+          assert m['engine']['seq'] == 3402 and m['serial'] == 8
+          assert m['engine']['source_commit'] == '9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6'
+          print('PASS: stable 3402 signed update remains unchanged before publication')
+          PY
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.EXPECTED_BUILD_SOURCE }}
+          path: engine-source
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify exact compiled source and monotonic engine version
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BUILD_SOURCE"
+          version="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
+          test "$version" -gt "$MIN_PUBLISHED_SEQ"
+          echo "EXPECTED_BUILD_SEQ=$version" >> "$GITHUB_ENV"
+          python3 scripts/qa/test-mobile-command-overflow.py
+          echo "PASS: Guard UI fix from immutable source, engine $version"
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 38081757447
+          github-token: ${{ github.token }}
+          path: engine-source/engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: engine-source/bootstrap-baseline
+      - name: Validate exact 30Hz and 60Hz engine payloads and preserved APK dependencies
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$EXPECTED_BUILD_SOURCE" \
+            --out prepared-update \
+            --note 'Restore the green Guard shield, Attack Move and Stop orders on Android for sparse Project X CommandSets when the extra-page arrow is inaccessible; retain 3402 construction and factory page behavior. No simulation, mod-file, save or network changes; physical device verification pending.'
+          python3 - <<'PY'
+          import json,os
+          m=json.load(open('prepared-update/manifest.json'))
+          assert m['engine']['seq'] == int(os.environ['EXPECTED_BUILD_SEQ'])
+          assert m['engine']['source_commit'] == os.environ['EXPECTED_BUILD_SOURCE']
+          assert m['serial'] > 8
+          assert {'libmain.so','libmain60.so'} <= set(m['engine']['files'])
+          print('PASS: safe prepared dual-engine update',m['engine']['seq'],'serial',m['serial'])
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: guard-prepared-engine-update
+          path: engine-source/prepared-update/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Sign and verify manifest, trust root, and both engine libraries
+        working-directory: engine-source
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish only the validated signed update to existing updates branch
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify signed published manifest, exact versions and 30/60 Hz payloads
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,gzip,hashlib,importlib.util,json,os,pathlib,subprocess,urllib.request
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          repo=os.environ['GITHUB_REPOSITORY']
+          def api(path):
+              return json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/'+path]))
+          head=api('git/ref/heads/updates')['object']['sha']
+          folder=pathlib.Path('published-verification');folder.mkdir()
+          for name in ('manifest.json','manifest.json.sig'):
+              (folder/name).write_bytes(base64.b64decode(api(f'contents/{name}?ref={head}')['content']))
+          m=a.verify_manifest(folder,'android/app/src/main/assets/update-public.pem')
+          version=int(os.environ['EXPECTED_BUILD_SEQ'])
+          assert m['engine']['seq']==version
+          assert m['engine']['source_commit']==os.environ['EXPECTED_BUILD_SOURCE']
+          assert m['serial']>8
+          assert {'libmain.so','libmain60.so'} <= set(m['engine']['files'])
+          for name in ('libmain.so','libmain60.so'):
+              row=m['engine']['files'][name]
+              url=row['url']
+              assert url.startswith('https://raw.githubusercontent.com/'+repo+'/updates/engine/'+str(version)+'/')
+              with urllib.request.urlopen(url,timeout=120) as response:
+                  compressed=response.read()
+              payload=gzip.decompress(compressed)
+              assert len(payload)==row['size'] and hashlib.sha256(payload).hexdigest()==row['sha256']
+              a.native_stamp(payload,os.environ['EXPECTED_BUILD_SOURCE'],version)
+          print('PASS: signed Guard fix engine',version,'serial',m['serial'],'and both downloadable engine libraries verified')
+          PY
