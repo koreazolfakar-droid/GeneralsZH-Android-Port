@@ -56,6 +56,8 @@ public class LauncherHomeUiTest {
         context.getSharedPreferences(SetupActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
             .clear().putString(SetupActivity.PREF_GAME_PATH, game.getAbsolutePath()).commit();
         UpdateManager.setAutoCheckEnabled(context, false);
+        context.getSharedPreferences("gx_apk_updates_v1", Context.MODE_PRIVATE)
+            .edit().clear().commit();
         ApkUpdateManager.setAutoCheckEnabled(context, false);
     }
     @After public void tearDown() {
