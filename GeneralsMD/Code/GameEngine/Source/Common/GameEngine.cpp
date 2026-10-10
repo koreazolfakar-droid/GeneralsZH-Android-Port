@@ -26,6 +26,12 @@
 // Implementation of the Game Engine singleton
 // Author: Michael S. Booth, April 2001
 
+// The Android incremental builder compiles this translation unit without its
+// stale PCH. Reproduce the PCH's required first header (CppMacros before PreRTS)
+// so CPP_11 and other compatibility macros are available in normal compilation.
+#if defined(__ANDROID__)
+#include <Utility/CppMacros.h>
+#endif
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #include "Common/GXRemoteConfig.h"
 #if defined(__ANDROID__) || defined(__linux__) || defined(__APPLE__)
