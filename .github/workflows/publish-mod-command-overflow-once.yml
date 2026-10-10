@@ -1,0 +1,115 @@
+# One-time guarded build/publish of CommandSet paging for standalone Project X.
+# Triggered by adding this file to dev/mobile-v4; fail closed on any cache/build failure.
+# Fail-closed: NEVER publish on failed incremental builds or source mismatch.
+name: Publish mod command overflow fix (one time)
+on:
+  push:
+    branches:
+      - dev/mobile-v4
+    paths:
+      - .github/workflows/publish-mod-command-overflow-once.yml
+permissions:
+  contents: read
+  actions: write
+jobs:
+  guarded-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    concurrency:
+      group: mod-command-overflow-engine-release-once
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: 045996786287721daf09c8fb86808a0e85b7fd7d
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify one-time release request and immutable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/dev/mobile-v4"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish Android mod command paging [publish-engine-once]'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          sequence="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
+          echo "EXPECTED_ENGINE_SEQ=$sequence" >> "$GITHUB_ENV"
+          echo "Source $GITHUB_SHA, engine sequence $sequence; no fresh APK build requested"
+      - name: Dispatch verified incremental dual-engine build, then sign and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_sha() {
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha'
+          }
+          max_id() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$1/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0'
+          }
+          wait_success() {
+            local workflow="$1" after="$2" limit="$3"
+            FOUND_RUN=""
+            for ((n=1; n<=limit; n++)); do
+              local run_id
+              run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $after and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+              if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+                local state conclusion
+                state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+                echo "$workflow run $run_id: $state"
+                if [[ "$state" == "completed success" ]]; then
+                  FOUND_RUN="$run_id"
+                  return 0
+                fi
+                if [[ "$state" == completed* ]]; then
+                  echo "::error::$workflow run $run_id did not succeed ($state)"
+                  return 1
+                fi
+              fi
+              sleep 30
+            done
+            echo "::error::Timed out waiting for $workflow to succeed"
+            return 1
+          }
+          test "$(current_sha)" = "$GITHUB_SHA"
+          previous_build="$(max_id build-android.yml)"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          wait_success build-android.yml "$previous_build" 200
+          engine_run="$FOUND_RUN"
+          echo "Verified incremental build succeeded: $engine_run"
+          count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$engine_run/artifacts" --jq '[.artifacts[] | select(.name == "engine-incremental-report" and .expired == false)] | length')"
+          test "$count" = 1 || { echo "::error::Verified engine report artifact missing"; exit 1; }
+          test "$(current_sha)" = "$GITHUB_SHA" || { echo "::error::Source branch changed; publication aborted"; exit 1; }
+          previous_sign="$(max_id sign-update.yml)"
+          gh workflow run sign-update.yml --ref dev/mobile-v4 \
+            -f public_identity_only=false \
+            -f engine_build_run="$engine_run" \
+            -f note='Expose Project X Remastered mod build and production commands in slots 15-18 on mobile; preserve vanilla, saves, network, 30/60Hz and mod isolation.'
+          wait_success sign-update.yml "$previous_sign" 100
+          echo "Signing and publication succeeded: $FOUND_RUN"
+      - name: Verify exact public update points to this source and dual-engine payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq '.content' | base64 --decode > /tmp/engine-manifest.json
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq '.content' | base64 --decode > /tmp/engine-manifest.json.sig
+          test -s /tmp/engine-manifest.json.sig
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open('/tmp/engine-manifest.json'))
+          engine = data['engine']
+          assert engine['source_commit'] == os.environ['GITHUB_SHA'], (engine['source_commit'], os.environ['GITHUB_SHA'])
+          assert engine['seq'] == int(os.environ['EXPECTED_ENGINE_SEQ'])
+          assert {'libmain.so', 'libmain60.so'} <= set(engine['files'])
+          for key in ('libmain.so', 'libmain60.so'):
+              entry = engine['files'][key]
+              assert entry['sha256'] and entry['size'] > 0
+              assert entry['url'].startswith('https://raw.githubusercontent.com/')
+          print('PASS: published signed engine', engine['seq'], 'source', engine['source_commit'])
+          PY
+          echo "Update channel now contains both variants, matching this exact commit."
