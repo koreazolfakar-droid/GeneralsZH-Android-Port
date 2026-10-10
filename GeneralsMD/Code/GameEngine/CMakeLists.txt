@@ -1296,6 +1296,19 @@ target_precompile_headers(z_gameengine PRIVATE
     Include/Precompiled/PreRTS.h
 )
 
+# Android cached-PCH compatibility: only GameEngine.cpp now includes additional
+# archive/network headers after the retained PCH was generated. Clang reported
+# repeated bionic fortify declarations (open/openat) even after restoring every
+# SHA-verified NDK header to its PCH-recorded mtime. This TU already includes
+# PreRTS.h normally, so compiling it without a stale PCH is safe and local.
+# Keep the existing PCH for all other engine sources; never clean/rebuild them.
+if(ANDROID)
+    set_source_files_properties(
+        Source/Common/GameEngine.cpp
+        PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+    )
+endif()
+
 # GeneralsX @bugfix Android port 07/11/2026 - upstream defines GENERALS_ONLINE globally via the
 # compiler command line (see go_client/main's GeneralsMD/Code/GameEngine/CMakeLists.txt), not via
 # a header #define. Several of our .cpp files check "#if defined(GENERALS_ONLINE)" before the NGMP
