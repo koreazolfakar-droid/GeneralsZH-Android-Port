@@ -1,0 +1,33 @@
+name: QA Android transport Guard/Stop (one time)
+on:
+  push:
+    branches:
+      - fix/mobile-transport-guard-stop-20261010
+    paths:
+      - .github/workflows/qa-mobile-transport-guard-once.yml
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run focused Android high-slot and passenger inventory fixture tests
+        run: python3 scripts/qa/test-mobile-command-overflow.py
+      - name: Compile-check test driver and reject edits to native simulation
+        run: |
+          python3 -m py_compile scripts/qa/test-mobile-command-overflow.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          paths=subprocess.check_output(['git','diff','--name-only','HEAD~3','HEAD'],text=True).splitlines()
+          approved=['Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp',
+                    'scripts/qa/test-mobile-command-overflow.py',
+                    '.github/workflows/qa-mobile-transport-guard-once.yml']
+          assert all(p in approved for p in paths),paths
+          src=Path(approved[0]).read_text()
+          assert src.index('doTransportInventoryUI( obj, commandSet );') < src.index('Int compactCommandIndices[')
+          assert 'getCommandAvailability( command, obj, win' in src
+          print('PASS: only mobile command UI, test and QA workflow changed')
+          PY
