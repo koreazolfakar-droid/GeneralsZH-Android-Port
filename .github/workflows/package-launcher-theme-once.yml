@@ -160,7 +160,12 @@ jobs:
                   assert hashlib.sha256(z.read('lib/arm64-v8a/'+name)).hexdigest()==pin['sha256'],name
               assert z.read('assets/update-public.pem')==b.read('assets/update-public.pem')
               assert z.read('assets/engine_build.txt').strip()==b'3333'
-              assert z.read('classes.dex')!=b.read('classes.dex'),'New UI must compile'
+              new_dex={n:hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()
+                       if n.endswith('.dex') and n.startswith('classes')}
+              old_dex={n:hashlib.sha256(b.read(n)).hexdigest() for n in b.namelist()
+                       if n.endswith('.dex') and n.startswith('classes')}
+              assert new_dex and new_dex!=old_dex,'Launcher bytecode did not change'
+              print('PASS: updated launcher DEX verified across all DEX splits')
           print('PASS: native SHA256, engine bootstrap, update trust root, launcher classes')
           PY
           BT=/opt/android-sdk/build-tools/35.0.0
