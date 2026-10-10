@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "f258d89db16ad995d1032f52552534fd5f679a37ccba3d59ca8ffac9ce57ea6a",
+        "sha256": "51d4c23aaa31fae366e767ad758577cb77cfb7063a8b3a0300e1338271cfdf86",
         "size": 42267456,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3446/libmain.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3466/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "dbc82951e26458b19932fba22038ecbb5ac9c164c2ab8ca1bd580d059115ff43",
-        "size": 42271696,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3446/libmain60.so.gz"
+        "sha256": "9f9d76b57c699fed16bdf45f7a0adae922a3d6be2b3666b2245d8b7dfc89dc5a",
+        "size": 42271712,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3466/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3446,
-    "source_commit": "ddd29f34af1a28204a77a70f56379ce66e0d648c"
+    "seq": 3466,
+    "source_commit": "4159fc6396a061e3214a71a40babb234b811e26c"
   },
-  "note": "Vehicle AI V1: rate-limit repeated blocked-route requests for ground vehicles in local offline play. Multiplayer and playback of existing replays keep historical pathfinding. No unit stats, weapons, save format or mod assets changed. Validate newly recorded skirmish replays and on-device path behavior after install.",
+  "note": "Offline impact visibility: briefly reveal actual artillery and guided missile blast area for owner/allies before shroud-filtered impact FX, across faction-independent shared paths. No weapon stats or mod content changed. Multiplayer excluded for CRC compatibility. Special death-FX weapons, full Project X asset completeness, and on-device gameplay remain unverified.",
   "published": "2026-10-10",
   "schema": 1,
-  "serial": 11
+  "serial": 12
 }
