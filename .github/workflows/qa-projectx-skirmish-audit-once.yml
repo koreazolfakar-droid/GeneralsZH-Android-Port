@@ -1,0 +1,37 @@
+name: QA Project X skirmish integrity (one time)
+on:
+  push:
+    branches: [audit/projectx-skirmish-tactics-v1-20261011]
+    paths: [.github/workflows/qa-projectx-skirmish-audit-once.yml]
+permissions:
+  contents: read
+jobs:
+  binary-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          filter: blob:none
+          fetch-depth: 4
+          sparse-checkout: |
+            .github
+            scripts
+      - name: Syntax and synthetic mod SCB/BIG tests
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/qa/audit-projectx-skirmish.py scripts/qa/test-projectx-skirmish-audit.py
+          python3 scripts/qa/test-projectx-skirmish-audit.py
+      - name: Confirm audit is read only, without game data, binaries, saves or online protocol changes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          changed=set(subprocess.check_output(
+            ['git','diff','--name-only','ddd29f34af1a28204a77a70f56379ce66e0d648c','HEAD'],text=True).splitlines())
+          allowed={'scripts/qa/audit-projectx-skirmish.py',
+                   'scripts/qa/test-projectx-skirmish-audit.py',
+                   '.github/workflows/qa-projectx-skirmish-audit-once.yml'}
+          assert changed==allowed,(changed-allowed,allowed-changed)
+          print('PASS: no production gameplay, mod assets, launcher or APK touched')
+          PY
