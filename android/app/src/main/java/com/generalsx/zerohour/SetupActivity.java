@@ -54,6 +54,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -429,6 +430,9 @@ public class SetupActivity extends Activity {
         homeGameData = homeOnlineDetails = homeUpdateDetails = null;
         onlineStatusView = null;
         updatesStatusView = null;
+        updatesProgressLabel = updatesProgressBytes = null;
+        updatesProgressBar = null;
+        updatesCheckButton = null;
         gameLanguageStatusView = null;
         renderBackendStatusView = null;
         customDriverStatusView = null;
@@ -591,6 +595,11 @@ public class SetupActivity extends Activity {
     // APK: a newer engine, when one is published. The network settings from the same signed
     // manifest are applied by the same check but shown on the multiplayer screen. See UpdateManager.
     private TextView updatesStatusView;
+    private TextView updatesProgressLabel, updatesProgressBytes;
+    private ProgressBar updatesProgressBar;
+    private MaterialButton updatesCheckButton;
+    private UpdateManager.ProgressEvent updateProgress;
+    private String updateProgressMessage;
     private View updatesOpenOnlineButton;
     private boolean updateCheckRunning;
     private static boolean sAutoUpdateCheckedThisProcess;
@@ -601,8 +610,15 @@ public class SetupActivity extends Activity {
             getString(R.string.setup_card_updates), false);
         UiKit.supporting(content, getString(R.string.setup_updates_help));
         updatesStatusView = UiKit.body(content, null);
-        UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_download,
+        // GeneralsX @feature ChatGPT 10/10/2026 Persistent transfer and verification status.
+        updatesProgressLabel = UiKit.body(content, null);
+        updatesProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        updatesProgressBar.setProgressTintList(UiKit.tint(this, R.color.gzh_primary));
+        content.addView(updatesProgressBar, new LinearLayout.LayoutParams(-1, -2));
+        updatesProgressBytes = UiKit.supporting(content, null);
+        updatesCheckButton = UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_download,
             getString(R.string.setup_button_check_updates), () -> runUpdateCheck(true));
+        renderUpdateProgress();
         // The community data patch is updated on the multiplayer screen; this card only says a
         // newer one is out and takes the player there.
         updatesOpenOnlineButton = UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_globe,
@@ -644,21 +660,92 @@ public class SetupActivity extends Activity {
         }
     }
 
+    // GeneralsX @feature ChatGPT 10/10/2026 Preserve status when navigating between tabs.
+    private void renderUpdateProgress() {
+        if (updatesProgressLabel == null || updatesProgressBar == null
+                || updatesProgressBytes == null || updatesCheckButton == null) return;
+        updatesCheckButton.setEnabled(!updateCheckRunning);
+        updatesCheckButton.setText(updateProgressMessage != null && !updateCheckRunning
+                && updateProgressMessage.startsWith("ERROR:")
+                ? R.string.setup_updates_retry : R.string.setup_button_check_updates);
+        if (!updateCheckRunning && updateProgressMessage == null) {
+            updatesProgressLabel.setVisibility(View.GONE);
+            updatesProgressBar.setVisibility(View.GONE);
+            updatesProgressBytes.setVisibility(View.GONE);
+            return;
+        }
+        updatesProgressLabel.setVisibility(View.VISIBLE);
+        if (!updateCheckRunning) {
+            updatesProgressLabel.setText(updateProgressMessage.startsWith("ERROR:")
+                ? updateProgressMessage.substring(6) : updateProgressMessage);
+            updatesProgressBar.setVisibility(View.GONE);
+            updatesProgressBytes.setVisibility(View.GONE);
+            return;
+        }
+        UpdateManager.ProgressEvent p = updateProgress;
+        if (p == null || p.stage == UpdateManager.PROGRESS_CHECKING) {
+            updatesProgressLabel.setText(R.string.setup_updates_checking);
+        } else if (p.stage == UpdateManager.PROGRESS_DOWNLOADING) {
+            updatesProgressLabel.setText(getString(R.string.setup_updates_download_file,
+                p.file, p.fileIndex, p.fileCount));
+        } else if (p.stage == UpdateManager.PROGRESS_VERIFYING) {
+            updatesProgressLabel.setText(getString(R.string.setup_updates_verify_file, p.file));
+        } else {
+            updatesProgressLabel.setText(R.string.setup_updates_installing);
+        }
+        boolean downloading = p != null && p.stage == UpdateManager.PROGRESS_DOWNLOADING;
+        updatesProgressBar.setVisibility(View.VISIBLE);
+        updatesProgressBar.setIndeterminate(!downloading || p.total <= 0);
+        if (downloading && p.total > 0) {
+            updatesProgressBar.setMax(100);
+            updatesProgressBar.setProgress((int) Math.min(100, p.received * 100 / p.total));
+        }
+        updatesProgressBytes.setVisibility(downloading ? View.VISIBLE : View.GONE);
+        if (downloading) {
+            String received = android.text.format.Formatter.formatShortFileSize(this, p.received);
+            updatesProgressBytes.setText(p.total > 0
+                ? getString(R.string.setup_updates_received_total, received,
+                    android.text.format.Formatter.formatShortFileSize(this, p.total))
+                : getString(R.string.setup_updates_received_unknown, received));
+        }
+    }
+
     /** @param userAsked true for the button (always report), false for the silent start-up check. */
     private void runUpdateCheck(boolean userAsked) {
         if (updateCheckRunning) {
             return;
         }
         updateCheckRunning = true;
-        if (userAsked) {
-            toast(getString(R.string.setup_updates_checking));
-        }
+        updateProgressMessage = null;
+        updateProgress = null;
+        renderUpdateProgress();
         new Thread(() -> {
             final android.content.Context app = getApplicationContext();
-            final UpdateManager.Result r = UpdateManager.check(app, true);
+            final UpdateManager.Result r = UpdateManager.check(app, true, event ->
+                runOnUiThread(() -> {
+                    if (updateCheckRunning) {
+                        updateProgress = event;
+                        renderUpdateProgress();
+                    }
+                }));
             runOnUiThread(() -> {
                 updateCheckRunning = false;
+                if (!r.ok) {
+                    String error = r.offline ? getString(R.string.setup_updates_offline)
+                        : r.error != null && r.error.startsWith("HTTP 404")
+                        ? getString(R.string.setup_updates_not_published)
+                        : getString(R.string.setup_updates_failed, r.error);
+                    updateProgressMessage = "ERROR:" + error;
+                } else if (r.engineDownloaded) {
+                    updateProgressMessage = getString(R.string.setup_updates_engine_ready, r.engineSeq);
+                } else if (r.engineIncompatible) {
+                    updateProgressMessage = "ERROR:" +
+                        getString(R.string.setup_updates_engine_needs_apk, r.engineSeq);
+                } else {
+                    updateProgressMessage = userAsked ? getString(R.string.setup_updates_none) : null;
+                }
                 refreshUpdatesStatus();
+                renderUpdateProgress();
                 // The support card is read from the support.json this check may just have replaced.
                 if (r.supportUpdated && currentTab == TAB_HELP && contentHost != null) {
                     showTab(TAB_HELP);

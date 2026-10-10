@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -69,6 +70,39 @@ final class UpdateManager {
     private static final String KEY_DEPS_OK_FOR = "deps_ok_for";
     private static final String KEY_DATAPACK_LATEST = "datapack_latest";
     private static final String KEY_SETTINGS_DATE = "settings_date";
+
+    // GeneralsX @feature ChatGPT 10/10/2026 Real transfer progress callback for the launcher.
+    static final int PROGRESS_CHECKING = 0;
+    static final int PROGRESS_DOWNLOADING = 1;
+    static final int PROGRESS_VERIFYING = 2;
+    static final int PROGRESS_INSTALLING = 3;
+
+    static final class ProgressEvent {
+        final int stage, fileIndex, fileCount;
+        final String file;
+        final long received, total;
+        ProgressEvent(int stage, String file, int fileIndex, int fileCount,
+                      long received, long total) {
+            this.stage = stage;
+            this.file = file;
+            this.fileIndex = fileIndex;
+            this.fileCount = fileCount;
+            this.received = received;
+            this.total = total;
+        }
+    }
+
+    interface ProgressListener {
+        /** Called on the worker thread; UI consumers must post to the main thread. */
+        void onProgress(ProgressEvent event);
+    }
+
+    private static void report(ProgressListener listener, int stage, String file,
+                               int index, int count, long received, long total) {
+        if (listener != null) {
+            listener.onProgress(new ProgressEvent(stage, file, index, count, received, total));
+        }
+    }
 
     private UpdateManager() {
     }
@@ -246,7 +280,13 @@ final class UpdateManager {
      *        is the engine's place; the multiplayer screen passes false.
      */
     static synchronized Result check(Context ctx, boolean withEngine) {
+        return check(ctx, withEngine, null);
+    }
+
+    // GeneralsX @feature ChatGPT 10/10/2026 Keep the old call path unchanged.
+    static synchronized Result check(Context ctx, boolean withEngine, ProgressListener listener) {
         Result r = new Result();
+        report(listener, PROGRESS_CHECKING, "", 0, ENGINE_LIBS.length, 0, -1);
         try {
             byte[] manifestBytes = download(BASE_URL + "manifest.json", 256 * 1024);
             byte[] signatureText = download(BASE_URL + "manifest.json.sig", 16 * 1024);
@@ -291,7 +331,7 @@ final class UpdateManager {
 
             JSONObject engine = manifest.optJSONObject("engine");
             if (engine != null && withEngine) {
-                applyEngine(ctx, engine, manifestBytes, signatureText, r);
+                applyEngine(ctx, engine, manifestBytes, signatureText, r, listener);
             }
 
             noticeNewerDatapack(ctx, r);
@@ -482,7 +522,7 @@ final class UpdateManager {
     }
 
     private static void applyEngine(Context ctx, JSONObject engine, byte[] manifestBytes,
-                                    byte[] signatureText, Result r) throws Exception {
+                                    byte[] signatureText, Result r, ProgressListener listener) throws Exception {
         int seq = engine.optInt("seq", 0);
         r.engineSeq = seq;
         if (seq <= bundledEngineSeq(ctx) || seq < readInt(activeEngineMarker(ctx))
@@ -500,7 +540,8 @@ final class UpdateManager {
             throw new IOException("engine entry must contain exactly both rate slots");
         }
         boolean all = true;
-        for (String lib : ENGINE_LIBS) {
+        for (int slot = 0; slot < ENGINE_LIBS.length; slot++) {
+            String lib = ENGINE_LIBS[slot];
             JSONObject entry = files.optJSONObject(lib);
             if (entry == null) {
                 all = false;
@@ -520,13 +561,14 @@ final class UpdateManager {
             if (out.isFile() && readInt(activeEngineMarker(ctx)) == seq) {
                 throw new IOException("cannot replace an activated engine with different bytes");
             }
-            downloadEngineFile(expectedUrl, size, sha, out);
+            downloadEngineFile(expectedUrl, size, sha, out, listener, lib, slot + 1);
         }
         if (!all) {
             r.error = "engine entry is missing a library";
             return;
         }
         boolean wasActive = readInt(activeEngineMarker(ctx)) == seq;
+        report(listener, PROGRESS_INSTALLING, "", ENGINE_LIBS.length, ENGINE_LIBS.length, 0, -1);
         // Retain the signed engine manifest independently of later settings-only updates.
         writeBytes(new File(target, "manifest.json"), manifestBytes);
         writeBytes(new File(target, "manifest.json.sig"), signatureText);
@@ -671,8 +713,11 @@ final class UpdateManager {
         }
     }
 
-    /** Downloads a .gz, inflates it to a temp file, checks size and SHA-256, then moves it in. */
-    private static void downloadEngineFile(String url, long size, String sha256, File out) throws Exception {
+    // GeneralsX @feature ChatGPT 10/10/2026 Count real compressed HTTP bytes.
+    /** Inflate and verify each archive before promoting the .part file. */
+    private static void downloadEngineFile(String url, long size, String sha256, File out,
+                                           ProgressListener listener, String libName,
+                                           int fileIndex) throws Exception {
         File parent = out.getParentFile();
         if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
             throw new IOException("cannot create " + parent);
@@ -681,34 +726,63 @@ final class UpdateManager {
         HttpURLConnection conn = open(url);
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long written = 0;
-        try (InputStream raw = conn.getInputStream();
-             InputStream in = url.endsWith(".gz") ? new GZIPInputStream(raw, 65536) : raw;
-             OutputStream os = new FileOutputStream(tmp)) {
-            byte[] buf = new byte[65536];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                os.write(buf, 0, n);
-                digest.update(buf, 0, n);
-                written += n;
-                if (size > 0 && written > size) {
-                    throw new IOException("engine file larger than the manifest says");
+        final long wireSize = conn.getContentLengthLong();
+        report(listener, PROGRESS_DOWNLOADING, libName, fileIndex, ENGINE_LIBS.length, 0, wireSize);
+        try {
+            try (InputStream raw = new FilterInputStream(conn.getInputStream()) {
+                    private long received;
+                    private long lastReported;
+                    private void count(int n) {
+                        if (n <= 0) return;
+                        received += n;
+                        if (received - lastReported >= 131072
+                                || (wireSize > 0 && received >= wireSize)) {
+                            lastReported = received;
+                            report(listener, PROGRESS_DOWNLOADING, libName, fileIndex,
+                                   ENGINE_LIBS.length, received, wireSize);
+                        }
+                    }
+                    @Override public int read(byte[] b, int offset, int len) throws IOException {
+                        int n = in.read(b, offset, len);
+                        count(n);
+                        return n;
+                    }
+                    @Override public int read() throws IOException {
+                        int value = in.read();
+                        if (value >= 0) count(1);
+                        return value;
+                    }
+                 };
+                 InputStream in = url.endsWith(".gz") ? new GZIPInputStream(raw, 65536) : raw;
+                 OutputStream os = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    os.write(buf, 0, n);
+                    digest.update(buf, 0, n);
+                    written += n;
+                    if (size > 0 && written > size) {
+                        throw new IOException("engine file larger than the manifest says");
+                    }
                 }
             }
+            report(listener, PROGRESS_VERIFYING, libName, fileIndex, ENGINE_LIBS.length,
+                   written, size);
+            String got = hex(digest.digest());
+            if ((size > 0 && written != size) || !got.equalsIgnoreCase(sha256)) {
+                throw new IOException("engine file does not match the signed manifest: " + out.getName());
+            }
+            if (out.exists() && !out.delete()) {
+                throw new IOException("cannot replace " + out);
+            }
+            if (!tmp.renameTo(out)) {
+                throw new IOException("cannot move " + tmp + " to " + out);
+            }
+        } catch (Exception e) {
+            tmp.delete();
+            throw e;
         } finally {
             conn.disconnect();
-        }
-        String got = hex(digest.digest());
-        if ((size > 0 && written != size) || !got.equalsIgnoreCase(sha256)) {
-            tmp.delete();
-            throw new IOException("engine file does not match the signed manifest: " + out.getName());
-        }
-        if (out.exists() && !out.delete()) {
-            tmp.delete();
-            throw new IOException("cannot replace " + out);
-        }
-        if (!tmp.renameTo(out)) {
-            tmp.delete();
-            throw new IOException("cannot move " + tmp + " to " + out);
         }
     }
 
