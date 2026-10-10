@@ -44,6 +44,28 @@ def compact_visible_commands(occupied, script_only=(), physical_windows=range(1,
     return mapping if moved else None
 
 
+
+
+def mobile_transport_layout(commands, has_high_passenger_exit=False, available_windows=range(1, 19)):
+    """Model safe sparse transport compaction and dense visible paging.
+
+    Commands uses one-based logical CommandSet slots. Passenger exit slots
+    are never eligible to receive promoted high commands or page arrows.
+    """
+    visible = set(available_windows)
+    compact = compact_visible_commands(set(commands), physical_windows=range(1, 13)) \
+        if not has_high_passenger_exit else None
+    if compact is not None:
+        return "compact", {k: v for k, v in compact.items() if k in visible and k <= 12}
+    if has_high_passenger_exit:
+        return "unchanged-inventory", {}
+    arrow = next((slot for slot in range(12, 6, -1)
+                  if slot in visible and slot not in commands), None)
+    if arrow is None:
+        return "unchanged-full-inventory", {}
+    return "paged", {"arrow": arrow, "high": list(range(13, 19))}
+
+
 class MobileCommandOverflowTests(unittest.TestCase):
     def test_stock_and_project_x_guard_available_without_page_arrow(self):
         # From the user-provided Project X CommandSet.ini.
@@ -90,8 +112,81 @@ class MobileCommandOverflowTests(unittest.TestCase):
         self.assertIn("!isBuilderCommandSet( commandSet )", src)
         self.assertIn("obj->getContain()->isDisplayedOnControlBar()", src)
         self.assertIn("compactPossible && hasCompactCommands", src)
-        self.assertIn("if( !compactCommandBar && m_touchBuilderMoreButton", src)
+        self.assertIn("if( !compactCommandBar && !highTransportExit &&", src)
+        self.assertIn("m_touchBuilderMoreButton && m_touchBuilderBackButton", src)
         self.assertIn("if( BitIsSet( commandButton->getOptions(), NEED_SPECIAL_POWER_SCIENCE ) )", src)
+
+    def test_transport_fighting_units_show_guard_stop_without_overwriting_seats(self):
+        # Real inventories from !!ProjectXRe_INI.big CommandSet.ini.
+        samples = {
+            "RussianVehicleBMP3CommandSet": (
+                {1: "smoke", **{k: "passenger" for k in range(3, 9)},
+                 9: "evacuate", 15: "attackmove", 17: "guard", 18: "stop"}, 6),
+            "RussianVehicleBMD1CommandSet": (
+                {1: "smoke", **{k: "passenger" for k in range(3, 8)},
+                 9: "evacuate", 15: "attackmove", 16: "upgrade",
+                 17: "guard", 18: "stop"}, 5),
+            "RussianVehicleBMD4CommandSet": (
+                {1: "smoke", **{k: "passenger" for k in range(3, 8)},
+                 9: "evacuate", 15: "attackmove", 16: "upgrade",
+                 17: "guard", 18: "stop"}, 5),
+            "RussianVehicleHindCommandSet": (
+                {**{k: "passenger" for k in range(1, 7)},
+                 7: "evacuate", 15: "attackmove", 16: "antiair",
+                 17: "guard", 18: "stop"}, 6),
+        }
+        for name, (commands, seats) in samples.items():
+            with self.subTest(name=name):
+                mode, layout = mobile_transport_layout(commands)
+                self.assertEqual(mode, "compact")
+                physical = {dst: commands[src] for dst, src in layout.items() if src in commands}
+                self.assertEqual(sum(v == "passenger" for v in physical.values()), seats)
+                self.assertIn("guard", physical.values())
+                self.assertIn("stop", physical.values())
+                self.assertTrue(set(physical).issubset(set(range(1, 13))))
+
+    def test_full_transport_uses_empty_visible_slot_for_page_arrow(self):
+        fixtures = {
+            "AmericaVehicleHumveeCommandSet":
+                dict.fromkeys(range(1, 11), "original") | {15: "attackmove", 17: "guard", 18: "stop"},
+            "RussianVehicleHunchbackGoliathUpgradedCommandSet":
+                dict.fromkeys(range(1, 11), "passenger-or-action") |
+                {15: "attackmove", 16: "thermobaric", 17: "guard", 18: "stop"},
+        }
+        for name, commands in fixtures.items():
+            with self.subTest(name=name):
+                mode, layout = mobile_transport_layout(commands)
+                self.assertEqual(mode, "paged")
+                self.assertIn(layout["arrow"], {11, 12})
+                self.assertNotIn(layout["arrow"], commands)
+                self.assertIn(17, layout["high"])
+                self.assertIn(18, layout["high"])
+
+    def test_never_hide_or_move_high_slot_passenger_inventory(self):
+        # Guard/Stop cannot be safely promoted by rewriting the physical
+        # inventory windows if the CommandSet itself puts exits after slot 12.
+        commands = {3: "passenger", 13: "passenger", 17: "guard", 18: "stop"}
+        mode, layout = mobile_transport_layout(commands, has_high_passenger_exit=True)
+        self.assertEqual(mode, "unchanged-inventory")
+        self.assertEqual(layout, {})
+
+    def test_fully_occupied_inventory_preserves_all_passenger_buttons(self):
+        commands = dict.fromkeys(range(1, 13), "passenger") | {18: "stop"}
+        mode, layout = mobile_transport_layout(commands)
+        self.assertEqual(mode, "unchanged-full-inventory")
+        self.assertEqual(layout, {})
+
+    def test_transport_source_safety_guards(self):
+        src = COMMAND.read_text()
+        self.assertIn("const Bool transportInventory = obj->getContain()", src)
+        self.assertIn("candidate->getCommandType() == GUI_COMMAND_EXIT_CONTAINER", src)
+        self.assertIn("!isBuilderCommandSet( commandSet ) && !highTransportExit", src)
+        self.assertIn("if( transportInventory && !highTransportExit )", src)
+        self.assertIn("slot = 11; slot >= 6; --slot", src)
+        self.assertIn("commandSet->getCommandButton( slot ) == nullptr", src)
+        self.assertIn("i == overflowPageWindow", src)
+        self.assertIn("m_commandWindows[ overflowPageWindow ]", src)
+        self.assertIn("doTransportInventoryUI( obj, commandSet );", src)
 
     def test_engine_retains_all_18_command_slots(self):
         self.assertRegex(HEADER.read_text(), r"MAX_COMMANDS_PER_SET\s*=\s*18")
