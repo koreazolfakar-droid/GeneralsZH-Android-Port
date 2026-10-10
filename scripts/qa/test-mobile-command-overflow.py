@@ -196,7 +196,7 @@ class MobileCommandOverflowTests(unittest.TestCase):
     def test_modified_ui_reuses_existing_validity_checks(self):
         source = COMMAND.read_text()
         self.assertIn("const Bool showingOverflowPage = hasOverflowPage &&", source)
-        self.assertIn("commandIndex = 12 + i;", source)
+        self.assertIn("commandIndex = ( i == 6 ) ? displacedPageCommand : 12 + i;", source)
         self.assertIn("commandButton = commandSet->getCommandButton(commandIndex);", source)
         self.assertIn("if( BitIsSet( commandButton->getOptions(), NEED_SPECIAL_POWER_SCIENCE ) )", source)
         self.assertIn("!BitIsSet( candidate->getOptions(), SCRIPT_ONLY )", source)
