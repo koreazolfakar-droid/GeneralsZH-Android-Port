@@ -1,0 +1,78 @@
+name: Sign Project X Engine 3391 (one time)
+on:
+  push:
+    branches: [release/sign-projectx-engine3391-20261010]
+    paths: [.github/workflows/sign-projectx-engine3391-once.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch-sign-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILT_SOURCE: a4c0ed742e4d2d00ceb2fbba1dd5b3948edca368
+      ENGINE_RUN: "38051407506"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Guard against mismatched branch, source, and build artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git show -s --format=%s HEAD)" = 'ci(sign): publish verified Project X Engine 3391 [one time]'
+          test "$(git rev-parse HEAD^)" = "$BUILT_SOURCE"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$BUILT_SOURCE"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" --jq .conclusion)" = success
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" --jq .head_sha)" = "$BUILT_SOURCE"
+          echo "Validated unchanged 30Hz + 60Hz build source $BUILT_SOURCE."
+      - name: Dispatch existing signed update workflow only (no rebuild)
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous_sign="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=60&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run sign-update.yml --ref dev/mobile-v4 \
+            -f public_identity_only=false \
+            -f engine_build_run="$ENGINE_RUN" \
+            -f note='Project X standalone mod BIG files mounted before initial GameData load. Incremental 30Hz/60Hz engine verified; original APK and assets unchanged.'
+          for i in $(seq 1 75); do
+            run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=60&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $previous_sign and .head_sha == \"$BUILT_SOURCE\")) | max_by(.id).id // empty")"
+            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+              conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Sign update run $run_id: $conclusion"
+              if [[ "$conclusion" == "completed success" ]]; then
+                echo "SIGN_RUN=$run_id" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              if [[ "$conclusion" == completed* ]]; then
+                echo "::error::Signed publication failed: $run_id"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Timed out waiting for signature publication"
+          exit 1
+      - name: Verify published manifest points to exact tested engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/manifest.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/manifest.json.sig"
+          test -s "$RUNNER_TEMP/manifest.json.sig"
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])
+          engine=json.loads((p/'manifest.json').read_text())['engine']
+          assert engine['source_commit']==os.environ['BUILT_SOURCE']
+          assert engine['seq']==3391
+          assert {'libmain.so','libmain60.so'} <= set(engine['files'])
+          for filename in ('libmain.so','libmain60.so'):
+              item=engine['files'][filename]
+              assert len(item['sha256'])==64 and item['size']>40000000
+              assert '/updates/engine/3391/' in item['url']
+          print('PASS: signed update manifest publishes verified Engine 3391, 30Hz + 60Hz')
+          PY
