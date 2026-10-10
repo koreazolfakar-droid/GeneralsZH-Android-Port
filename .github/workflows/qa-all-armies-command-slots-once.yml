@@ -1,0 +1,34 @@
+name: QA Guard and Stop across all armies (one time)
+on:
+  push:
+    branches: [fix/mobile-all-factions-command-visibility-20261011]
+    paths: [.github/workflows/qa-all-armies-command-slots-once.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 10
+      - name: Run updated 3411 command paging and all-faction transport regression tests
+        run: |
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+      - name: Confirm changed files do not alter game simulation, mod or Android APK
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          changed=subprocess.check_output(['git','diff','--name-only','HEAD~6','HEAD'],text=True).splitlines()
+          approved={
+           'Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp',
+           'Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarMultiSelect.cpp',
+           'scripts/qa/test-mobile-command-overflow.py',
+           'scripts/qa/test-mobile-all-faction-order-pages.py',
+           '.github/workflows/qa-all-armies-command-slots-once.yml'}
+          assert set(changed)<=approved,changed
+          print('PASS: only control bar rendering, fixture tests, and QA workflow changed')
+          PY

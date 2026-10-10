@@ -284,6 +284,92 @@ void ControlBar::populateMultiSelect()
 
 	}
 
+#if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+	// Single-unit Guard/Stop remapping does not run in CB_CONTEXT_MULTI_SELECT.
+	// Find genuinely common tactical commands by command TYPE across all 18
+	// logical slots, because different faction/mod CommandSets often assign
+	// Guard/Stop to different slot numbers. Only promote identical command
+	// objects that every eligible selected unit supports; never synthesize
+	// capabilities or bypass the original multi-select availability checks.
+	static const GUICommandType sharedOrders[] = {
+		GUI_COMMAND_GUARD,
+		GUI_COMMAND_STOP,
+		GUI_COMMAND_ATTACK_MOVE,
+		GUI_COMMAND_GUARD_WITHOUT_PURSUIT,
+		GUI_COMMAND_GUARD_FLYING_UNITS_ONLY
+	};
+	for( size_t order = 0; order < ARRAY_SIZE( sharedOrders ); ++order )
+	{
+		const CommandButton *common = nullptr;
+		Bool allSupport = TRUE;
+		Bool sawEligible = FALSE;
+		for( DrawableListCIt it = selectedDrawables->begin(); it != selectedDrawables->end(); ++it )
+		{
+			Object *selectedObj = *it ? (*it)->getObject() : nullptr;
+			if( selectedObj == nullptr || selectedObj->isKindOf( KINDOF_IGNORED_IN_GUI ) ||
+				selectedObj->getStatusBits().test( OBJECT_STATUS_SOLD ) )
+				continue;
+			sawEligible = TRUE;
+			const CommandSet *set = findCommandSet( selectedObj->getCommandSetString() );
+			const CommandButton *found = nullptr;
+			if( set )
+			{
+				for( Int slot = 0; slot < MAX_COMMANDS_PER_SET; ++slot )
+				{
+					const CommandButton *candidate = set->getCommandButton( slot );
+					if( candidate && candidate->getCommandType() == sharedOrders[ order ] &&
+						BitIsSet( candidate->getOptions(), OK_FOR_MULTI_SELECT ) &&
+						!BitIsSet( candidate->getOptions(), SCRIPT_ONLY ) )
+					{
+						found = candidate;
+						break;
+					}
+				}
+			}
+			if( found == nullptr || ( common && common != found ) )
+			{
+				allSupport = FALSE;
+				break;
+			}
+			common = found;
+		}
+		if( !allSupport || !sawEligible || common == nullptr )
+			continue;
+
+		// Never duplicate or cover a visible command (including passenger
+		// exits, existing common orders and touch-mode modifiers).
+		Bool alreadyShown = FALSE;
+		for( Int i = 0; i < 12; ++i )
+			if( m_commandWindows[ i ] && !m_commandWindows[ i ]->winIsHidden() &&
+				GadgetButtonGetData( m_commandWindows[ i ] ) == common )
+				alreadyShown = TRUE;
+		if( alreadyShown )
+			continue;
+		Int freeSlot = -1;
+		for( Int i = 11; i >= 0; --i )
+			if( m_commandWindows[ i ] && m_commandWindows[ i ]->winIsHidden() &&
+				m_commonCommands[ i ] == nullptr )
+			{
+				freeSlot = i;
+				break;
+			}
+		if( freeSlot < 0 )
+			continue;
+		m_commonCommands[ freeSlot ] = common;
+		GameWindow *win = m_commandWindows[ freeSlot ];
+		win->winHide( FALSE );
+		win->winEnable( TRUE );
+		setControlCommand( win, common );
+		for( Int i = 12; i < MAX_COMMANDS_PER_SET; ++i )
+			if( m_commonCommands[ i ] == common )
+			{
+				m_commonCommands[ i ] = nullptr;
+				if( m_commandWindows[ i ] )
+					m_commandWindows[ i ]->winHide( TRUE );
+			}
+	}
+#endif
+
 	// set the portrait image
 	setPortraitByObject( portraitObj );
 
