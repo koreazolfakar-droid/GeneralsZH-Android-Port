@@ -1,0 +1,29 @@
+name: Project X impact visibility source QA
+
+on:
+  pull_request:
+    branches:
+      - dev/mobile-v4
+    paths:
+      - 'GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Weapon.cpp'
+      - 'GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Behavior/DumbProjectileBehavior.cpp'
+      - 'GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/AIUpdate/MissileAIUpdate.cpp'
+      - 'Core/GameEngine/Source/GameClient/FXList.cpp'
+      - 'scripts/qa/test-projectile-impact-shroud.py'
+      - '.github/workflows/qa-projectx-impact-visibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-regression:
+    name: Projectile shroud/FX source checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run faction-neutral projectile impact checks
+        run: python3 scripts/qa/test-projectile-impact-shroud.py -v

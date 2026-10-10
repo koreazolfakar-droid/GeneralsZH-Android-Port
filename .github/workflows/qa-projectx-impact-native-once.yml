@@ -1,0 +1,67 @@
+# Source-pinned native preflight. Never touches updates branch or creates APK.
+name: QA Project X impact native preflight (one time)
+on:
+  push:
+    branches: [fix/projectx-impact-visibility-20261011]
+    paths: [.github/workflows/qa-projectx-impact-native-once.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: qa-impact-shroud-native-preflight
+  cancel-in-progress: false
+jobs:
+  verify-then-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 170
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: 183fb880e04682434da7db45231711332bc79b71
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify immutable feature commit and impact safety checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/fix/projectx-impact-visibility-20261011
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git show -s --format=%s HEAD)" = "ci(qa): compile Project X impact FX against retained 30/60Hz caches"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/fix/projectx-impact-visibility-20261011" --jq .object.sha)" = "$GITHUB_SHA"
+          python3 scripts/qa/test-projectile-impact-shroud.py -v
+          python3 scripts/qa/test-save-map-safety.py
+          python3 scripts/qa/test-mod-localization.py
+      - name: Dispatch cache-required dual-engine native build without APK/publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          prev="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          for ((n=1;n<=300;n++)); do
+            id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $prev)) | max_by(.id).id // empty")"
+            if [[ "$id" =~ ^[0-9]+$ ]]; then
+              state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Project X impact 30/60Hz source $GITHUB_SHA run $id: $state"
+              if [[ "$state" == "completed success" ]]; then
+                # Source-ref is recorded in the sealed report. This job checks only
+                # that the requested immutable source was dispatched and compiled;
+                # the publication job will validate actual exact-source binary stamps.
+                echo "Native preflight successful: $id" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+              if [[ "$state" == completed* ]]; then
+                echo "::error::Native build failed: $id ($state). No update published."
+                exit 1
+              fi
+            fi
+            sleep 25
+          done
+          echo "::error::Native preflight timed out. No update published."
+          exit 1
