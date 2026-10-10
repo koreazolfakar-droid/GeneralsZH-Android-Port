@@ -18,6 +18,14 @@ public class ApkUpdateManagerTest {
         assertFalse(ApkUpdateManager.isNewerVersion("v999999999999999999999.1.0", "1.4.0"));
     }
 
+    @Test public void releaseTagAndDownloadedPackageVersionMustMatch() {
+        assertTrue(ApkUpdateManager.sameVersion("v1.4.8", "1.4.8"));
+        assertTrue(ApkUpdateManager.sameVersion("v1.4.7-launcher-day-night", "1.4.7"));
+        assertFalse(ApkUpdateManager.sameVersion("v1.4.8", "1.4.7"));
+        assertFalse(ApkUpdateManager.sameVersion("v1.4.8", "not-a-version"));
+        assertFalse(ApkUpdateManager.sameVersion(null, "1.4.8"));
+    }
+
     @Test public void untrustedApkDownloadLocationsAreRejected() {
         assertTrue(ApkUpdateManager.trustedDownloadUrl(
             "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/"
