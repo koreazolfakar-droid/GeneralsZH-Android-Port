@@ -14,7 +14,7 @@ jobs:
     env:
       REPO: koreazolfakar-droid/GeneralsZH-Android-Port
       BRANCH: feature/mod-manager-premium-phase1-20261010
-      SOURCE_SHA: 888434f69d8244452672f63acffeb0ee2e346485
+      SOURCE_SHA: 35fad94900f176b4bac17077c67a5fe71ee3c960
       APK_NAME: GeneralsZH-ModManager-Phase1-v1.4.8-preview.apk
       VERSION_CODE: '10408'
       VERSION_NAME: '1.4.8'
@@ -34,7 +34,7 @@ jobs:
           PY
       - uses: actions/checkout@v6
         with:
-          ref: 888434f69d8244452672f63acffeb0ee2e346485
+          ref: 35fad94900f176b4bac17077c67a5fe71ee3c960
           fetch-depth: 1
           filter: blob:none
           submodules: false
