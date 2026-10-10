@@ -57,14 +57,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK (no NDK or native compilation)
-        uses: android-actions/setup-android@v3
-
-      - name: Ensure only SDK platform 35 and APK build tools
+      - name: Reuse hosted Android SDK and ensure Java packaging packages only
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | head -1)"
+          test -x "$SDKMANAGER" || { echo "::error::Hosted SDK manager unavailable"; exit 1; }
+          # The hosted runner already has command-line tools; never request the obsolete
+          # 'tools' package (setup-android@v3 does so, causing the previous failure).
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
           test -f "$ANDROID_HOME/platforms/android-35/android.jar"
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
