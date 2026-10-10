@@ -70,13 +70,13 @@ jobs:
           set -euo pipefail
           mkdir -p retained-apk
           gh release download v1.4.10-mod-health-preview --repo "$REPO" --pattern '*.apk' --dir retained-apk
-          test -s retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk
+          test -s retained-apk/GeneralsZH-ModHealth-v1.4.10-preview.apk
       - name: Reuse exactly the signed native libraries and runtime assets
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib,zipfile,json,pathlib
-          apk=pathlib.Path('retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk')
+          apk=pathlib.Path('retained-apk/GeneralsZH-ModHealth-v1.4.10-preview.apk')
           expected=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
           java=pathlib.Path('android/app/src/main')
           names=set()
@@ -212,7 +212,7 @@ jobs:
           python3 - <<'PY'
           import pathlib,zipfile,hashlib,json,os
           a=pathlib.Path('final')/os.environ['APK_NAME']
-          baseline=pathlib.Path('retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk')
+          baseline=pathlib.Path('retained-apk/GeneralsZH-ModHealth-v1.4.10-preview.apk')
           expected=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
           with zipfile.ZipFile(a) as z,zipfile.ZipFile(baseline) as b:
               native={n.split('/')[-1] for n in z.namelist() if n.startswith('lib/arm64-v8a/') and n.endswith('.so')}
@@ -231,7 +231,7 @@ jobs:
           PY
           BT=/opt/android-sdk/build-tools/35.0.0
           "$BT/apksigner" verify --print-certs "final/$APK_NAME" > "$RUNNER_TEMP/new-sig.txt"
-          "$BT/apksigner" verify --print-certs retained-apk/GeneralsZH-TacticalGold-v1.4.11-preview.apk > "$RUNNER_TEMP/old-sig.txt"
+          "$BT/apksigner" verify --print-certs retained-apk/GeneralsZH-ModHealth-v1.4.10-preview.apk > "$RUNNER_TEMP/old-sig.txt"
           old="$(grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/old-sig.txt" | cut -d: -f2 | tr -d ' ')"
           new="$(grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/new-sig.txt" | cut -d: -f2 | tr -d ' ')"
           test -n "$old" && test "$old" = "$new"
