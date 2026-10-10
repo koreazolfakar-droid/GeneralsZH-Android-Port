@@ -52,6 +52,7 @@
 #include "Common/ThingFactory.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "Common/ArchiveFile.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/GlobalData.h"
@@ -578,6 +579,10 @@ void GameEngine::init()
 		if (!activeModMountedBeforeGameData)
 #endif
 			TheArchiveFileSystem->loadMods();
+			// Archive winner only: loose files can still override the archive source.
+			ArchiveFile* gameDataArchive = TheArchiveFileSystem->getArchiveFile("Data\\INI\\GameData.ini");
+			fprintf(stderr, "[gxmod-early] GameData archive candidate: %s\\n",
+				gameDataArchive ? gameDataArchive->getName().str() : "<none>");
 		}
 #endif
 
