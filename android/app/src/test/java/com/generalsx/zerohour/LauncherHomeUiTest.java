@@ -232,6 +232,21 @@ public class LauncherHomeUiTest {
             ? View.GONE : ((LinearLayout)field("homeUpdateDetails")).getVisibility());
     }
 
+    @Test public void apkAutoCheckIsThrottledButManualCheckRemainsAvailable() {
+        long now = 1_800_000_000_000L;
+        ApkUpdateManager.setAutoCheckEnabled(context, true);
+        assertTrue(ApkUpdateManager.shouldAutoCheck(context, now));
+        ApkUpdateManager.noteCheckAttempt(context, now);
+        assertFalse(ApkUpdateManager.shouldAutoCheck(context, now + 1000));
+        assertFalse(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS - 1));
+        assertTrue(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS));
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
+        assertFalse(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS + 1));
+    }
+
     @Test public void apkAutoCheckSettingDoesNotChangeEngineAutoCheck() {
         open();
         assertFalse(ApkUpdateManager.isAutoCheckEnabled(context));
