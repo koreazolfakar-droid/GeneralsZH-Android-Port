@@ -265,7 +265,7 @@ public class SetupActivity extends Activity {
             waitingForUnknownSources = false;
             launchApkInstaller();
         }
-        if (!sApkCheckedThisProcess && UpdateManager.isAutoCheckEnabled(this)) {
+        if (!sApkCheckedThisProcess && ApkUpdateManager.isAutoCheckEnabled(this)) {
             sApkCheckedThisProcess = true;
             checkApkUpdate(false);
         }
@@ -779,6 +779,12 @@ public class SetupActivity extends Activity {
             getString(R.string.setup_switch_auto_updates), getString(R.string.setup_switch_auto_updates_desc));
         auto.setChecked(UpdateManager.isAutoCheckEnabled(this));
         auto.setOnCheckedChangeListener((button, checked) -> UpdateManager.setAutoCheckEnabled(this, checked));
+        SwitchCompat apkAuto = UiKit.switchRow(content,
+            getString(R.string.launcher_apk_auto_check),
+            getString(R.string.launcher_apk_auto_check_desc));
+        apkAuto.setChecked(ApkUpdateManager.isAutoCheckEnabled(this));
+        apkAuto.setOnCheckedChangeListener((button, checked) ->
+            ApkUpdateManager.setAutoCheckEnabled(this, checked));
         refreshUpdatesStatus();
     }
 
