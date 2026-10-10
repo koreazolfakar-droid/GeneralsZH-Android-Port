@@ -448,4 +448,15 @@
     <string name="setup_appearance_light">نهاري</string>
     <string name="setup_appearance_dark">ليلي</string>
     <string name="setup_appearance_help">يغيّر ألوان واجهة التطبيق فقط. التلقائي يتبع إعداد الهاتف، والنهاري والليلي ينحفظان عند إعادة فتح التطبيق. رسومات اللعبة لا تتغيّر.</string>
+    <!-- تحديث APK كامل، منفصل عن تحديث المحرك -->
+    <string name="launcher_apk_update_accessibility">تثبيت إصدار جديد للتطبيق</string>
+    <string name="launcher_apk_update_now">↻ تحديث التطبيق الآن · %1$s</string>
+    <string name="launcher_apk_update_retry">↻ إعادة محاولة تحديث التطبيق</string>
+    <string name="launcher_apk_update_starting">جارٍ بدء تنزيل التطبيق…</string>
+    <string name="launcher_apk_update_progress">تنزيل APK · %1$d%%</string>
+    <string name="launcher_apk_update_install">تثبيت تحديث التطبيق</string>
+    <string name="launcher_apk_update_current">التطبيق محدّث لآخر إصدار.</string>
+    <string name="launcher_apk_update_check_failed">تعذّر التحقق من تحديث التطبيق: %1$s</string>
+    <string name="launcher_apk_update_permission">اسمح بتثبيت التطبيقات من هذا المصدر، ثم ارجع إلى التطبيق.</string>
+    <string name="launcher_apk_update_failed">فشل تحديث APK: %1$s</string>
 </resources>
