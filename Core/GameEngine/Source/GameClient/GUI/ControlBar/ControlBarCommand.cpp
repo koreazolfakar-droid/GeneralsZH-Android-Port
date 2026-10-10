@@ -293,6 +293,32 @@ void ControlBar::populateCommand( Object *obj )
 	if( obj->getContain()  &&  obj->getContain()->isDisplayedOnControlBar() )
 		doTransportInventoryUI( obj, commandSet );
 
+#if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+	// Mod CommandSets may have up to 18 real controls, while some mobile WND layouts
+	// expose only the original 14 windows (and may clip the remaining ones).
+	// Show slots 1-13 as before, replacing slot 14 with the existing local-only
+	// page arrow; slots 13-18 are reachable on a second page in windows 1-6.
+	// The original CommandButton objects stay intact: production, prerequisites,
+	// upgrades and multiplayer protocol are never rewritten.
+	const Int overflowPageSlot = 13; // zero-based slot 14
+	Bool hasOverflowPage = FALSE;
+	if( m_touchBuilderMoreButton && m_touchBuilderBackButton &&
+		m_commandWindows[ overflowPageSlot ] &&
+		( obj->getContain() == nullptr || !obj->getContain()->isDisplayedOnControlBar() ) )
+	{
+		for( Int slot = overflowPageSlot + 1; slot < MAX_COMMANDS_PER_SET; ++slot )
+		{
+			const CommandButton *candidate = commandSet->getCommandButton( slot );
+			if( candidate && !BitIsSet( candidate->getOptions(), SCRIPT_ONLY ) )
+			{
+				hasOverflowPage = TRUE;
+				break;
+			}
+		}
+	}
+	const Bool showingOverflowPage = hasOverflowPage && m_builderPageObject == obj->getID();
+#endif
+
 	// populate the button with commands defined
 	const CommandButton *commandButton;
 	for( i = 0; i < MAX_COMMANDS_PER_SET; i++ )
@@ -300,8 +326,26 @@ void ControlBar::populateCommand( Object *obj )
 		// our implementation doesn't necessarily make use of the max possible command buttons
 		if (! m_commandWindows[ i ]) continue;
 
-		// get command button
-		commandButton = commandSet->getCommandButton(i);
+		Int commandIndex = i;
+#if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+		if( hasOverflowPage )
+		{
+			// The page arrow occupies slot 14; only the original windows 1-13
+			// remain on page one. Never leave high-slot buttons behind the page.
+			if( i == overflowPageSlot || i > overflowPageSlot ||
+				( showingOverflowPage && i >= 6 ) )
+			{
+				m_commandWindows[ i ]->winHide( TRUE );
+				continue;
+			}
+			if( showingOverflowPage )
+				commandIndex = 12 + i; // physical 1-6 => original CommandSet 13-18
+		}
+#endif
+
+		// Keep the original science/command availability handling below for
+		// remapped commands, instead of bypassing it with an extra overlay.
+		commandButton = commandSet->getCommandButton(commandIndex);
 
 		// if button is not present, just hide the window
 		if( commandButton == nullptr )
@@ -497,6 +541,37 @@ void ControlBar::populateCommand( Object *obj )
 
 	}
 
+#if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+	if( hasOverflowPage )
+	{
+		GameWindow *pageWindow = m_commandWindows[ overflowPageSlot ];
+		pageWindow->winHide( FALSE );
+		pageWindow->winEnable( TRUE );
+		setControlCommand( pageWindow,
+			showingOverflowPage ? m_touchBuilderBackButton : m_touchBuilderMoreButton );
+
+		if( showingOverflowPage )
+		{
+			// Keep the touch waypoint control available on the extra page without
+			// displacing any of the six high-slot commands.
+			if( m_touchWaypointButton && obj->isLocallyControlled() && obj->isMobile() &&
+				m_commandWindows[ 6 ] )
+			{
+				GameWindow *waypoint = m_commandWindows[ 6 ];
+				waypoint->winHide( FALSE );
+				waypoint->winEnable( TRUE );
+				setControlCommand( waypoint, m_touchWaypointButton );
+			}
+		}
+		else
+		{
+			// Non-builders keep their existing touch orders on the first page.
+			// addTouchModeButtons deliberately skips builder sets.
+			addTouchModeButtons( commandSet );
+		}
+	}
+	else
+#endif
 	if( !addBuilderPageButtons( commandSet, obj ) )
 		addTouchModeButtons( commandSet );
 
