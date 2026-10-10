@@ -164,6 +164,7 @@ jobs:
             -PandroidVersionName="$VERSION_NAME"
           test -s android/app/build/outputs/apk/debug/app-debug.apk
 
+      # Run strict APK validation using explicit manifest attribute matching.
       - name: Refuse any native, signer, package or version regression
         shell: bash
         run: |
