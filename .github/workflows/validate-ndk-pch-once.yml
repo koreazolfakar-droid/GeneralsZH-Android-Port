@@ -1,0 +1,30 @@
+name: Validate verified NDK/PCH fix (one time)
+on:
+  push:
+    branches:
+      - fix/verified-ndk-pch-cache-20261010
+    paths:
+      - .github/workflows/validate-ndk-pch-once.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and isolated, no-SDK PCH regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/engine-baseline/ndk_cache.py .github/engine-baseline/build.py .github/engine-baseline/compiler.py scripts/qa/test-verified-ndk-pch-cache.py
+          python3 scripts/qa/test-verified-ndk-pch-cache.py -v
+          python3 - <<'PY'
+          from pathlib import Path
+          script = Path('.github/engine-baseline/build.py').read_text()
+          assert "max_compile_requests_per_variant" in script
+          assert "EXTERNAL DEPENDENCY REBUILD REFUSED" in Path('.github/engine-baseline/compiler.py').read_text()
+          assert "if build_requested:" in script and "prepare_ndk_pch" in script
+          assert "test-verified-ndk-pch-cache.py" in script
+          print('PASS: existing compile guard and external dependency gate retained')
+          PY
