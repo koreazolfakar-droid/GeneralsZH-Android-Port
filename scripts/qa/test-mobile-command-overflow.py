@@ -112,7 +112,8 @@ class MobileCommandOverflowTests(unittest.TestCase):
         self.assertIn("!isBuilderCommandSet( commandSet )", src)
         self.assertIn("obj->getContain()->isDisplayedOnControlBar()", src)
         self.assertIn("compactPossible && hasCompactCommands", src)
-        self.assertIn("if( !compactCommandBar && m_touchBuilderMoreButton", src)
+        self.assertIn("if( !compactCommandBar && !highTransportExit &&", src)
+        self.assertIn("m_touchBuilderMoreButton && m_touchBuilderBackButton", src)
         self.assertIn("if( BitIsSet( commandButton->getOptions(), NEED_SPECIAL_POWER_SCIENCE ) )", src)
 
     def test_transport_fighting_units_show_guard_stop_without_overwriting_seats(self):
