@@ -1,0 +1,63 @@
+# Preserve published 3411; build from saved 30/60Hz native caches only.
+name: QA transport Guard/Stop native (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths:
+      - .github/workflows/qa-transport-guard-native-once.yml
+permissions:
+  contents: read
+  actions: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    concurrency:
+      group: mobile-transport-guard-cached-native-only
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: eba6b7ca398eecaf642bf385ccb14feb8c43f515
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Validate exact source and transport passenger safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git show -s --format=%s HEAD)" = 'ci(qa): verify transport Guard Stop incremental Android engine without publishing'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          python3 scripts/qa/test-mobile-command-overflow.py
+      - name: Dispatch retained-cache native engine build; never publish APK or engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=40&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          for ((n=1;n<=120;n++)); do
+            native_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=40&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $previous and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$native_run" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$native_run" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Native transport Guard QA run $native_run: $result"
+              if [[ "$result" == "completed success" ]]; then
+                echo "PASS: both native 30Hz and 60Hz engines built from retained caches; NO UPDATE PUBLISHED"
+                exit 0
+              fi
+              if [[ "$result" == completed* ]]; then
+                echo "::error::Native engine build failed ($result); prior published 3411 unchanged"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Native build timed out; prior published 3411 unchanged"
+          exit 1
