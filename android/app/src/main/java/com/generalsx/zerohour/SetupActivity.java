@@ -767,8 +767,10 @@ public class SetupActivity extends Activity {
         updatesProgressBar.setProgressTintList(UiKit.tint(this, R.color.gzh_primary));
         content.addView(updatesProgressBar, new LinearLayout.LayoutParams(-1, -2));
         updatesProgressBytes = UiKit.supporting(content, null);
+        UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_refresh,
+            getString(R.string.launcher_apk_check_button), () -> checkApkUpdate(true));
         updatesCheckButton = UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_download,
-            getString(R.string.setup_button_check_updates), () -> { runUpdateCheck(true); checkApkUpdate(true); });
+            getString(R.string.setup_button_check_updates), () -> runUpdateCheck(true));
         renderUpdateProgress();
         // The community data patch is updated on the multiplayer screen; this card only says a
         // newer one is out and takes the player there.
