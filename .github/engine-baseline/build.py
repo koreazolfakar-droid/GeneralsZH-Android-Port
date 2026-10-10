@@ -34,40 +34,6 @@ build_requested = os.environ.get('GX_ENGINE_OPERATION') == 'build'
 if build_requested:
     normalize(root, receipt)
 epoch = CONFIG['legacy_source_epoch']
-if build_requested:
-    # 10/10/2026: the restored 3356 state is fully hash-verified, yet 2,584
-    # headers in the separately restored, pinned Android NDK SDK cache have
-    # timestamps newer than its preserved legacy .o/.pch outputs.
-    # Ninja then proposes 972 recompiles instead of the 4 in the prior run.
-    # Repair ONLY metadata of this authenticated, immutable NDK sysroot copy,
-    # not engine objects or any source/header contents. The 200-request guard
-    # below remains mandatory, and any unexpected NDK identity fails closed.
-    ndk_properties = (ndk / 'source.properties').read_text()
-    assert 'Pkg.Revision = 27.2.12479018' in ndk_properties, 'NDK version changed; no metadata repair'
-    sysroot_headers = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include'
-    ndk_features = sysroot_headers / 'features.h'
-    expected_features_sha256 = '0252083e08cd283be6173b62bafb5fa1c5e29991654aae057d4fa613f8236a6b'
-    assert ndk_features.is_file() and not ndk_features.is_symlink() and sha(ndk_features) == expected_features_sha256, (
-        'Pinned NDK features.h SHA-256 mismatch: do not repair timestamps or compile')
-    # The same immutable NDK also contains Clang resource headers; a second
-    # dry-run identified lib/clang/18/include/stddef.h as the next newer input
-    # after sysroot normalization. Cover BOTH pinned NDK header roots, never
-    # project inputs, dependency libraries or compiler binaries.
-    clang_builtin_headers = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/lib/clang/18/include'
-    assert clang_builtin_headers.is_dir(), 'Expected pinned Clang 18 headers missing'
-    safe_epoch_ns = epoch * 1000000000
-    misdated_ndk_headers = []
-    for header_root in (sysroot_headers, clang_builtin_headers):
-        misdated_ndk_headers.extend(p for p in header_root.rglob('*')
-            if p.is_file() and not p.is_symlink() and p.stat().st_mtime_ns > safe_epoch_ns)
-    assert len(misdated_ndk_headers) <= 4000, (
-        'Unexpected pinned NDK header metadata changes: ' + str(len(misdated_ndk_headers)))
-    for header in misdated_ndk_headers:
-        stat = header.stat()
-        os.utime(header, ns=(stat.st_atime_ns, safe_epoch_ns))
-    assert sha(ndk_features) == expected_features_sha256, 'NDK features.h bytes changed during metadata normalization'
-    print('[GX-NDK-CACHE] verified pinned NDK; restored timestamps for',
-          len(misdated_ndk_headers), 'pinned NDK/Clang header files (metadata only); compile guard unchanged', flush=True)
 changed = set(capture(['git','diff','--name-only',baseline_source,source]).splitlines())
 report = {'build_mode': 'INCREMENTAL ENGINE ONLY', 'source_head': source,
           'resolved_engine_sequence': sequence, 'publish': False, 'real_device': 'NOT TESTED',
