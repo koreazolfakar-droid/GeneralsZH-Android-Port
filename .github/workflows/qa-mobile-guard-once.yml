@@ -1,0 +1,35 @@
+name: QA mobile Guard command visibility (one time)
+on:
+  push:
+    branches:
+      - fix/mobile-visible-guard-orders-20261010
+    paths:
+      - .github/workflows/qa-mobile-guard-once.yml
+permissions:
+  contents: read
+jobs:
+  check-guard-slots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate compact mobile Guard commands and preserved construction paging
+        run: python3 scripts/qa/test-mobile-command-overflow.py
+      - name: Confirm source respects mobile-only UI and existing protocol
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp').read_text()
+          start=s.index('Int compactCommandIndices[ MAX_COMMANDS_PER_SET ];')
+          end=s.index('// populate the button with commands defined',start)
+          chunk=s[start:end]
+          assert 'if( !isBuilderCommandSet( commandSet )' in chunk
+          assert 'isDisplayedOnControlBar()' in chunk
+          assert 'compactPossible && hasCompactCommands' in chunk
+          assert 'if( !compactCommandBar && m_touchBuilderMoreButton' in chunk
+          assert 'm_builderPageObject == obj->getID()' in chunk
+          assert 'commandIndex = compactCommandIndices[ i ];' in s
+          assert 'commandIndex = 12 + i;' in s
+          assert 'slotTaken || !win->winIsHidden()' in s
+          print('PASS: existing 3402 builder/overflow handling unchanged; Guard promoted only into spare slots')
+          PY
