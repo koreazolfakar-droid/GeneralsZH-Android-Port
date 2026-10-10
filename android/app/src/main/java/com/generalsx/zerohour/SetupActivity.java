@@ -510,7 +510,7 @@ public class SetupActivity extends Activity {
         page.addView(metrics, metricLp);
         homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
         homeAccountSummary = homeMetric(metrics, R.drawable.ic_gzh_account, R.string.launcher_account);
-        homeFolderMetric = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.setup_card_game_folder);
+        homeFolderMetric = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.launcher_game_data);
 
         LinearLayout shortcuts = LauncherUi.panel(this, page);
         shortcuts.setPadding(dp(12), dp(12), dp(12), dp(12));
