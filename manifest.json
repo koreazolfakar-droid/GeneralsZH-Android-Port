@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "3ab8a155b1eee8aec7c2454339d4adc72d95b5407cd2ef88dcbd6c424f297a42",
-        "size": 42246864,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3344/libmain.so.gz"
+        "sha256": "381f5d59706c5041205e136a40ce7a369a75b13410dd7519e8f123948b57a363",
+        "size": 42267392,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3356/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "b2cf3d5417b6d0ae3d70031122b7aa55bb7779491aa25a432a78b29c65cdb9ac",
-        "size": 42251200,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3344/libmain60.so.gz"
+        "sha256": "28f6e45332b5ff459026880b97d461c9774a13758f095086cd208c3570934722",
+        "size": 42267584,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3356/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3344,
-    "source_commit": "775111c69ec93c0665d7eb610dcbfc4d50d1aa17"
+    "seq": 3356,
+    "source_commit": "308153f6e1f3af1539d9211d15750027b4d1ba7c"
   },
-  "note": "Fix active mod faction/general localization: all archive instances, mod language priority and Vanilla fallback for missing labels. No simulation, save or network format changes.",
-  "published": "2026-10-08",
+  "note": "Fix standalone mod BIG priority, inactive mod isolation, virtual retail archive replacement and nested archive discovery. Add optional asset source tracing. Both 30Hz and 60Hz engines; unchanged save, simulation and network formats. Host regressions passed; final gameplay verification is pending on device.",
+  "published": "2026-10-10",
   "schema": 1,
-  "serial": 5
+  "serial": 6
 }
