@@ -170,6 +170,9 @@ jobs:
           set -euo pipefail
           mkdir -p qa-output
           cp android/app/build/outputs/apk/debug/app-debug.apk "qa-output/$OUTPUT_APK"
+          echo "Candidate manifest package row:"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "qa-output/$OUTPUT_APK" |
+            sed -n '/^package: /p'
           bash scripts/qa/verify-apk-update-candidate.sh \
             "qa-output/$OUTPUT_APK" "retained-apk/$BASE_APK"
           python3 - <<'PY'
