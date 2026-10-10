@@ -56,9 +56,17 @@ public class LauncherHomeUiTest {
         context.getSharedPreferences(SetupActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
             .clear().putString(SetupActivity.PREF_GAME_PATH, game.getAbsolutePath()).commit();
         UpdateManager.setAutoCheckEnabled(context, false);
+        context.getSharedPreferences("gx_apk_updates_v1", Context.MODE_PRIVATE)
+            .edit().clear().commit();
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
     }
     @After public void tearDown() {
         if (controller != null) controller.pause().stop().destroy();
+        try {
+            Field f = SetupActivity.class.getDeclaredField("sAvailableApk");
+            f.setAccessible(true);
+            f.set(null, null);
+        } catch (Exception e) { throw new AssertionError(e); }
     }
     private void open() {
         controller = Robolectric.buildActivity(SetupActivity.class).setup();
@@ -202,6 +210,65 @@ public class LauncherHomeUiTest {
         assertNull(ShadowPopupMenu.getLatestPopupMenu().getMenu().findItem(SetupActivity.TAB_TOOLS));
     }
 
+    @Test public void fullApkBannerAppearsOnlyForAnOfferedReleaseAndSurvivesNavigation()
+        throws Exception {
+        open();
+        TextView banner = (TextView) field("apkUpdateBanner");
+        assertNotNull(banner);
+        assertEquals(View.GONE, banner.getVisibility());
+        Field pending = SetupActivity.class.getDeclaredField("sAvailableApk");
+        pending.setAccessible(true);
+        pending.set(null, new ApkUpdateManager.Release("v1.4.8",
+            "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/"
+            + "releases/download/v1.4.8/app.apk",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 100L));
+        java.lang.reflect.Method render =
+            SetupActivity.class.getDeclaredMethod("renderApkUpdateBanner");
+        render.setAccessible(true);
+        render.invoke(activity);
+        assertEquals(View.VISIBLE, banner.getVisibility());
+        assertTrue(banner.getText().toString().contains("1.4.8"));
+        File stagedApk = temp.newFile("validated-update.apk");
+        Field staged = SetupActivity.class.getDeclaredField("pendingApkInstall");
+        staged.setAccessible(true);
+        staged.set(activity, stagedApk);
+        render.invoke(activity);
+        assertEquals(activity.getString(R.string.launcher_apk_update_install),
+            banner.getText().toString());
+        staged.set(activity, null);
+        render.invoke(activity);
+        assertTrue(banner.getText().toString().contains("1.4.8"));
+        ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_GRAPHICS);
+        assertEquals(View.VISIBLE, banner.getVisibility());
+        assertEquals(View.GONE, ((LinearLayout)field("homeUpdateDetails")) == null
+            ? View.GONE : ((LinearLayout)field("homeUpdateDetails")).getVisibility());
+    }
+
+    @Test public void apkAutoCheckIsThrottledButManualCheckRemainsAvailable() {
+        long now = 1_800_000_000_000L;
+        ApkUpdateManager.setAutoCheckEnabled(context, true);
+        assertTrue(ApkUpdateManager.shouldAutoCheck(context, now));
+        ApkUpdateManager.noteCheckAttempt(context, now);
+        assertFalse(ApkUpdateManager.shouldAutoCheck(context, now + 1000));
+        assertFalse(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS - 1));
+        assertTrue(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS));
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
+        assertFalse(ApkUpdateManager.shouldAutoCheck(
+            context, now + ApkUpdateManager.AUTO_CHECK_INTERVAL_MS + 1));
+    }
+
+    @Test public void apkAutoCheckSettingDoesNotChangeEngineAutoCheck() {
+        open();
+        assertFalse(ApkUpdateManager.isAutoCheckEnabled(context));
+        assertFalse(UpdateManager.isAutoCheckEnabled(context));
+        ApkUpdateManager.setAutoCheckEnabled(context, true);
+        assertTrue(ApkUpdateManager.isAutoCheckEnabled(context));
+        assertFalse(UpdateManager.isAutoCheckEnabled(context));
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
+    }
+
     @Test public void onlineAndSignedUpdateControlsRemainReachable() {
         open();
         click(R.string.setup_card_online);
@@ -212,6 +279,8 @@ public class LauncherHomeUiTest {
         click(R.string.setup_card_updates);
         assertEquals(View.VISIBLE, ((LinearLayout)field("homeUpdateDetails")).getVisibility());
         label(R.string.setup_button_check_updates);
+        label(R.string.launcher_apk_check_button);
+        label(R.string.launcher_apk_auto_check);
         label(R.string.setup_switch_auto_updates);
         label(R.string.setup_button_open_online_data);
         assertEquals(activity.getString(R.string.launcher_build_value, UpdateManager.bundledEngineSeq(context)),
