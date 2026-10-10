@@ -404,4 +404,27 @@
     <string name="setup_appearance_light">日间</string>
     <string name="setup_appearance_dark">夜间</string>
     <string name="setup_appearance_help">只更改应用界面。跟随系统会使用手机设置；日间和夜间选择会保存。游戏画面不会改变。</string>
+    <!-- Read-only Mod Health Check (structural, not runtime). -->
+    <string name="mods_details_button">详情</string>
+    <string name="mods_details_title">模组详情与文件检查</string>
+    <string name="mods_health_scanning">正在检查已安装文件…</string>
+    <string name="mods_health_unavailable">无法安全检查此模组。</string>
+    <string name="mods_health_warning">发现文件结构问题。</string>
+    <string name="mods_health_incomplete">检查未完成。</string>
+    <string name="mods_health_no_big">未找到 BIG 文件。</string>
+    <string name="mods_health_structural_ok">BIG 索引检查通过（非游戏运行测试）。</string>
+    <string name="mods_health_big_count">BIG 文件：%1$d</string>
+    <string name="mods_health_valid_count">可读取 BIG：%1$d</string>
+    <string name="mods_health_invalid_count">无效 BIG：%1$d</string>
+    <string name="mods_health_entry_count">BIG 索引条目：%1$d</string>
+    <string name="mods_health_loose_count">独立文件：%1$d</string>
+    <string name="mods_health_nested_count">嵌套 BIG：%1$d</string>
+    <string name="mods_health_data_folder">Data 文件夹：%1$s</string>
+    <string name="mods_health_window_folder">Window 文件夹：%1$s</string>
+    <string name="mods_health_present">存在</string>
+    <string name="mods_health_absent">未找到</string>
+    <string name="mods_health_fs_issues">跳过链接：%1$d · 无法读取：%2$d</string>
+    <string name="mods_health_nested_warning">子目录中的 BIG 加载顺序可能不同。</string>
+    <string name="mods_health_invalid_files">无效 BIG 文件（最多 8 个）：</string>
+    <string name="mods_health_disclaimer">仅进行只读结构检查，不能确认游戏中的模型、护盾、音效或脚本是否正常工作。</string>
 </resources>

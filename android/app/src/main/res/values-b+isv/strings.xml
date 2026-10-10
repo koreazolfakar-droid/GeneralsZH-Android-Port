@@ -404,4 +404,27 @@
     <string name="setup_appearance_light">Denj</string>
     <string name="setup_appearance_dark">Noč</string>
     <string name="setup_appearance_help">Měnja se samo vygled aplikacije. Sistem slěduje telefon; Denj i Noč sohraněni. Grafika igry ne měnja se.</string>
+    <!-- Read-only Mod Health Check (structural, not runtime). -->
+    <string name="mods_details_button">Podrobnosti</string>
+    <string name="mods_details_title">Podrobnosti moda i prověrka</string>
+    <string name="mods_health_scanning">Prověrka instalovanyh fajlov…</string>
+    <string name="mods_health_unavailable">Ne možno bezopasno prověriti mod.</string>
+    <string name="mods_health_warning">Najdeny strukturne problemy.</string>
+    <string name="mods_health_incomplete">Prověrka ne dokončena.</string>
+    <string name="mods_health_no_big">BIG arhivy ne najdeny.</string>
+    <string name="mods_health_structural_ok">Indeksy BIG prověreny (ne test igry).</string>
+    <string name="mods_health_big_count">BIG arhivy: %1$d</string>
+    <string name="mods_health_valid_count">Čitaje BIG: %1$d</string>
+    <string name="mods_health_invalid_count">Nevalidne BIG: %1$d</string>
+    <string name="mods_health_entry_count">Zapisy BIG: %1$d</string>
+    <string name="mods_health_loose_count">Osobne fajly: %1$d</string>
+    <string name="mods_health_nested_count">BIG v podpapkah: %1$d</string>
+    <string name="mods_health_data_folder">Papka Data: %1$s</string>
+    <string name="mods_health_window_folder">Papka Window: %1$s</string>
+    <string name="mods_health_present">Jest</string>
+    <string name="mods_health_absent">Ne najdeno</string>
+    <string name="mods_health_fs_issues">Propusčeno svęzkov: %1$d · Nečitajemyh: %2$d</string>
+    <string name="mods_health_nested_warning">BIG v podpapkah mogut iměti iny porędok zagruzky.</string>
+    <string name="mods_health_invalid_files">Nevalidne BIG (do 8):</string>
+    <string name="mods_health_disclaimer">Prověrka jest samo strukturna i ne měnja fajly. Ne potvrđaje modele, ščity, zvuky ni skripty v igrě.</string>
 </resources>

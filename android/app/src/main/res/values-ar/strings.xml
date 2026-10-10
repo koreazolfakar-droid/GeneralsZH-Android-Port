@@ -448,4 +448,27 @@
     <string name="setup_appearance_light">نهاري</string>
     <string name="setup_appearance_dark">ليلي</string>
     <string name="setup_appearance_help">يغيّر ألوان واجهة التطبيق فقط. التلقائي يتبع إعداد الهاتف، والنهاري والليلي ينحفظان عند إعادة فتح التطبيق. رسومات اللعبة لا تتغيّر.</string>
+    <!-- Read-only Mod Health Check (structural, not runtime). -->
+    <string name="mods_details_button">التفاصيل</string>
+    <string name="mods_details_title">تفاصيل المود وفحص الملفات</string>
+    <string name="mods_health_scanning">جارٍ فحص ملفات المود…</string>
+    <string name="mods_health_unavailable">لا يمكن فحص هذا المود بأمان.</string>
+    <string name="mods_health_warning">وُجدت مشاكل في بنية الملفات، راجع التفاصيل.</string>
+    <string name="mods_health_incomplete">الفحص غير مكتمل؛ تعذّر فحص بعض الملفات.</string>
+    <string name="mods_health_no_big">لم يُعثر على أرشيفات BIG.</string>
+    <string name="mods_health_structural_ok">بنية فهارس BIG سليمة (ليس اختبار تشغيل للعبة).</string>
+    <string name="mods_health_big_count">أرشيفات BIG: %1$d</string>
+    <string name="mods_health_valid_count">أرشيفات BIG المقروءة: %1$d</string>
+    <string name="mods_health_invalid_count">أرشيفات BIG غير الصالحة: %1$d</string>
+    <string name="mods_health_entry_count">الملفات داخل فهارس BIG: %1$d</string>
+    <string name="mods_health_loose_count">الملفات الخارجية: %1$d</string>
+    <string name="mods_health_nested_count">أرشيفات BIG داخل مجلدات فرعية: %1$d</string>
+    <string name="mods_health_data_folder">مجلد Data: %1$s</string>
+    <string name="mods_health_window_folder">مجلد Window: %1$s</string>
+    <string name="mods_health_present">موجود</string>
+    <string name="mods_health_absent">غير موجود</string>
+    <string name="mods_health_fs_issues">روابط تم تجاهلها: %1$d · عناصر تعذّرت قراءتها: %2$d</string>
+    <string name="mods_health_nested_warning">وُجدت أرشيفات BIG في مجلدات فرعية؛ ترتيب تحميلها قد يختلف عن مجلد اللعبة الأصلي.</string>
+    <string name="mods_health_invalid_files">أرشيفات BIG غير الصالحة (حتى 8):</string>
+    <string name="mods_health_disclaimer">هذا فحص للملفات فقط وبدون تعديلها؛ لا يؤكد عمل المجسمات والدروع والأصوات والسكربتات داخل اللعبة.</string>
 </resources>

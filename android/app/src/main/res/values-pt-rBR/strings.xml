@@ -404,4 +404,27 @@
     <string name="setup_appearance_light">Dia</string>
     <string name="setup_appearance_dark">Noite</string>
     <string name="setup_appearance_help">Altera apenas a interface do aplicativo. Sistema segue o celular; Dia e Noite ficam salvos. Os gráficos do jogo não mudam.</string>
+    <!-- Read-only Mod Health Check (structural, not runtime). -->
+    <string name="mods_details_button">Detalhes</string>
+    <string name="mods_details_title">Detalhes e verificação do mod</string>
+    <string name="mods_health_scanning">Verificando arquivos instalados…</string>
+    <string name="mods_health_unavailable">Não é possível verificar o mod com segurança.</string>
+    <string name="mods_health_warning">Problemas estruturais encontrados.</string>
+    <string name="mods_health_incomplete">Verificação incompleta.</string>
+    <string name="mods_health_no_big">Nenhum arquivo BIG encontrado.</string>
+    <string name="mods_health_structural_ok">Índices BIG verificados (não é teste no jogo).</string>
+    <string name="mods_health_big_count">Arquivos BIG: %1$d</string>
+    <string name="mods_health_valid_count">BIG legíveis: %1$d</string>
+    <string name="mods_health_invalid_count">BIG inválidos: %1$d</string>
+    <string name="mods_health_entry_count">Entradas BIG: %1$d</string>
+    <string name="mods_health_loose_count">Arquivos soltos: %1$d</string>
+    <string name="mods_health_nested_count">BIG em subpastas: %1$d</string>
+    <string name="mods_health_data_folder">Pasta Data: %1$s</string>
+    <string name="mods_health_window_folder">Pasta Window: %1$s</string>
+    <string name="mods_health_present">Presente</string>
+    <string name="mods_health_absent">Não encontrada</string>
+    <string name="mods_health_fs_issues">Links ignorados: %1$d · Itens ilegíveis: %2$d</string>
+    <string name="mods_health_nested_warning">BIG em subpastas podem ter outra ordem de carregamento.</string>
+    <string name="mods_health_invalid_files">BIG inválidos (até 8):</string>
+    <string name="mods_health_disclaimer">Verificação estrutural somente leitura. Não confirma modelos, escudos, sons ou scripts no jogo.</string>
 </resources>

@@ -404,4 +404,27 @@
     <string name="setup_appearance_light">Dzień</string>
     <string name="setup_appearance_dark">Noc</string>
     <string name="setup_appearance_help">Zmienia wyłącznie wygląd aplikacji. System dopasowuje go do telefonu; Dzień i Noc są zapamiętywane. Grafika gry bez zmian.</string>
+    <!-- Read-only Mod Health Check (structural, not runtime). -->
+    <string name="mods_details_button">Szczegóły</string>
+    <string name="mods_details_title">Szczegóły i kontrola moda</string>
+    <string name="mods_health_scanning">Sprawdzanie plików…</string>
+    <string name="mods_health_unavailable">Nie można bezpiecznie sprawdzić moda.</string>
+    <string name="mods_health_warning">Wykryto błędy struktury.</string>
+    <string name="mods_health_incomplete">Kontrola nie została ukończona.</string>
+    <string name="mods_health_no_big">Nie znaleziono archiwów BIG.</string>
+    <string name="mods_health_structural_ok">Indeksy BIG sprawdzone (nie test gry).</string>
+    <string name="mods_health_big_count">Archiwa BIG: %1$d</string>
+    <string name="mods_health_valid_count">Poprawne BIG: %1$d</string>
+    <string name="mods_health_invalid_count">Niepoprawne BIG: %1$d</string>
+    <string name="mods_health_entry_count">Wpisy BIG: %1$d</string>
+    <string name="mods_health_loose_count">Luźne pliki: %1$d</string>
+    <string name="mods_health_nested_count">BIG w podfolderach: %1$d</string>
+    <string name="mods_health_data_folder">Folder Data: %1$s</string>
+    <string name="mods_health_window_folder">Folder Window: %1$s</string>
+    <string name="mods_health_present">Obecny</string>
+    <string name="mods_health_absent">Nie znaleziono</string>
+    <string name="mods_health_fs_issues">Pominięte linki: %1$d · Nieczytelne: %2$d</string>
+    <string name="mods_health_nested_warning">BIG w podfolderach mogą mieć inną kolejność ładowania.</string>
+    <string name="mods_health_invalid_files">Niepoprawne BIG (do 8):</string>
+    <string name="mods_health_disclaimer">Kontrola tylko struktury, bez zmian plików. Nie potwierdza działania modeli, osłon, dźwięków ani skryptów w grze.</string>
 </resources>
