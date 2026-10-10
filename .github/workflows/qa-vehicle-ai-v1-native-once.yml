@@ -1,0 +1,73 @@
+# Verification only: no release/signing or existing APK modifications.
+name: QA Vehicle AI V1 cached native (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/qa-vehicle-ai-v1-native-once.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: vehicle-ai-v1-native-qa
+  cancel-in-progress: false
+jobs:
+  build-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: ee5efc56bce80e2c62a5275156b2ec712f570c06
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: |
+            .github
+            Core
+            GeneralsMD
+            GeneralsZH
+            android
+            scripts
+          persist-credentials: false
+      - name: Verify exact immutable source and host regressions before native compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git show -s --format=%s HEAD)" = 'ci(qa): build Vehicle AI V1 using saved Android 30/60Hz engine caches'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          python3 scripts/qa/test-vehicle-ai-v1.py
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+      - name: Dispatch cached only dual native engine build without APK or release
+        shell: bash
+        run: |
+          set -euo pipefail
+          old="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          for ((i=1;i<=210;i++)); do
+            new_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $old and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$new_run" =~ ^[0-9]+$ ]]; then
+              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$new_run" \
+                --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Vehicle AI V1 30/60Hz run $new_run: $status"
+              if [[ "$status" == "completed success" ]]; then
+                echo "PASS: both engines compiled and verified, no new APK or update published"
+                echo "Replay/CRC on physical device and Android-PC online compatibility NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+              if [[ "$status" == completed* ]]; then
+                echo "::error::Native build failed: $new_run ($status); do not publish"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Native build did not finish before strict timeout; do not publish"
+          exit 1
