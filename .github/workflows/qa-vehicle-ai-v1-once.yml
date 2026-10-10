@@ -1,0 +1,65 @@
+name: QA Vehicle AI V1 strict (one time)
+on:
+  push:
+    branches: [fix/vehicle-ai-v1-stuck-repath-20261011]
+    paths: [.github/workflows/qa-vehicle-ai-v1-once.yml]
+permissions:
+  contents: read
+jobs:
+  strict-host-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Confirm only narrowly scoped pathfinding changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          base='aaf50340707200963e1727d364aac463dd895960'
+          changed=set(subprocess.check_output(
+              ['git','diff','--name-only',base,'HEAD'],text=True).splitlines())
+          approved={
+             'GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AIStates.cpp',
+             'GeneralsMD/Code/GameEngine/Include/GameLogic/VehicleBlockedRepathPolicy.h',
+             'scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp',
+             'scripts/qa/test-vehicle-ai-v1.py',
+             '.github/workflows/qa-vehicle-ai-v1-once.yml'}
+          assert changed==approved, {'unexpected':sorted(changed-approved),'missing':sorted(approved-changed)}
+          print('PASS: no saves, network, data, CommandSets, mods, launcher or game stats changed')
+          PY
+      - name: Compile and run exact C++ policy with Clang sanitizers
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ --version
+          clang++ -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I GeneralsMD/Code/GameEngine/Include \
+            scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp \
+            -o /tmp/vehicle-ai-asan
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/vehicle-ai-asan
+      - name: Compile and run strict optimized C++ policy with GCC
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic \
+            -I GeneralsMD/Code/GameEngine/Include \
+            scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp \
+            -o /tmp/vehicle-ai-gcc
+          /tmp/vehicle-ai-gcc
+      - name: Run movement snapshot and behavior regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-vehicle-ai-v1.py
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+          python3 scripts/qa/test-save-map-safety.py
+          python3 scripts/qa/test-engine-build-number.py
+      - name: Declare native/device/CRC gates not yet exercised
+        run: |
+          echo "Host regressions passed. Native Android dual-engine compilation, device paths, replay/CRC, and online cross-client determinism MUST be independently verified before publishing." >> "$GITHUB_STEP_SUMMARY"
