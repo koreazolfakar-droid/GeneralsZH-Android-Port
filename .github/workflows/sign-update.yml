@@ -16,6 +16,10 @@ on:
         description: 'Successful engine-incremental-report run to prepare, sign and publish; do not combine with prepared_run'
         required: false
         type: string
+      engine_source_commit:
+        description: 'Optional exact source SHA of a prior successful engine build; prevents rebuilding just to publish'
+        required: false
+        type: string
       note:
         description: 'Release note'
         required: false
@@ -60,9 +64,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: dev/mobile-v4
+          ref: ${{ inputs.engine_source_commit || 'dev/mobile-v4' }}
           fetch-depth: 0
           filter: blob:none
+      - name: Verify exact successful build source before artifact download
+        if: inputs.engine_build_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINE_RUN: ${{ inputs.engine_build_run }}
+          PINNED_SOURCE: ${{ inputs.engine_source_commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ENGINE_RUN" =~ ^[0-9]+$ ]] || { echo "::error::Invalid engine build run"; exit 1; }
+          if [[ -n "$PINNED_SOURCE" ]]; then
+            [[ "$PINNED_SOURCE" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid immutable source SHA"; exit 1; }
+          fi
+          test "$(git rev-parse HEAD)" = "${PINNED_SOURCE:-$(git rev-parse HEAD)}"
+          metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN")"
+          echo "$metadata" | python3 -c '
+          import json, sys, os, subprocess
+          r=json.load(sys.stdin)
+          source=subprocess.check_output(["git","rev-parse","HEAD"], text=True).strip()
+          assert r["status"] == "completed" and r["conclusion"] == "success", "Engine build not successful"
+          assert r["head_sha"] == source, "Engine run source differs from checked out immutable source"
+          assert r["event"] == "workflow_dispatch", "Engine run was not an explicit verified dispatch"
+          assert r["path"] == ".github/workflows/build-android.yml", "Not an engine build workflow"
+          assert r["head_repository"]["full_name"] == os.environ["GITHUB_REPOSITORY"], "Cross-repository build forbidden"
+          print("PASS: verified immutable engine build source", source, "run", r["id"])
+          '
       - name: Reject ambiguous publication input
         env:
           ENGINE_RUN: ${{ inputs.engine_build_run }}
