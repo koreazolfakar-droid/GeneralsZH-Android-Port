@@ -21,7 +21,9 @@ metadata() {
   printf '%s\n' "$output" | sed -n '/^package: /p'
 }
 field() {
-  sed -n "s/.*$1='\([^']*\)'.*/\1/p" | head -1
+  # Require whitespace before the attribute name: plain 'name' must not
+  # greedily match compileSdkVersionCodename or platformBuildVersionName.
+  sed -n "s/.*[[:space:]]$1='\([^']*\)'.*/\1/p" | head -1
 }
 "$SIGNER" verify --verbose "$NEW"
 NEW_META="$(metadata "$NEW")"
