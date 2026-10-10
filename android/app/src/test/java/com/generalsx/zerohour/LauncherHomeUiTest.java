@@ -252,6 +252,8 @@ public class LauncherHomeUiTest {
         click(R.string.setup_card_updates);
         assertEquals(View.VISIBLE, ((LinearLayout)field("homeUpdateDetails")).getVisibility());
         label(R.string.setup_button_check_updates);
+        label(R.string.launcher_apk_check_button);
+        label(R.string.launcher_apk_auto_check);
         label(R.string.setup_switch_auto_updates);
         label(R.string.setup_button_open_online_data);
         assertEquals(activity.getString(R.string.launcher_build_value, UpdateManager.bundledEngineSeq(context)),
