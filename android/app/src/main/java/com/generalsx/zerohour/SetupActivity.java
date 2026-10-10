@@ -130,6 +130,16 @@ public class SetupActivity extends Activity {
     private static final String[] REQUIRED_GAME_FILES = { "INIZH.big", "INI.big" };
 
     private TextView statusText;
+
+    // APK-level updates are separate from UpdateManager's engine-only update channel.
+    private TextView apkUpdateBanner;
+    private static ApkUpdateManager.Release sAvailableApk;
+    private static boolean sApkCheckedThisProcess;
+    private boolean apkCheckRunning;
+    private boolean apkDownloadRunning;
+    private File pendingApkInstall;
+    private boolean waitingForUnknownSources;
+    private String apkUpdateError;
     // GeneralsX @feature Android port 04/10/2026 Current Mod Manager selection shown on Home.
 
     @Override
@@ -249,6 +259,16 @@ public class SetupActivity extends Activity {
         loadDxvkConfigIntoEditor();
         refreshDiagnosticsSwitches();
         refreshUpdatesStatus();
+        renderApkUpdateBanner();
+        if (waitingForUnknownSources && pendingApkInstall != null
+                && getPackageManager().canRequestPackageInstalls()) {
+            waitingForUnknownSources = false;
+            launchApkInstaller();
+        }
+        if (!sApkCheckedThisProcess && UpdateManager.isAutoCheckEnabled(this)) {
+            sApkCheckedThisProcess = true;
+            checkApkUpdate(false);
+        }
         // Once per process, not on every return to this screen.
         if (!sAutoUpdateCheckedThisProcess && UpdateManager.isAutoCheckEnabled(this)) {
             sAutoUpdateCheckedThisProcess = true;
@@ -318,6 +338,19 @@ public class SetupActivity extends Activity {
         contentHost = new FrameLayout(this);
         shell.addView(contentHost, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // Like Telegram's Update Now strip: always visible on any launcher tab when relevant.
+        apkUpdateBanner = new TextView(this);
+        apkUpdateBanner.setGravity(android.view.Gravity.CENTER);
+        apkUpdateBanner.setTextSize(16);
+        apkUpdateBanner.setTypeface(Typeface.DEFAULT_BOLD);
+        apkUpdateBanner.setTextColor(android.graphics.Color.WHITE);
+        apkUpdateBanner.setBackgroundColor(0xff2196f3);
+        apkUpdateBanner.setContentDescription(getString(R.string.launcher_apk_update_accessibility));
+        apkUpdateBanner.setOnClickListener(v -> startApkDownload());
+        apkUpdateBanner.setVisibility(View.GONE);
+        shell.addView(apkUpdateBanner, new LinearLayout.LayoutParams(-1, dp(56)));
+        renderApkUpdateBanner();
 
         shell.addView(buildBottomNav(), new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(68)));
@@ -591,6 +624,122 @@ public class SetupActivity extends Activity {
         if (homeModSummary != null) homeModSummary.setText(name);
     }
 
+
+    // ------------------------------------------------------------ Full APK updates
+    // This section never replaces an engine .so; the platform package installer updates the
+    // complete APK over the same applicationId and signing certificate, preserving app data.
+    private void renderApkUpdateBanner() {
+        if (apkUpdateBanner == null) return;
+        ApkUpdateManager.Release release = sAvailableApk;
+        if (release == null) {
+            apkUpdateBanner.setVisibility(View.GONE);
+            return;
+        }
+        apkUpdateBanner.setVisibility(View.VISIBLE);
+        apkUpdateBanner.setEnabled(!apkDownloadRunning);
+        if (apkDownloadRunning) {
+            // Set by the progress callback on the main thread.
+            return;
+        }
+        apkUpdateBanner.setText(apkUpdateError != null
+            ? getString(R.string.launcher_apk_update_retry)
+            : getString(R.string.launcher_apk_update_now, release.version));
+    }
+
+    private void checkApkUpdate(boolean userAsked) {
+        if (apkCheckRunning) return;
+        apkCheckRunning = true;
+        new Thread(() -> {
+            ApkUpdateManager.Release found = null;
+            String error = null;
+            try {
+                found = ApkUpdateManager.check(getApplicationContext());
+            } catch (Exception failure) {
+                error = failure.getMessage();
+            }
+            final ApkUpdateManager.Release release = found;
+            final String failureText = error;
+            runOnUiThread(() -> {
+                apkCheckRunning = false;
+                if (isFinishing() || isDestroyed()) return;
+                if (failureText == null) {
+                    sAvailableApk = release;
+                    apkUpdateError = null;
+                    renderApkUpdateBanner();
+                    if (userAsked && release == null) {
+                        Toast.makeText(this, R.string.launcher_apk_update_current,
+                            Toast.LENGTH_SHORT).show();
+                    }
+                } else if (userAsked) {
+                    Toast.makeText(this,
+                        getString(R.string.launcher_apk_update_check_failed, failureText),
+                        Toast.LENGTH_LONG).show();
+                }
+                // A network failure must not erase an already discovered release.
+            });
+        }, "GZH-apk-check").start();
+    }
+
+    private void startApkDownload() {
+        final ApkUpdateManager.Release release = sAvailableApk;
+        if (release == null || apkDownloadRunning) return;
+        apkDownloadRunning = true;
+        apkUpdateError = null;
+        apkUpdateBanner.setEnabled(false);
+        apkUpdateBanner.setText(R.string.launcher_apk_update_starting);
+        new Thread(() -> {
+            try {
+                File verified = ApkUpdateManager.download(getApplicationContext(), release,
+                    (received, total) -> runOnUiThread(() -> {
+                        if (apkUpdateBanner != null && apkDownloadRunning && total > 0) {
+                            int percent = (int) Math.min(100, received * 100 / total);
+                            apkUpdateBanner.setText(getString(
+                                R.string.launcher_apk_update_progress, percent));
+                        }
+                    }));
+                runOnUiThread(() -> {
+                    apkDownloadRunning = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    pendingApkInstall = verified;
+                    apkUpdateBanner.setText(R.string.launcher_apk_update_install);
+                    launchApkInstaller();
+                });
+            } catch (Exception failure) {
+                runOnUiThread(() -> {
+                    apkDownloadRunning = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    apkUpdateError = failure.getMessage();
+                    renderApkUpdateBanner();
+                    Toast.makeText(this, getString(R.string.launcher_apk_update_failed,
+                        apkUpdateError), Toast.LENGTH_LONG).show();
+                });
+            }
+        }, "GZH-apk-download").start();
+    }
+
+    private void launchApkInstaller() {
+        if (pendingApkInstall == null) return;
+        try {
+            // The installer still requires user confirmation; never silently install.
+            if (android.os.Build.VERSION.SDK_INT >= 26
+                    && !getPackageManager().canRequestPackageInstalls()) {
+                waitingForUnknownSources = true;
+                Toast.makeText(this, R.string.launcher_apk_update_permission,
+                    Toast.LENGTH_LONG).show();
+                startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName())));
+                return;
+            }
+            ApkUpdateManager.verifyArchive(this, pendingApkInstall);
+            startActivity(ApkUpdateManager.installIntent(this, pendingApkInstall));
+        } catch (Exception failure) {
+            apkUpdateError = failure.getMessage();
+            renderApkUpdateBanner();
+            Toast.makeText(this, getString(R.string.launcher_apk_update_failed,
+                apkUpdateError), Toast.LENGTH_LONG).show();
+        }
+    }
+
     // ------------------------------------------------------------ Updates
 
     // GeneralsX @feature Android port 27/09/2026 Signed updates from the repository without a new
@@ -619,7 +768,7 @@ public class SetupActivity extends Activity {
         content.addView(updatesProgressBar, new LinearLayout.LayoutParams(-1, -2));
         updatesProgressBytes = UiKit.supporting(content, null);
         updatesCheckButton = UiKit.button(content, UiKit.BTN_TONAL, R.drawable.ic_gzh_download,
-            getString(R.string.setup_button_check_updates), () -> runUpdateCheck(true));
+            getString(R.string.setup_button_check_updates), () -> { runUpdateCheck(true); checkApkUpdate(true); });
         renderUpdateProgress();
         // The community data patch is updated on the multiplayer screen; this card only says a
         // newer one is out and takes the player there.
