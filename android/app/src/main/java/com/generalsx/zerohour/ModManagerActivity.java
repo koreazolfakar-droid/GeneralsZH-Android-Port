@@ -417,7 +417,6 @@ public class ModManagerActivity extends Activity {
             R.drawable.ic_gzh_refresh, false, () -> selectMod(entry.file, false));
         launch.setEnabled(enabled);
         activate.setEnabled(enabled && !active);
-        activate.setText(active ? R.string.mods_active_button : R.string.mods_activate_button);
     }
 
     private void selectMod(File mod, boolean launch) {
