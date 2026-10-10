@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "381f5d59706c5041205e136a40ce7a369a75b13410dd7519e8f123948b57a363",
-        "size": 42267392,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3356/libmain.so.gz"
+        "sha256": "522e8ddfdf3e5619c06ab46d9f7f1a86f8485a1cbe7eaa61ed34f7b08a479312",
+        "size": 42267472,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3391/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "28f6e45332b5ff459026880b97d461c9774a13758f095086cd208c3570934722",
-        "size": 42267584,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3356/libmain60.so.gz"
+        "sha256": "9f60e430d5d9f6a176124d450c3ab9aac1405900ec2fc7248c900fa5208d7df5",
+        "size": 42271712,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3391/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3356,
-    "source_commit": "308153f6e1f3af1539d9211d15750027b4d1ba7c"
+    "seq": 3391,
+    "source_commit": "a4c0ed742e4d2d00ceb2fbba1dd5b3948edca368"
   },
-  "note": "Fix standalone mod BIG priority, inactive mod isolation, virtual retail archive replacement and nested archive discovery. Add optional asset source tracing. Both 30Hz and 60Hz engines; unchanged save, simulation and network formats. Host regressions passed; final gameplay verification is pending on device.",
+  "note": "Fix standalone Project X mod loading order before GameData.ini. Both 30Hz and 60Hz engines built incrementally and verified with SHA-256 and signed manifest; preserved original APK, vanilla, saves and networking. Real device gameplay verification remains pending.",
   "published": "2026-10-10",
   "schema": 1,
-  "serial": 6
+  "serial": 7
 }
