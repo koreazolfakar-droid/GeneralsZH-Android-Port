@@ -14,7 +14,11 @@ AAPT="$BUILD_TOOLS/aapt"; SIGNER="$BUILD_TOOLS/apksigner"
   echo "BLOCKED: existing Android SDK build-tools 35 required; no downloads" >&2; exit 2;
 }
 metadata() {
-  "$AAPT" dump badging "$1" | sed -n '1p'
+  # Some aapt releases print warnings or SDK metadata ahead of the package row.
+  # Parse the explicit package row rather than assuming it is line one.
+  local output
+  output="$("$AAPT" dump badging "$1")"
+  printf '%s\n' "$output" | sed -n '/^package: /p'
 }
 field() {
   sed -n "s/.*$1='\([^']*\)'.*/\1/p" | head -1
@@ -25,7 +29,8 @@ NEW_PACKAGE="$(printf '%s\n' "$NEW_META" | field name)"
 NEW_CODE="$(printf '%s\n' "$NEW_META" | field versionCode)"
 NEW_NAME="$(printf '%s\n' "$NEW_META" | field versionName)"
 [[ "$NEW_PACKAGE" == "com.generalsx.zerohour" && "$NEW_CODE" =~ ^[0-9]+$ ]] || {
-  echo "FAIL: invalid package name or versionCode" >&2; exit 1;
+  printf 'FAIL: candidate manifest expected package=com.generalsx.zerohour and numeric versionCode; found package=[%s] code=[%s] metadata=[%s]\n' "$NEW_PACKAGE" "$NEW_CODE" "$NEW_META" >&2
+  exit 1
 }
 cert() {
   "$SIGNER" verify --print-certs "$1" |
