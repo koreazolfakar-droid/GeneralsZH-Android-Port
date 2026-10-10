@@ -158,14 +158,14 @@ def read_big_objects(data: bytes):
             raise ValueError("truncated BIG file table")
         offset, size = struct.unpack_from(">II", data, cursor)
         cursor += 8
-        end = data.find(b"\\0", cursor, min(len(data), cursor + 65536))
+        end = data.find(b"\0", cursor, min(len(data), cursor + 65536))
         if end < 0 or offset + size > len(data):
             raise ValueError("invalid BIG entry")
         path = data[cursor:end].decode("latin-1").lower().replace("/", "\\")
         cursor = end + 1
         if path.startswith("data\\ini\\") and path.endswith(".ini"):
             source = data[offset:offset + size].decode("latin-1")
-            for m in re.finditer(r"^\\s*(?:Object|ChildObject|ObjectReskin)\\s+([A-Za-z0-9_]+)",
+            for m in re.finditer(r"^\s*(?:Object|ChildObject|ObjectReskin)\s+([A-Za-z0-9_]+)",
                                  source, flags=re.M | re.I):
                 available.add(m.group(1).lower())
     return available
