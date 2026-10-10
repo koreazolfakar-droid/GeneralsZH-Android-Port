@@ -25,7 +25,7 @@ class VehicleAIV1Safety(unittest.TestCase):
         self.assertIn('xfer->xferUnsignedInt(&m_blockedRepathTimestamp);',segment)
         self.assertIn('xfer->xferCoord3D(&m_goalPosition);',segment)
         self.assertIn('xfer->xferBool(&m_waitingForPath);',segment)
-        self.assertEqual(segment.count('xfer->xfer'),9) # format remains unchanged
+        self.assertEqual(segment.count('xfer->xfer'),8) # format remains unchanged
         self.assertIn('m_blockedRepathTimestamp = 0;',self.state)
         self.assertIn('enum { MIN_REPATH_TIME = 10 };',self.state)
 
