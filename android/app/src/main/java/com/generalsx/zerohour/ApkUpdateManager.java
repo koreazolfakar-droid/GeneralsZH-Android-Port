@@ -123,8 +123,12 @@ final class ApkUpdateManager {
             if (!trustedDownloadUrl(url) || !digest.startsWith("sha256:") ||
                     !SHA256.matcher(digest.substring(7)).matches() ||
                     size <= 0 || size > MAX_APK_BYTES) continue;
-            // The metadata is public; the installation signature is checked after download.
-            return new Release(tag, url, digest.substring(7), size);
+            // Keep the display short even when a release tag includes a descriptive suffix.
+            Matcher version = VERSION.matcher(tag);
+            if (!version.matches()) return null;
+            String displayVersion = "v" + version.group(1) + "." + version.group(2)
+                + "." + version.group(3);
+            return new Release(displayVersion, url, digest.substring(7), size);
         }
         return null;
     }
@@ -165,6 +169,7 @@ final class ApkUpdateManager {
                 if (offset > 0 && status == HttpURLConnection.HTTP_OK) {
                     offset = 0; // Server refused Range: safely start a fresh file.
                 } else if (offset > 0 && (status != HttpURLConnection.HTTP_PARTIAL ||
+                        conn.getHeaderField("Content-Range") == null ||
                         !conn.getHeaderField("Content-Range").startsWith("bytes " + offset + "-"))) {
                     throw new IOException("Invalid resumed download response");
                 } else if (offset == 0 && status != HttpURLConnection.HTTP_OK) {
