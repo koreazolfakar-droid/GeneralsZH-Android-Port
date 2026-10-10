@@ -20,7 +20,7 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_PARENT: 045996786287721daf09c8fb86808a0e85b7fd7d
+      EXPECTED_PARENT: e2b38a90e17895c5e16cfaed37c8942261951df4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/dev/mobile-v4"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish Android mod command paging [publish-engine-once]'
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): retry Android mod paging after verified PCH fix [publish-engine-once]'
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
           sequence="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
