@@ -1,0 +1,62 @@
+name: QA Guard Android incremental build (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths:
+      - .github/workflows/qa-guard-engine-incremental-once.yml
+permissions:
+  contents: read
+  actions: write
+jobs:
+  verify-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    concurrency:
+      group: guard-mobile-engine-qa-once
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: 86bbaad993a670c87ab91384b775cbf23fa16c8a
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify single exact request and run source guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = 'ci(qa): verify visible mobile Guard native build with retained caches'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          python3 scripts/qa/test-mobile-command-overflow.py
+      - name: Dispatch only cached incremental native engine 30 and 60Hz
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+          for ((n=1;n<=120;n++)); do
+            run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $previous and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Guard native build $run_id: $result"
+              if [[ "$result" == "completed success" ]]; then
+                echo "PASS: both native engine variants built incrementally; NO UPDATE PUBLISHED"
+                exit 0
+              fi
+              if [[ "$result" == completed* ]]; then
+                echo "::error::Native engine build failed ($result); publication prohibited"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Timed out; publication prohibited"
+          exit 1
