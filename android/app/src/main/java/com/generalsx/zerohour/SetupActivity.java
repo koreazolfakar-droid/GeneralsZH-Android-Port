@@ -134,7 +134,6 @@ public class SetupActivity extends Activity {
     // APK-level updates are separate from UpdateManager's engine-only update channel.
     private TextView apkUpdateBanner;
     private static ApkUpdateManager.Release sAvailableApk;
-    private static boolean sApkCheckedThisProcess;
     private boolean apkCheckRunning;
     private boolean apkDownloadRunning;
     private File pendingApkInstall;
@@ -265,8 +264,7 @@ public class SetupActivity extends Activity {
             waitingForUnknownSources = false;
             launchApkInstaller();
         }
-        if (!sApkCheckedThisProcess && ApkUpdateManager.isAutoCheckEnabled(this)) {
-            sApkCheckedThisProcess = true;
+        if (ApkUpdateManager.shouldAutoCheck(this, System.currentTimeMillis())) {
             checkApkUpdate(false);
         }
         // Once per process, not on every return to this screen.
@@ -649,6 +647,7 @@ public class SetupActivity extends Activity {
     private void checkApkUpdate(boolean userAsked) {
         if (apkCheckRunning) return;
         apkCheckRunning = true;
+        ApkUpdateManager.noteCheckAttempt(this, System.currentTimeMillis());
         new Thread(() -> {
             ApkUpdateManager.Release found = null;
             String error = null;
@@ -785,8 +784,12 @@ public class SetupActivity extends Activity {
             getString(R.string.launcher_apk_auto_check),
             getString(R.string.launcher_apk_auto_check_desc));
         apkAuto.setChecked(ApkUpdateManager.isAutoCheckEnabled(this));
-        apkAuto.setOnCheckedChangeListener((button, checked) ->
-            ApkUpdateManager.setAutoCheckEnabled(this, checked));
+        apkAuto.setOnCheckedChangeListener((button, checked) -> {
+            ApkUpdateManager.setAutoCheckEnabled(this, checked);
+            if (checked && ApkUpdateManager.shouldAutoCheck(this, System.currentTimeMillis())) {
+                checkApkUpdate(false);
+            }
+        });
         refreshUpdatesStatus();
     }
 
