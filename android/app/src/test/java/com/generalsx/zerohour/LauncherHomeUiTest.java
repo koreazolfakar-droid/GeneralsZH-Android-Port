@@ -228,6 +228,16 @@ public class LauncherHomeUiTest {
         render.invoke(activity);
         assertEquals(View.VISIBLE, banner.getVisibility());
         assertTrue(banner.getText().toString().contains("1.4.8"));
+        File stagedApk = temp.newFile("validated-update.apk");
+        Field staged = SetupActivity.class.getDeclaredField("pendingApkInstall");
+        staged.setAccessible(true);
+        staged.set(activity, stagedApk);
+        render.invoke(activity);
+        assertEquals(activity.getString(R.string.launcher_apk_update_install),
+            banner.getText().toString());
+        staged.set(activity, null);
+        render.invoke(activity);
+        assertTrue(banner.getText().toString().contains("1.4.8"));
         ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_GRAPHICS);
         assertEquals(View.VISIBLE, banner.getVisibility());
         assertEquals(View.GONE, ((LinearLayout)field("homeUpdateDetails")) == null
