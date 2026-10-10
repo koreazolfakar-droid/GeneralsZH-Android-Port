@@ -1696,7 +1696,8 @@ void WeaponStore::handleProjectileDetonation(const WeaponTemplate* wt, const Obj
 {
 	// Reveal before firing the detonation weapon: FXList suppresses impact effects
 	// in shrouded cells, and MissileAIUpdate reaches this shared entry point.
-	revealProjectileImpactShroud(source, wt);
+	if (inflictDamage)
+		revealProjectileImpactShroud(source, wt);
 	Weapon* w = allocateNewWeapon(wt, PRIMARY_WEAPON);
 	w->loadAmmoNow(source);
 	w->fireProjectileDetonationWeapon( source, pos, extraBonusFlags, inflictDamage );
