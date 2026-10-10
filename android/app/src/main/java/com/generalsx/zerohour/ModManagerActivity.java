@@ -56,6 +56,8 @@ public class ModManagerActivity extends Activity {
 
     private boolean importRunning;
     private AlertDialog importProgress;
+    private AlertDialog detailsDialog;
+    private int detailsGeneration;
     private ModImportService.CancellationSignal importCancellation;
     private Thread importThread;
 
@@ -137,6 +139,11 @@ public class ModManagerActivity extends Activity {
             importProgress = null;
         }
         scanGeneration++;
+        detailsGeneration++;
+        if (detailsDialog != null) {
+            detailsDialog.dismiss();
+            detailsDialog = null;
+        }
         libraryWorker.shutdownNow();
         super.onDestroy();
     }
@@ -415,8 +422,104 @@ public class ModManagerActivity extends Activity {
             R.drawable.ic_gzh_play, true, () -> selectMod(entry.file, true));
         MaterialButton activate = action(actions, R.string.mods_activate_button,
             R.drawable.ic_gzh_refresh, false, () -> selectMod(entry.file, false));
+        MaterialButton details = action(actions, R.string.mods_details_button,
+            R.drawable.ic_gzh_info, false, () -> showModDetails(entry));
         launch.setEnabled(enabled);
         activate.setEnabled(enabled && !active);
+        details.setEnabled(enabled);
+    }
+
+    /**
+     * GeneralsX @feature 10/10/2026 Read-only Mod Health Check.
+     * UI delegates to the existing worker; all file and BIG index reads stay off
+     * the main thread. This is not a gameplay/rendering validation result.
+     */
+    private void showModDetails(Entry entry) {
+        if (entry == null || snapshot == null || !snapshot.storageReady || importRunning || actionRunning) return;
+        File root = snapshot.root;
+        if (!ModLibraryInfo.isManagedEntry(root, entry.file)) return;
+        ++detailsGeneration;
+        final int generation = detailsGeneration;
+        if (detailsDialog != null) detailsDialog.dismiss();
+
+        LinearLayout body = column();
+        body.setPadding(dp(16), dp(14), dp(16), dp(12));
+        TextView name = text(body, entry.file.getName(), 18, textColor(), true);
+        name.setMaxLines(3);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        text(body, getString(entry.directory ? R.string.mods_type_folder : R.string.mods_type_big)
+                + " • " + sizeLabel(entry.bytes), 12, muted(), false);
+        TextView scan = text(body, getString(R.string.mods_health_scanning), 14, muted(), false);
+        scan.setPadding(0, dp(14), 0, 0);
+        scan.setMaxLines(20);
+        scan.setEllipsize(null);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(body, new android.widget.ScrollView.LayoutParams(-1, -2));
+        detailsDialog = new AlertDialog.Builder(this)
+            .setTitle(R.string.mods_details_title)
+            .setView(scroll)
+            .setPositiveButton(android.R.string.ok, null)
+            .create();
+        detailsDialog.setOnDismissListener(d -> {
+            // Old scan results cannot repaint a dismissed or replaced details dialog.
+            if (generation == detailsGeneration) {
+                ++detailsGeneration;
+                detailsDialog = null;
+            }
+        });
+        detailsDialog.show();
+
+        libraryWorker.execute(() -> {
+            // Verify again on the worker. A symlink or file-manager replacement must
+            // never make the scanner inspect a path outside the managed Mods root.
+            final ModHealthCheck.Result report = ModLibraryInfo.isManagedEntry(root, entry.file)
+                ? ModHealthCheck.scan(entry.file) : null;
+            runOnUiThread(() -> {
+                if (generation != detailsGeneration || isFinishing() || isDestroyed()
+                        || detailsDialog == null || !detailsDialog.isShowing()) return;
+                if (report == null) {
+                    scan.setText(R.string.mods_health_unavailable);
+                    return;
+                }
+                final StringBuilder summary = new StringBuilder();
+                if (report.invalidArchives > 0 || report.unreadable > 0 || report.symlinks > 0) {
+                    summary.append(getString(R.string.mods_health_warning));
+                } else if (report.truncated || report.cancelled) {
+                    summary.append(getString(R.string.mods_health_incomplete));
+                } else if (report.archives == 0) {
+                    summary.append(getString(R.string.mods_health_no_big));
+                } else {
+                    summary.append(getString(R.string.mods_health_structural_ok));
+                }
+                summary.append("\\n\\n").append(getString(R.string.mods_health_big_count, report.archives));
+                summary.append("\\n").append(getString(R.string.mods_health_valid_count, report.validArchives));
+                summary.append("\\n").append(getString(R.string.mods_health_invalid_count, report.invalidArchives));
+                summary.append("\\n").append(getString(R.string.mods_health_entry_count, report.archivedEntries));
+                summary.append("\\n").append(getString(R.string.mods_health_loose_count, report.looseFiles));
+                summary.append("\\n").append(getString(R.string.mods_health_nested_count, report.nestedArchives));
+                summary.append("\\n").append(getString(R.string.mods_health_data_folder,
+                    report.dataFolder ? getString(R.string.mods_health_present) : getString(R.string.mods_health_absent)));
+                summary.append("\\n").append(getString(R.string.mods_health_window_folder,
+                    report.windowFolder ? getString(R.string.mods_health_present) : getString(R.string.mods_health_absent)));
+                if (report.symlinks > 0 || report.unreadable > 0) {
+                    summary.append("\\n").append(getString(R.string.mods_health_fs_issues,
+                        report.symlinks, report.unreadable));
+                }
+                if (report.nestedArchives > 0) {
+                    summary.append("\\n\\n").append(getString(R.string.mods_health_nested_warning));
+                }
+                if (!report.issues().isEmpty()) {
+                    summary.append("\\n\\n").append(getString(R.string.mods_health_invalid_files));
+                    for (String path : report.issues()) {
+                        summary.append("\\n• ").append(path);
+                    }
+                }
+                summary.append("\\n\\n").append(getString(R.string.mods_health_disclaimer));
+                scan.setText(summary.toString());
+            });
+        });
     }
 
     private void selectMod(File mod, boolean launch) {
