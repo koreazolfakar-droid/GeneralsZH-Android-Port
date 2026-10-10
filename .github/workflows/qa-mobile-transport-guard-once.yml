@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 8
       - name: Run focused Android high-slot and passenger inventory fixture tests
         run: python3 scripts/qa/test-mobile-command-overflow.py
       - name: Compile-check test driver and reject edits to native simulation
@@ -21,7 +23,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import subprocess
-          paths=subprocess.check_output(['git','diff','--name-only','HEAD~3','HEAD'],text=True).splitlines()
+          paths=subprocess.check_output(['git','diff','--name-only','HEAD~4','HEAD'],text=True).splitlines()
           approved=['Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp',
                     'scripts/qa/test-mobile-command-overflow.py',
                     '.github/workflows/qa-mobile-transport-guard-once.yml']
