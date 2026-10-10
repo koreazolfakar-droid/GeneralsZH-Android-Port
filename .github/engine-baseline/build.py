@@ -130,7 +130,12 @@ def build(directory, targets, phase):
     planned_compiles = sum('Building CXX object' in line or 'Building C object' in line for line in plan.splitlines())
     assert planned_compiles <= CONFIG['max_compile_requests_per_variant'], 'INCREMENTAL REUSE GUARD: excessive compile plan '+str(planned_compiles)
     assert not re.search(r'(Performing (build|configure).*dxvk|meson setup|Building.*ANGLE)',plan,re.I)
-    run(['cmake','--build',directory,'--target',*targets,'--parallel','2'], 'build-' + phase, phase)
+    # Every affected translation unit loads the retained PCH and can request
+    # SHA-verified restoration of the same NDK header mtimes. Running two
+    # compiler wrappers at once can change these shared mtimes while another
+    # Clang instance is parsing headers (observed fcntl.h duplicate definitions).
+    # Serialize only the small, guard-limited engine target; never disable PCH.
+    run(['cmake','--build',directory,'--target',*targets,'--parallel','1'], 'build-' + phase, phase)
 # All runtime outputs are mandatory: never configure/build a missing dependency.
 runtime_outputs = [common/'_deps/sdl3-build/libSDL3.so',common/'_deps/sdl3_image-build/libSDL3_image.so',
                    common/'_deps/openal_soft-build/libopenal.so',common/'libgamespy.so']
