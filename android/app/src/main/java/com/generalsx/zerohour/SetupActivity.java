@@ -641,7 +641,9 @@ public class SetupActivity extends Activity {
         }
         apkUpdateBanner.setText(apkUpdateError != null
             ? getString(R.string.launcher_apk_update_retry)
-            : getString(R.string.launcher_apk_update_now, release.version));
+            : pendingApkInstall != null && pendingApkInstall.isFile()
+                ? getString(R.string.launcher_apk_update_install)
+                : getString(R.string.launcher_apk_update_now, release.version));
     }
 
     private void checkApkUpdate(boolean userAsked) {
@@ -682,6 +684,11 @@ public class SetupActivity extends Activity {
     private void startApkDownload() {
         final ApkUpdateManager.Release release = sAvailableApk;
         if (release == null || apkDownloadRunning) return;
+        if (pendingApkInstall != null && pendingApkInstall.isFile()) {
+            launchApkInstaller();
+            return;
+        }
+        pendingApkInstall = null;
         apkDownloadRunning = true;
         apkUpdateError = null;
         apkUpdateBanner.setEnabled(false);
@@ -729,9 +736,13 @@ public class SetupActivity extends Activity {
                     Uri.parse("package:" + getPackageName())));
                 return;
             }
-            ApkUpdateManager.verifyArchive(this, pendingApkInstall);
+            ApkUpdateManager.verifyArchive(this, pendingApkInstall, sAvailableApk == null
+                ? null : sAvailableApk.version);
+            waitingForUnknownSources = false;
             startActivity(ApkUpdateManager.installIntent(this, pendingApkInstall));
         } catch (Exception failure) {
+            pendingApkInstall = null;
+            waitingForUnknownSources = false;
             apkUpdateError = failure.getMessage();
             renderApkUpdateBanner();
             Toast.makeText(this, getString(R.string.launcher_apk_update_failed,
