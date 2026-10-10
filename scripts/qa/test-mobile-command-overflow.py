@@ -25,7 +25,74 @@ def pages(occupied, script_only=()):
     return [set(range(1, 14)), set(range(13, 19))]
 
 
+
+
+def compact_visible_commands(occupied, script_only=(), physical_windows=range(1, 13)):
+    """Model the source's safe, all-or-nothing high-command promotion."""
+    scripts = set(script_only)
+    mapping = {slot: slot for slot in range(1, 19)}
+    moved = 0
+    for source in range(13, 19):
+        if source not in occupied or source in scripts:
+            continue
+        vacant = next((slot for slot in physical_windows
+                       if slot in mapping and slot not in occupied and mapping[slot] == slot), None)
+        if vacant is None:
+            return None
+        mapping[vacant] = source
+        moved += 1
+    return mapping if moved else None
+
+
 class MobileCommandOverflowTests(unittest.TestCase):
+    def test_stock_and_project_x_guard_available_without_page_arrow(self):
+        # From the user-provided Project X CommandSet.ini.
+        fixtures = {
+            "GenericCommandSet": ({16: "AttackMove", 17: "Guard", 18: "Stop"}, 2),
+            "AntiAirGenericCommandSet": ({15: "AttackMove", 16: "GuardFlyingUnitsOnly",
+                                          17: "Guard", 18: "Stop"}, 3),
+            "GenericGroundAttackCommandSet": ({1: "GroundAttack", 15: "AttackMove",
+                                                17: "Guard", 18: "Stop"}, 3),
+        }
+        for name, (controls, guard_position) in fixtures.items():
+            with self.subTest(name=name):
+                mapping = compact_visible_commands(controls)
+                self.assertIsNotNone(mapping)
+                visible = {physical: controls[logical] for physical, logical
+                           in mapping.items() if physical <= 12 and logical in controls}
+                self.assertEqual(visible[guard_position], "Guard")
+                self.assertTrue(set(controls.values()).issubset(set(visible.values())))
+                self.assertTrue(1 <= guard_position <= 6)
+
+    def test_full_russian_factories_fall_back_to_verified_3402_page(self):
+        # The working 3402 construction menus must NEVER lose a command.
+        full_factory = set(range(1, 10)) | {13, 14, 15, 17, 18}
+        heavy_factory = set(range(1, 10)) | {12, 13, 14, 15, 16, 17, 18}
+        for slots in (full_factory, heavy_factory):
+            with self.subTest(slots=sorted(slots)):
+                self.assertIsNone(compact_visible_commands(slots))
+                self.assertTrue(slots.issubset(set().union(*pages(slots))))
+
+    def test_sparse_high_slot_remapping_is_atomic(self):
+        full_first_twelve = set(range(1, 13))
+        self.assertIsNone(compact_visible_commands(full_first_twelve | {17, 18}))
+        self.assertIsNone(compact_visible_commands({1, 2}))
+        self.assertEqual(compact_visible_commands({16, 17, 18}, script_only={16})[1], 17)
+        # Commands may occupy a physical window even when the underlying INI slot is empty.
+        src = COMMAND.read_text()
+        self.assertIn("slotTaken || !win->winIsHidden()", src)
+        self.assertIn("compactCommandIndices[ physical ] == physical", src)
+
+    def test_mobile_promotion_preserves_native_action_validation(self):
+        src = COMMAND.read_text()
+        self.assertIn("commandIndex = compactCommandIndices[ i ];", src)
+        self.assertIn("commandButton = commandSet->getCommandButton(commandIndex);", src)
+        self.assertIn("!isBuilderCommandSet( commandSet )", src)
+        self.assertIn("obj->getContain()->isDisplayedOnControlBar()", src)
+        self.assertIn("compactPossible && hasCompactCommands", src)
+        self.assertIn("if( !compactCommandBar && m_touchBuilderMoreButton", src)
+        self.assertIn("if( BitIsSet( commandButton->getOptions(), NEED_SPECIAL_POWER_SCIENCE ) )", src)
+
     def test_engine_retains_all_18_command_slots(self):
         self.assertRegex(HEADER.read_text(), r"MAX_COMMANDS_PER_SET\s*=\s*18")
 
