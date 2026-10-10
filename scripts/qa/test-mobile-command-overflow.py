@@ -27,7 +27,7 @@ def pages(occupied, script_only=()):
 
 class MobileCommandOverflowTests(unittest.TestCase):
     def test_engine_retains_all_18_command_slots(self):
-        self.assertRegex(HEADER.read_text(), r"MAX_COMMANDS_PER_SET\\s*=\\s*18")
+        self.assertRegex(HEADER.read_text(), r"MAX_COMMANDS_PER_SET\s*=\s*18")
 
     def test_modified_ui_reuses_existing_validity_checks(self):
         source = COMMAND.read_text()
