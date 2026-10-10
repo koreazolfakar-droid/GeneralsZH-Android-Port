@@ -34,4 +34,8 @@ public:
 
 	static void parseCommandLineForStartup();
 	static void parseCommandLineForEngineInit();
+#if defined(__ANDROID__)
+	// Parse only -mod after file systems exist, before initial GameData INI is loaded.
+	static void parseModForEarlyArchiveInit();
+#endif
 };
