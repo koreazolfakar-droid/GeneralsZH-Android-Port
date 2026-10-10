@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">正在验证 %1$s…</string>
     <string name="setup_updates_installing">正在安装已验证的引擎更新…</string>
     <string name="setup_updates_retry">重试</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">外观</string>
+    <string name="setup_appearance_system">跟随系统</string>
+    <string name="setup_appearance_light">日间</string>
+    <string name="setup_appearance_dark">夜间</string>
+    <string name="setup_appearance_help">只更改应用界面。跟随系统会使用手机设置；日间和夜间选择会保存。游戏画面不会改变。</string>
 </resources>

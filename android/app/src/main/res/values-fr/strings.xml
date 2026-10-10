@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">Vérification de %1$s…</string>
     <string name="setup_updates_installing">Installation de la mise à jour du moteur vérifiée…</string>
     <string name="setup_updates_retry">Réessayer</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">Apparence</string>
+    <string name="setup_appearance_system">Système</string>
+    <string name="setup_appearance_light">Jour</string>
+    <string name="setup_appearance_dark">Nuit</string>
+    <string name="setup_appearance_help">Modifie uniquement l\'interface. Système suit le téléphone ; Jour et Nuit restent enregistrés. Les graphismes du jeu ne changent pas.</string>
 </resources>

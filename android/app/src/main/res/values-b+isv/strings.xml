@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">Prověrja se %1$s…</string>
     <string name="setup_updates_installing">Instaluje se prověrjeno obnovjenje…</string>
     <string name="setup_updates_retry">Ponoviti</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">Vygled</string>
+    <string name="setup_appearance_system">Sistem</string>
+    <string name="setup_appearance_light">Denj</string>
+    <string name="setup_appearance_dark">Noč</string>
+    <string name="setup_appearance_help">Měnja se samo vygled aplikacije. Sistem slěduje telefon; Denj i Noč sohraněni. Grafika igry ne měnja se.</string>
 </resources>

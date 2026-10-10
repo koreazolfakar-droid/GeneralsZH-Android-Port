@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">%1$s 검증 중…</string>
     <string name="setup_updates_installing">검증된 엔진 업데이트 설치 중…</string>
     <string name="setup_updates_retry">다시 시도</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">화면 테마</string>
+    <string name="setup_appearance_system">시스템</string>
+    <string name="setup_appearance_light">낮</string>
+    <string name="setup_appearance_dark">밤</string>
+    <string name="setup_appearance_help">앱 화면만 변경합니다. 시스템은 휴대폰 설정을 따르고 낮과 밤 설정은 저장됩니다. 게임 그래픽은 변경되지 않습니다.</string>
 </resources>

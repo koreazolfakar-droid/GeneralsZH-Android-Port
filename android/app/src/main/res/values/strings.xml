@@ -449,4 +449,10 @@
     <string name="setup_updates_verify_file">Verifying %1$s…</string>
     <string name="setup_updates_installing">Installing verified engine update…</string>
     <string name="setup_updates_retry">Retry update</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">Appearance</string>
+    <string name="setup_appearance_system">System</string>
+    <string name="setup_appearance_light">Day</string>
+    <string name="setup_appearance_dark">Night</string>
+    <string name="setup_appearance_help">Change only the app interface. System follows your phone; Day and Night stay selected across launches. Game graphics are unchanged.</string>
 </resources>

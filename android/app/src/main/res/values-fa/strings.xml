@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">در حال تأیید %1$s…</string>
     <string name="setup_updates_installing">در حال نصب به‌روزرسانی تأییدشده موتور…</string>
     <string name="setup_updates_retry">تلاش دوباره</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">ظاهر برنامه</string>
+    <string name="setup_appearance_system">سیستم</string>
+    <string name="setup_appearance_light">روز</string>
+    <string name="setup_appearance_dark">شب</string>
+    <string name="setup_appearance_help">فقط ظاهر برنامه تغییر می‌کند. حالت سیستم از تنظیمات گوشی پیروی می‌کند و روز و شب ذخیره می‌شوند. گرافیک بازی تغییر نمی‌کند.</string>
 </resources>

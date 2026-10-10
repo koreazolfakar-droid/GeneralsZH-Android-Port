@@ -398,4 +398,10 @@
     <string name="setup_updates_verify_file">%1$s wird geprüft…</string>
     <string name="setup_updates_installing">Verifiziertes Engine-Update wird installiert…</string>
     <string name="setup_updates_retry">Erneut versuchen</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">Darstellung</string>
+    <string name="setup_appearance_system">System</string>
+    <string name="setup_appearance_light">Tag</string>
+    <string name="setup_appearance_dark">Nacht</string>
+    <string name="setup_appearance_help">Ändert nur die App-Oberfläche. System folgt dem Gerät; Tag und Nacht bleiben gespeichert. Die Spielgrafik bleibt unverändert.</string>
 </resources>

@@ -442,4 +442,10 @@
     <string name="setup_updates_verify_file">جارٍ التحقق من %1$s…</string>
     <string name="setup_updates_installing">جارٍ تثبيت تحديث المحرك المُتحقّق منه…</string>
     <string name="setup_updates_retry">إعادة المحاولة</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">مظهر التطبيق</string>
+    <string name="setup_appearance_system">تلقائي</string>
+    <string name="setup_appearance_light">نهاري</string>
+    <string name="setup_appearance_dark">ليلي</string>
+    <string name="setup_appearance_help">يغيّر ألوان واجهة التطبيق فقط. التلقائي يتبع إعداد الهاتف، والنهاري والليلي ينحفظان عند إعادة فتح التطبيق. رسومات اللعبة لا تتغيّر.</string>
 </resources>

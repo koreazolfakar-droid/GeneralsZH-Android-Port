@@ -400,4 +400,10 @@
     <string name="setup_updates_verify_file">Проверка %1$s…</string>
     <string name="setup_updates_installing">Установка проверенного обновления движка…</string>
     <string name="setup_updates_retry">Повторить</string>
+    <!-- GeneralsX @feature 10/10/2026 UI-only appearance settings. -->
+    <string name="setup_appearance_title">Оформление</string>
+    <string name="setup_appearance_system">Система</string>
+    <string name="setup_appearance_light">День</string>
+    <string name="setup_appearance_dark">Ночь</string>
+    <string name="setup_appearance_help">Меняется только оформление приложения. Система следует настройке телефона; День и Ночь сохраняются. Графика игры не меняется.</string>
 </resources>
