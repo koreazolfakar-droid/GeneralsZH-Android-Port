@@ -1510,6 +1510,20 @@ void createGlobalData()
 		TheWritableGlobalData = NEW GlobalData;
 }
 
+#if defined(__ANDROID__)
+// The normal engine-init argument pass runs after GlobalData/GameData.ini is
+// initialized. On Android, a standalone -mod must be in the archive tree
+// before that first INI read, just like the same BIGs copied to the game root.
+// Reuse parseMod() and the standard parser; do not apply other engine flags
+// early or mark the full engine-init command-line pass as complete.
+void CommandLine::parseModForEarlyArchiveInit()
+{
+	createGlobalData();
+	const CommandLineParam earlyModParams[] = { { "-mod", parseMod } };
+	parseCommandLine(earlyModParams, ARRAY_SIZE(earlyModParams));
+}
+#endif
+
 void CommandLine::parseCommandLineForStartup()
 {
 	// We need the GlobalData initialized before parsing the command line.
