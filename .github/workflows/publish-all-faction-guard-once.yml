@@ -1,0 +1,166 @@
+# Source-pinned, one-time Android engine update. No APK rebuild, no clean/cache deletion.
+# Runner waits for verified native build before touching signed updates branch.
+name: Publish all-faction Guard/Stop update (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-all-faction-guard-once.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_PARENT: dbbe94cd9780d0fb329ebffdf6a99d541989469e
+      EXPECTED_BUILD_SOURCE: dbbe94cd9780d0fb329ebffdf6a99d541989469e
+      EXPECTED_BUILD_RUN: '38086654942'
+      MIN_PUBLISHED_SEQ: '3411'
+      EXPECTED_OLD_SOURCE: '79f5f8b09d80c850567e06dd45fcd929a7ec03c4'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify exact one-time publication request and previous signed engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): sign verified all-faction Guard Stop engine from cached build'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq '.content' | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
+          assert m['engine']['seq']==3411 and m['serial']==9
+          assert m['engine']['source_commit']==os.environ['EXPECTED_OLD_SOURCE']
+          print('PASS: previous signed engine 3411 and manifest serial 9 verified')
+          PY
+      - name: Wait for successful exact-source existing incremental native 30/60Hz build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ((n=1;n<=150;n++)); do
+            metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_BUILD_RUN" --jq \
+              '[(.id | tostring), .status, (.conclusion // "pending"), .head_sha, .path, .head_repository.full_name] | join("|")')"
+            echo "Guard native build: $metadata"
+            case "$metadata" in
+              "$EXPECTED_BUILD_RUN|completed|success|$EXPECTED_BUILD_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY")
+                echo "PASS: both engines built against immutable source"
+                exit 0 ;;
+              "$EXPECTED_BUILD_RUN|completed|"*)
+                echo "::error::Native build did not succeed, refusing publication"
+                exit 1 ;;
+            esac
+            if (( n == 150 )); then echo "::error::Native build timed out"; exit 1; fi
+            sleep 20
+          done
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.EXPECTED_BUILD_SOURCE }}
+          path: engine-source
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Confirm immutable source, all-armies QA and engine version
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BUILD_SOURCE"
+          version="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
+          test "$version" -gt "$MIN_PUBLISHED_SEQ"
+          echo "EXPECTED_BUILD_SEQ=$version" >> "$GITHUB_ENV"
+          python3 scripts/qa/test-mobile-command-overflow.py
+          python3 scripts/qa/test-mobile-all-faction-order-pages.py
+          echo "PASS: source-pinned all-faction command UI QA, engine $version"
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 38086654942
+          github-token: ${{ github.token }}
+          path: engine-source/engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: engine-source/bootstrap-baseline
+      - name: Verify exact 30/60Hz engine hashes and unchanged APK runtime dependencies
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$EXPECTED_BUILD_SOURCE" \
+            --out prepared-update \
+            --note 'Android Guard/Stop/Attack Move visibility improvements across America, China, GLA, Russia and Europe, including passenger carriers and shared multi-selection; full passenger-only WarFortress page remains limited by physical HUD space. Gameplay, save, network and mod archives unchanged. Device validation required.'
+          python3 - <<'PY'
+          import json,os
+          m=json.load(open('prepared-update/manifest.json'))
+          assert m['engine']['seq']==int(os.environ['EXPECTED_BUILD_SEQ'])
+          assert m['engine']['source_commit']==os.environ['EXPECTED_BUILD_SOURCE']
+          assert m['serial']>9
+          assert {'libmain.so','libmain60.so'} <= set(m['engine']['files'])
+          print('PASS: both prepared engine variants and increased serial',m['serial'])
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: all-faction-guard-prepared-engine-update
+          path: engine-source/prepared-update/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Sign and verify exact manifest, trust root, and native engine binaries
+        working-directory: engine-source
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish signed update to existing in-app updater channel
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify published signed manifest and both downloadable 30/60Hz engine binaries
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,gzip,hashlib,importlib.util,json,os,pathlib,subprocess,urllib.request
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          repo=os.environ['GITHUB_REPOSITORY']
+          def api(path):return json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/'+path]))
+          head=api('git/ref/heads/updates')['object']['sha']
+          folder=pathlib.Path('published-verification');folder.mkdir()
+          for name in ('manifest.json','manifest.json.sig'):
+              (folder/name).write_bytes(base64.b64decode(api(f'contents/{name}?ref={head}')['content']))
+          m=a.verify_manifest(folder,'android/app/src/main/assets/update-public.pem')
+          version=int(os.environ['EXPECTED_BUILD_SEQ'])
+          assert m['engine']['seq']==version
+          assert m['engine']['source_commit']==os.environ['EXPECTED_BUILD_SOURCE']
+          assert m['serial']>9
+          assert {'libmain.so','libmain60.so'}<=set(m['engine']['files'])
+          for name in ('libmain.so','libmain60.so'):
+              row=m['engine']['files'][name]
+              url=row['url']
+              assert url.startswith('https://raw.githubusercontent.com/'+repo+'/updates/engine/'+str(version)+'/')
+              with urllib.request.urlopen(url,timeout=120) as response:
+                  payload=gzip.decompress(response.read())
+              assert len(payload)==row['size'] and hashlib.sha256(payload).hexdigest()==row['sha256']
+              a.native_stamp(payload,os.environ['EXPECTED_BUILD_SOURCE'],version)
+          print('PASS: published signed engine',version,'serial',m['serial'],'both downloadable binaries verified')
+          PY
