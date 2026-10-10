@@ -1,0 +1,41 @@
+name: Diagnose cached Android NDK headers (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/diagnose-ndk-header-once.yml]
+permissions:
+  contents: read
+jobs:
+  verify-header-cache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/cache/restore@v5
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-13114758-ndk27.2.12479018-p35-bt35
+          fail-on-cache-miss: true
+      - name: Capture NDK header fingerprints and metadata only (never alter cache)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,pathlib,os,datetime
+          ndk=pathlib.Path('/opt/android-sdk/ndk/27.2.12479018')
+          assert '27.2.12479018' in (ndk/'source.properties').read_text()
+          inc=ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include'
+          target=inc/'features.h'
+          assert target.is_file() and not target.is_symlink()
+          print('NDK_VERSION=',(ndk/'source.properties').read_text().strip())
+          print('FEATURES_SHA256=',hashlib.sha256(target.read_bytes()).hexdigest())
+          print('FEATURES_MTIME_NS=',target.stat().st_mtime_ns)
+          print('FEATURES_SIZE=',target.stat().st_size)
+          epoch=1791292742*1000000000
+          newer=sorted(((p.stat().st_mtime_ns,str(p.relative_to(inc))) for p in inc.rglob('*') if p.is_file() and p.stat().st_mtime_ns>epoch),reverse=True)
+          print('SYSROOT_HEADERS_NEWER_THAN_LEGACY_EPOCH=',len(newer))
+          print('NEWEST_SYSROOT_HEADERS=',newer[:30])
+          PY
