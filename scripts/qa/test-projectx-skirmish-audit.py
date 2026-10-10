@@ -53,7 +53,7 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(raw,fixture())
 
     def test_parse_big_with_real_nul_terminated_path_and_object_lines(self):
-        name=b"Data\\INI\\Object\\Tanks.ini\\0"
+        name=b"Data\\INI\\Object\\Tanks.ini\0"
         body=b"Object AmericaVehicleDozer\r\nEnd\r\n"
         start=16+8+len(name)
         data=b"BIGF"+struct.pack(">III",start+len(body),1,0)+struct.pack(">II",start,len(body))+name+body
