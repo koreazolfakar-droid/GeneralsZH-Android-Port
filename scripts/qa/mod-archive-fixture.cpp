@@ -28,6 +28,9 @@ using FileInstance = unsigned char;
 #define DEBUG_LOG(x) ((void)0)
 #define DEBUG_ASSERTLOG(value, message) assert(value)
 #define USE_PERF_TIMER(x)
+#define ENABLE_FILESYSTEM_EXISTENCE_CACHE 1
+using std::max;
+using std::min;
 
 class AsciiString {
     std::string value;
@@ -35,6 +38,7 @@ public:
     static const AsciiString TheEmptyString;
     AsciiString() = default;
     AsciiString(const char* text): value(text) {}
+    static AsciiString temporary(const char* text) { return AsciiString(text); }
     const char* str() const { return value.c_str(); }
     bool isEmpty() const { return value.empty(); }
     bool isNotEmpty() const { return !value.empty(); }
@@ -79,7 +83,8 @@ static uint32_t betoh(uint32_t n) { return __builtin_bswap32(n); }
 class File {
     FILE* handle;
 public:
-    enum { READ=1, BINARY=2, WRITE=4 };
+    enum { READ=1, BINARY=2, WRITE=4, CREATE=8 };
+    Int getAccess() const { return READ; }
     explicit File(FILE* fp):handle(fp) {}
     long size() { long pos=ftell(handle); fseek(handle,0,SEEK_END); long end=ftell(handle); fseek(handle,pos,SEEK_SET); return end; }
     int read(void* target,size_t size) { return static_cast<int>(fread(target,1,size,handle)); }
@@ -191,6 +196,7 @@ public:
     void loadMods();
     File* openFile(const Char*,Int,FileInstance=0);
     ArchiveFile* getArchiveFile(const AsciiString&,FileInstance=0) const;
+    Bool doesFileExist(const Char*,FileInstance=0) const;
     void getFileListInDirectory(const AsciiString&,const AsciiString&,const AsciiString&,FilenameList&,Bool) const;
 };
 class StdBIGFileSystem:public ArchiveFileSystem {
@@ -199,9 +205,20 @@ public:
     Bool loadBigFilesFromDirectory(AsciiString,AsciiString,Bool=FALSE) override;
 };
 static ArchiveFileSystem* TheArchiveFileSystem=nullptr;
+class FastCriticalSectionClass {
+public:
+    class LockClass { public: explicit LockClass(FastCriticalSectionClass&) {} };
+};
 class FileSystem {
+    struct FileExistData {
+        FileInstance instanceExists=0,instanceDoesNotExist=255;
+    };
+    using FileExistMap=std::map<AsciiString,FileExistData>;
+    mutable FileExistMap m_fileExist;
+    mutable FastCriticalSectionClass m_fileExistMutex;
 public:
     File* openFile(const Char*,Int=File::READ,size_t=0,FileInstance=0);
+    Bool doesFileExist(const Char*,FileInstance=0) const;
 };
 #include "production.inc"
 
@@ -229,6 +246,10 @@ int main(int argc,char** argv) {
         file->close(); return value;
     };
     assert(!vfs.openFile("Art/Textures/ShieldMissing.tga"));
+    assert(!vfs.doesFileExist("Art/Textures/ShieldProbeOnly.tga"));
+    assert(!vfs.doesFileExist("Art/Textures/ShieldProbeOnly.tga")); // Negative cache hit.
+    assert(vfs.doesFileExist("Art/Textures/Shield.tga"));
+    assert(vfs.doesFileExist("Art/Textures/Shield.tga")); // Positive cache hit.
     if(std::filesystem::exists("loose-shield.txt")) assert(payload("loose-shield.txt")=="loose");
     assert(!fs.getArchiveFile("Data/INI/InactiveOnly.ini"));
     assert(payload("Data/INI/SiblingOnly.ini")=="sibling");

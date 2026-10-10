@@ -49,11 +49,13 @@ def main():
                   "ArchiveFileSystem::~ArchiveFileSystem()", "void ArchiveFileSystem::loadIntoDirectoryTree(",
                   "void ArchiveFileSystem::loadMods()", "ArchiveFileSystem::ArchivedDirectoryInfoResult ArchiveFileSystem::getArchivedDirectoryInfo(",
                   "File * ArchiveFileSystem::openFile(", "ArchiveFile* ArchiveFileSystem::getArchiveFile(",
+                  "Bool ArchiveFileSystem::doesFileExist(",
                   "void ArchiveFileSystem::getFileListInDirectory("],
         "local": ["void StdLocalFileSystem::getFileListInDirectory("],
         "big": ["static bool isStandaloneModArchiveBelowRoot(", "ArchiveFile * StdBIGFileSystem::openArchiveFile(",
                 "Bool StdBIGFileSystem::loadBigFilesFromDirectory("],
-        "filesystem": ["static bool gxShouldTraceAsset(", "File*\t\tFileSystem::openFile("],
+        "filesystem": ["static bool gxShouldTraceAsset(", "static Bool gxTraceAssetProbe(",
+                       "File*\t\tFileSystem::openFile(", "Bool FileSystem::doesFileExist("],
     }
     implementation = []
     for key, signatures in definitions.items():
@@ -111,6 +113,7 @@ def main():
             if trace == "ART\\TEXTURES\\SHIELD" or (root / "gx_asset_trace.txt").exists():
                 assert "source=" + str(root / "Mods/Active/!A.BIG") + " result=OPEN" in result.stderr
                 assert "path=Art/Textures/ShieldMissing.tga instance=0 source=<none> result=UNRESOLVED" in result.stderr
+                assert "probe=Art/Textures/ShieldProbeOnly.tga instance=0 source=<none> result=UNRESOLVED" in result.stderr
                 assert "[gxasset] path=Art\\W3D\\Vehicle.w3d" not in result.stderr
             elif trace is None and not (root / "gx_asset_trace.txt").exists():
                 assert "[gxasset]" not in result.stderr

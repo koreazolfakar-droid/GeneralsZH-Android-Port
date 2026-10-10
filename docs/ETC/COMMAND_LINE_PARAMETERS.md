@@ -101,7 +101,8 @@ Command line parsing is implemented in:
 marker or `*` traces all requested files; a virtual-path substring such as
 `shield` or `art/w3d/` limits the trace (case and slash insensitive).
 Each line names the requested path, file instance, supplying BIG or `<loose>`,
-and `OPEN`, `READ_FAILED`, or `UNRESOLVED`. A missing request may be an optional
+and `OPEN`, `READ_FAILED`, or `UNRESOLVED`. Existence-only lookups use `probe=`
+and `FOUND`/`UNRESOLVED`, including cached results. A missing request may be an optional
 probe; compare it with the mod's INI/W3D reference before treating it as damage.
 The marker is read once per process. Remove it and restart to disable tracing.
 Normal mount summaries remain available as `[gxbig]` and `[gxmod-overlay]`.

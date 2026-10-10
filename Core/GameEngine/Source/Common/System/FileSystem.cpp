@@ -155,6 +155,21 @@ static bool gxShouldTraceAsset(const char* filename)
 	return path.find(filter) != std::string::npos;
 }
 
+// GeneralsX @feature Codex 10/10/2026 W3D/texture loaders can stop at an existence probe without opening a file.
+static Bool gxTraceAssetProbe(const char* filename, FileInstance instance, Bool exists)
+{
+	if (gxShouldTraceAsset(filename))
+	{
+		const Bool loose = TheLocalFileSystem != nullptr && TheLocalFileSystem->doesFileExist(filename);
+		ArchiveFile* archive = TheArchiveFileSystem != nullptr && (!loose || instance != 0)
+			? TheArchiveFileSystem->getArchiveFile(filename, loose ? instance - 1 : instance) : nullptr;
+		fprintf(stderr, "[gxasset] probe=%s instance=%u source=%s result=%s\n", filename,
+			(unsigned)instance, archive != nullptr ? archive->getName().str() : (loose && instance == 0 ? "<loose>" : "<none>"),
+			exists ? "FOUND" : "UNRESOLVED");
+	}
+	return exists;
+}
+
 
 //============================================================================
 // FileSystem::FileSystem
@@ -276,6 +291,7 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) const
 {
 	USE_PERF_TIMER(FileSystem)
+	const FileInstance requestedInstance = instance;
 
 #if ENABLE_FILESYSTEM_EXISTENCE_CACHE
 	{
@@ -285,9 +301,9 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 		{
 			// Must test instanceDoesNotExist first!
 			if (instance >= it->second.instanceDoesNotExist)
-				return FALSE;
+				return gxTraceAssetProbe(filename, requestedInstance, FALSE);
 			if (instance <= it->second.instanceExists)
-				return TRUE;
+				return gxTraceAssetProbe(filename, requestedInstance, TRUE);
 		}
 	}
 #endif
@@ -302,7 +318,7 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 				m_fileExist[filename];
 			}
 #endif
-			return TRUE;
+			return gxTraceAssetProbe(filename, requestedInstance, TRUE);
 		}
 
 		--instance;
@@ -317,7 +333,7 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 			value.instanceExists = max(value.instanceExists, instance);
 		}
 #endif
-		return TRUE;
+		return gxTraceAssetProbe(filename, requestedInstance, TRUE);
 	}
 
 #if ENABLE_FILESYSTEM_EXISTENCE_CACHE
@@ -327,7 +343,7 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 		value.instanceDoesNotExist = min(value.instanceDoesNotExist, instance);
 	}
 #endif
-	return FALSE;
+	return gxTraceAssetProbe(filename, requestedInstance, FALSE);
 }
 
 //============================================================================
