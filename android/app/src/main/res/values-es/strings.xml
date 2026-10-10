@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Algunos mods sustituyen el diseño de la barra de control. Si sus elementos se superponen, prueba primero 100 %. El cambio se aplica al iniciar el juego de nuevo.</string>
     <string name="setup_audio_check_ready">Se encontraron los archivos de audio necesarios. Si el juego sigue sin sonido, activa el registro de audio de abajo y reproduce el problema.</string>
     <string name="setup_audio_check_missing">Faltan archivos de audio necesarios: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Descargando %1$s (%2$d de %3$d)</string>
+    <string name="setup_updates_received_total">Recibidos %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Recibidos %1$s</string>
+    <string name="setup_updates_verify_file">Verificando %1$s…</string>
+    <string name="setup_updates_installing">Instalando actualización verificada del motor…</string>
+    <string name="setup_updates_retry">Reintentar</string>
 </resources>

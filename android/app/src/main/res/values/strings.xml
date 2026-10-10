@@ -442,4 +442,11 @@
     <string name="launcher_graphics_hint">Game settings</string>
     <string name="launcher_data_hint">Setup and files</string>
     <string name="launcher_tools_hint">Logs and diagnostics</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Downloading %1$s (%2$d of %3$d)</string>
+    <string name="setup_updates_received_total">Received %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Received %1$s</string>
+    <string name="setup_updates_verify_file">Verifying %1$s…</string>
+    <string name="setup_updates_installing">Installing verified engine update…</string>
+    <string name="setup_updates_retry">Retry update</string>
 </resources>

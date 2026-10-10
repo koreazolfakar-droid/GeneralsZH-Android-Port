@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Einige Mods ersetzen das Layout der Steuerleiste. Wenn Elemente überlappen, teste zuerst 100 %. Die Änderung gilt beim nächsten Spielstart.</string>
     <string name="setup_audio_check_ready">Erforderliche Audioarchive gefunden. Falls das Spiel stumm bleibt, aktiviere unten das Audioprotokoll und reproduziere das Problem.</string>
     <string name="setup_audio_check_missing">Erforderliche Audioarchive fehlen: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">%1$s wird heruntergeladen (%2$d von %3$d)</string>
+    <string name="setup_updates_received_total">Empfangen: %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Empfangen: %1$s</string>
+    <string name="setup_updates_verify_file">%1$s wird geprüft…</string>
+    <string name="setup_updates_installing">Verifiziertes Engine-Update wird installiert…</string>
+    <string name="setup_updates_retry">Erneut versuchen</string>
 </resources>

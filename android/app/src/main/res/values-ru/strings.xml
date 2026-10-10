@@ -393,4 +393,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Некоторые моды заменяют разметку панели управления. Если элементы перекрываются, сначала проверьте масштаб 100%. Изменение применяется при следующем запуске игры.</string>
     <string name="setup_audio_check_ready">Необходимые аудиоархивы найдены. Если в игре нет звука, включите журнал аудио ниже и воспроизведите проблему.</string>
     <string name="setup_audio_check_missing">Отсутствуют необходимые аудиоархивы: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Загрузка %1$s (%2$d из %3$d)</string>
+    <string name="setup_updates_received_total">Получено %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Получено %1$s</string>
+    <string name="setup_updates_verify_file">Проверка %1$s…</string>
+    <string name="setup_updates_installing">Установка проверенного обновления движка…</string>
+    <string name="setup_updates_retry">Повторить</string>
 </resources>

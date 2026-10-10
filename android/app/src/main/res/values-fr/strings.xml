@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Certains mods remplacent la disposition de la barre de contrôle. Si ses éléments se chevauchent, testez d’abord 100 %. Le changement s’applique au prochain lancement du jeu.</string>
     <string name="setup_audio_check_ready">Les archives audio requises sont présentes. Si le jeu reste muet, activez le journal audio ci-dessous et reproduisez le problème.</string>
     <string name="setup_audio_check_missing">Archives audio requises manquantes : %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Téléchargement de %1$s (%2$d sur %3$d)</string>
+    <string name="setup_updates_received_total">Reçus : %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Reçus : %1$s</string>
+    <string name="setup_updates_verify_file">Vérification de %1$s…</string>
+    <string name="setup_updates_installing">Installation de la mise à jour du moteur vérifiée…</string>
+    <string name="setup_updates_retry">Réessayer</string>
 </resources>

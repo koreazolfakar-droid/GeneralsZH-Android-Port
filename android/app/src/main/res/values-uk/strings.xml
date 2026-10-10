@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Деякі моди замінюють макет панелі керування. Якщо елементи перекриваються, спочатку перевірте масштаб 100%. Зміна застосовується під час наступного запуску гри.</string>
     <string name="setup_audio_check_ready">Потрібні аудіоархіви знайдено. Якщо у грі немає звуку, увімкніть журнал аудіо нижче та відтворіть проблему.</string>
     <string name="setup_audio_check_missing">Відсутні потрібні аудіоархіви: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Завантаження %1$s (%2$d із %3$d)</string>
+    <string name="setup_updates_received_total">Отримано %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Отримано %1$s</string>
+    <string name="setup_updates_verify_file">Перевірка %1$s…</string>
+    <string name="setup_updates_installing">Установлення перевіреного оновлення рушія…</string>
+    <string name="setup_updates_retry">Повторити</string>
 </resources>

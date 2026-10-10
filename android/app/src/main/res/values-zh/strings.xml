@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">部分模组会替换控制栏布局。如果元素重叠，请先测试 100%。更改将在下次启动游戏时生效。</string>
     <string name="setup_audio_check_ready">已找到所需音频档案。如果游戏仍然无声，请启用下方的音频日志并重现问题。</string>
     <string name="setup_audio_check_missing">缺少所需音频档案：%1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">正在下载 %1$s（%2$d/%3$d）</string>
+    <string name="setup_updates_received_total">已接收 %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">已接收 %1$s</string>
+    <string name="setup_updates_verify_file">正在验证 %1$s…</string>
+    <string name="setup_updates_installing">正在安装已验证的引擎更新…</string>
+    <string name="setup_updates_retry">重试</string>
 </resources>

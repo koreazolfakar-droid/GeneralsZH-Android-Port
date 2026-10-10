@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">برخی مادها چیدمان نوار کنترل را جایگزین می‌کنند. اگر عناصر روی هم افتادند، ابتدا ۱۰۰٪ را امتحان کنید. تغییر در اجرای بعدی بازی اعمال می‌شود.</string>
     <string name="setup_audio_check_ready">آرشیوهای صوتی لازم پیدا شدند. اگر بازی بی‌صداست، گزارش صدا را در پایین فعال و مشکل را تکرار کنید.</string>
     <string name="setup_audio_check_missing">آرشیوهای صوتی لازم موجود نیستند: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">در حال دریافت %1$s (فایل %2$d از %3$d)</string>
+    <string name="setup_updates_received_total">دریافت‌شده %1$s از %2$s</string>
+    <string name="setup_updates_received_unknown">دریافت‌شده %1$s</string>
+    <string name="setup_updates_verify_file">در حال تأیید %1$s…</string>
+    <string name="setup_updates_installing">در حال نصب به‌روزرسانی تأییدشده موتور…</string>
+    <string name="setup_updates_retry">تلاش دوباره</string>
 </resources>

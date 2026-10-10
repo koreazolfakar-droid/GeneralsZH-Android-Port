@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">일부 모드는 제어판 레이아웃을 교체합니다. 요소가 겹치면 먼저 100%로 시험하세요. 변경 사항은 다음 게임 실행부터 적용됩니다.</string>
     <string name="setup_audio_check_ready">필수 오디오 보관 파일을 찾았습니다. 게임에서 소리가 나지 않으면 아래의 오디오 로그를 켜고 문제를 재현하세요.</string>
     <string name="setup_audio_check_missing">필수 오디오 보관 파일 누락: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">%1$s 다운로드 중 (%2$d/%3$d)</string>
+    <string name="setup_updates_received_total">수신: %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">수신: %1$s</string>
+    <string name="setup_updates_verify_file">%1$s 검증 중…</string>
+    <string name="setup_updates_installing">검증된 엔진 업데이트 설치 중…</string>
+    <string name="setup_updates_retry">다시 시도</string>
 </resources>

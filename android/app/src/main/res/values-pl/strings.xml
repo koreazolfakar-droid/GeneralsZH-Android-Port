@@ -391,4 +391,11 @@
     <string name="setup_interface_scale_overlap_warning" formatted="false">Niektóre mody zastępują układ paska sterowania. Jeśli elementy się nakładają, najpierw sprawdź 100%. Zmiana zadziała przy następnym uruchomieniu gry.</string>
     <string name="setup_audio_check_ready">Znaleziono wymagane archiwa dźwięku. Jeśli gra jest cicha, włącz poniżej dziennik dźwięku i odtwórz problem.</string>
     <string name="setup_audio_check_missing">Brak wymaganych archiwów dźwięku: %1$s</string>
+    <!-- GeneralsX @feature ChatGPT 10/10/2026 Engine transfer progress. -->
+    <string name="setup_updates_download_file">Pobieranie %1$s (%2$d z %3$d)</string>
+    <string name="setup_updates_received_total">Odebrano %1$s / %2$s</string>
+    <string name="setup_updates_received_unknown">Odebrano %1$s</string>
+    <string name="setup_updates_verify_file">Weryfikacja %1$s…</string>
+    <string name="setup_updates_installing">Instalowanie zweryfikowanej aktualizacji silnika…</string>
+    <string name="setup_updates_retry">Ponów</string>
 </resources>
