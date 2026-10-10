@@ -1,102 +1,124 @@
-# One-time guarded build/publish of CommandSet paging for standalone Project X.
-# Triggered by adding this file to dev/mobile-v4; fail closed on any cache/build failure.
-# Fail-closed: NEVER publish on failed incremental builds or source mismatch.
+# Exact one-time, fail-closed engine publication. Reuses the successfully compiled
+# 30/60 Hz engine 3402; does not rebuild any C++ target or touch existing caches.
 name: Publish mod command overflow fix (one time)
 on:
   push:
-    branches:
-      - dev/mobile-v4
-    paths:
-      - .github/workflows/publish-mod-command-overflow-once.yml
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-mod-command-overflow-once.yml]
 permissions:
-  contents: read
-  actions: write
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
 jobs:
-  guarded-publish:
+  publish-existing:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    concurrency:
-      group: mod-command-overflow-engine-release-once
-      cancel-in-progress: false
+    timeout-minutes: 40
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_PARENT: e56f5ef5d3f671f8ba9960f4e8a6d7f450128782
-      EXPECTED_ENGINE_SOURCE: 9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6
-      EXPECTED_ENGINE_RUN: '38071407202'
+      EXPECTED_PARENT: 68d7395a3c5e25e36e6905e05db9570867e5e4ae
+      EXPECTED_BUILD_SOURCE: 9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6
+      EXPECTED_BUILD_RUN: '38071407202'
+      EXPECTED_BUILD_SEQ: '3402'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
-      - name: Verify one-time release request and immutable source
+      - name: Verify this one-time publication request, immutable source and successful build
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = "refs/heads/dev/mobile-v4"
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): correct jq PCH-free engine 3402 publish guard [publish-engine-once]'
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): directly sign verified 3402 engine using existing artifacts [publish-engine-once]'
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
-          git merge-base --is-ancestor "$EXPECTED_ENGINE_SOURCE" HEAD
-          echo "EXPECTED_ENGINE_SEQ=3402" >> "$GITHUB_ENV"
-          echo "Publishing immutable engine 3402 from verified build $EXPECTED_ENGINE_RUN ($EXPECTED_ENGINE_SOURCE); no native rebuild"
-      - name: Reuse verified successful engine build and invoke signed publisher
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA" || {
-            echo "::error::Branch changed after request"; exit 1;
-          }
-          # Verify the immutable older run directly by run metadata, not by the
-          # cross-run artifacts listing endpoint (which returned HTTP 404).
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_ENGINE_RUN" --jq \
+          git merge-base --is-ancestor "$EXPECTED_BUILD_SOURCE" HEAD
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_BUILD_RUN" --jq \
             '[(.id | tostring), .status, .conclusion, .head_sha, .path, .head_repository.full_name] | join("|")' \
-            | grep -Fx "$EXPECTED_ENGINE_RUN|completed|success|$EXPECTED_ENGINE_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY"
-          previous_sign="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
-            --jq '[.workflow_runs[].id] | max // 0')"
-          gh workflow run sign-update.yml --ref dev/mobile-v4 \
-            -f public_identity_only=false \
-            -f engine_build_run="$EXPECTED_ENGINE_RUN" \
-            -f engine_source_commit="$EXPECTED_ENGINE_SOURCE" \
-            -f note='Expose Project X Remastered mod build and production commands in slots 15-18 on mobile; preserve vanilla, saves, network, 30/60Hz and mod isolation.'
-          for ((n=1;n<=100;n++)); do
-            sign_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
-              --jq ".workflow_runs | map(select(.id > $previous_sign and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
-            if [[ "$sign_run" =~ ^[0-9]+$ ]]; then
-              state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$sign_run" \
-                --jq '[.status, (.conclusion // "pending")] | join(" ")')"
-              echo "Signed publish run $sign_run: $state"
-              if [[ "$state" == "completed success" ]]; then
-                echo "PASS: source-pinned update signed and published by run $sign_run"
-                break
-              fi
-              if [[ "$state" == completed* ]]; then
-                echo "::error::Signing/publishing failed: $state"
-                exit 1
-              fi
-            fi
-            if (( n == 100 )); then echo "::error::Signed publish timed out"; exit 1; fi
-            sleep 30
-          done
-      - name: Verify exact public update points to this source and dual-engine payloads
+            | grep -Fx "$EXPECTED_BUILD_RUN|completed|success|$EXPECTED_BUILD_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY"
+          echo "PASS: prior native engine build 3402 accepted without rebuilding"
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.EXPECTED_BUILD_SOURCE }}
+          path: engine-source
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify immutable source checkout and engine sequence
+        working-directory: engine-source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BUILD_SOURCE"
+          test "$(bash scripts/build/android/engine-build-number.sh "$PWD")" = "$EXPECTED_BUILD_SEQ"
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 38071407202
+          github-token: ${{ github.token }}
+          path: engine-source/engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: engine-source/bootstrap-baseline
+      - name: Prepare exact source-matched 30/60 Hz update; validate reports and bootstrap dependencies
+        working-directory: engine-source
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq '.content' | base64 --decode > /tmp/engine-manifest.json
-          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq '.content' | base64 --decode > /tmp/engine-manifest.json.sig
-          test -s /tmp/engine-manifest.json.sig
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$EXPECTED_BUILD_SOURCE" \
+            --out prepared-update \
+            --note 'Show Project X Remastered Russian mod units/defenses from extended command slots 15-18 on Android. No gameplay, save, network or mod archive changes; full device QA pending.'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prepared-engine-update
+          path: engine-source/prepared-update/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Sign and verify exact manifest and both binary payloads
+        working-directory: engine-source
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish verified signed engine update
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify newly published signed manifest and dual engine identity
+        working-directory: engine-source
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
-          import json, os
-          data = json.load(open('/tmp/engine-manifest.json'))
-          engine = data['engine']
-          assert engine['source_commit'] == os.environ['EXPECTED_ENGINE_SOURCE'], (engine['source_commit'], os.environ['EXPECTED_ENGINE_SOURCE'])
-          assert engine['seq'] == int(os.environ['EXPECTED_ENGINE_SEQ'])
-          assert {'libmain.so', 'libmain60.so'} <= set(engine['files'])
-          for key in ('libmain.so', 'libmain60.so'):
-              entry = engine['files'][key]
-              assert entry['sha256'] and entry['size'] > 0
+          import base64, importlib.util, json, os, pathlib, subprocess
+          root=pathlib.Path('.')
+          spec=importlib.util.spec_from_file_location('update_artifacts',root/'scripts/update/update-artifacts.py')
+          module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+          repo=os.environ['GITHUB_REPOSITORY']
+          def fetch(path):
+              return json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/'+path]))
+          head=fetch('git/ref/heads/updates')['object']['sha']
+          verify=root/'published-verification'
+          verify.mkdir()
+          for name in ('manifest.json','manifest.json.sig'):
+              (verify/name).write_bytes(base64.b64decode(fetch(f'contents/{name}?ref={head}')['content']))
+          signed=module.verify_manifest(verify,'android/app/src/main/assets/update-public.pem')
+          assert signed['engine']['seq']==int(os.environ['EXPECTED_BUILD_SEQ'])
+          assert signed['engine']['source_commit']==os.environ['EXPECTED_BUILD_SOURCE']
+          assert {'libmain.so','libmain60.so'} <= set(signed['engine']['files'])
+          for filename, entry in signed['engine']['files'].items():
+              assert entry['size'] > 0 and len(entry['sha256']) == 64
               assert entry['url'].startswith('https://raw.githubusercontent.com/')
-          print('PASS: published signed engine', engine['seq'], 'source', engine['source_commit'])
+          print('PASS: signed engine 3402 published and verified on updates branch')
           PY
-          echo "Update channel now contains both variants, matching this exact commit."
