@@ -17,7 +17,7 @@ jobs:
           sparse-checkout: |
             .github
             scripts
-      - name: Syntax and synthetic mod SCB/BIG tests
+      - name: Syntax and corrected synthetic mod SCB/BIG tests
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/qa/audit-projectx-skirmish.py scripts/qa/test-projectx-skirmish-audit.py
