@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 10
-      - name: Test existing 3411 command paging and all-faction transport fix
+      - name: Run updated 3411 command paging and all-faction transport regression tests
         run: |
           python3 scripts/qa/test-mobile-command-overflow.py
           python3 scripts/qa/test-mobile-all-faction-order-pages.py
@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import subprocess
-          changed=subprocess.check_output(['git','diff','--name-only','HEAD~4','HEAD'],text=True).splitlines()
+          changed=subprocess.check_output(['git','diff','--name-only','HEAD~6','HEAD'],text=True).splitlines()
           approved={
            'Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp',
            'Core/GameEngine/Source/GameClient/GUI/ControlBar/ControlBarMultiSelect.cpp',
