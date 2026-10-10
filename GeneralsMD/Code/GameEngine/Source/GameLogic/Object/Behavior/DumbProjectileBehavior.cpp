@@ -57,76 +57,6 @@ const Int DEFAULT_MAX_LIFESPAN = 10 * LOGICFRAMES_PER_SECOND;
 
 
 //-----------------------------------------------------------------------------
-// Reveal the immediate impact area for the projectile owner's alliance in
-// single-player games.  Keep this out of network games until the PC client
-// implements the same deterministic shroud event; PartitionManager shroud
-// state participates in the lockstep CRC.
-static void revealProjectileImpactShroud(const Object *projectile, const WeaponTemplate *detonationWeapon)
-{
-	if (projectile == nullptr || detonationWeapon == nullptr || TheGameLogic == nullptr ||
-			ThePartitionManager == nullptr || ThePlayerList == nullptr)
-	{
-		return;
-	}
-
-	if (TheGameLogic->isInMultiplayerGame())
-	{
-		return;
-	}
-
-	const Player *owner = projectile->getControllingPlayer();
-	if (owner == nullptr)
-	{
-		return;
-	}
-
-	WeaponBonus noBonus;
-	Real impactRadius = detonationWeapon->getPrimaryDamageRadius(noBonus);
-	const Real secondaryRadius = detonationWeapon->getSecondaryDamageRadius(noBonus);
-	const Real shockWaveRadius = detonationWeapon->getShockWaveRadius();
-
-	if (secondaryRadius > impactRadius)
-		impactRadius = secondaryRadius;
-	if (shockWaveRadius > impactRadius)
-		impactRadius = shockWaveRadius;
-
-	// Do not turn bullets or zero-radius projectiles into reconnaissance.
-	if (impactRadius <= 0.0f)
-	{
-		return;
-	}
-
-	// Give the player enough context to see the impact without allowing large
-	// superweapons or modded blast radii to reveal huge parts of the map.
-	Real revealRadius = impactRadius * 1.25f;
-	const Real MIN_IMPACT_REVEAL_RADIUS = 40.0f;
-	const Real MAX_IMPACT_REVEAL_RADIUS = 180.0f;
-
-	if (revealRadius < MIN_IMPACT_REVEAL_RADIUS)
-		revealRadius = MIN_IMPACT_REVEAL_RADIUS;
-	if (revealRadius > MAX_IMPACT_REVEAL_RADIUS)
-		revealRadius = MAX_IMPACT_REVEAL_RADIUS;
-
-	PlayerMaskType revealMask = 0;
-	for (Int currentIndex = ThePlayerList->getPlayerCount() - 1; currentIndex >= 0; --currentIndex)
-	{
-		const Player *currentPlayer = ThePlayerList->getNthPlayer(currentIndex);
-		if (currentPlayer != nullptr && owner->getRelationship(currentPlayer->getDefaultTeam()) == ALLIES)
-		{
-			revealMask |= currentPlayer->getPlayerMask();
-		}
-	}
-
-	if (revealMask == 0)
-	{
-		return;
-	}
-
-	const Coord3D *impactPos = projectile->getPosition();
-	ThePartitionManager->doShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
-	ThePartitionManager->queueUndoShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
-}
-
 //-----------------------------------------------------------------------------
 DumbProjectileBehaviorModuleData::DumbProjectileBehaviorModuleData() :
 	m_maxLifespan(DEFAULT_MAX_LIFESPAN),
@@ -611,7 +541,6 @@ void DumbProjectileBehavior::detonate()
 	Object* obj = getObject();
 	if (m_detonationWeaponTmpl)
 	{
-		revealProjectileImpactShroud(obj, m_detonationWeaponTmpl);
 		TheWeaponStore->handleProjectileDetonation(m_detonationWeaponTmpl, obj, obj->getPosition(), m_extraBonusFlags);
 
 		if ( getDumbProjectileBehaviorModuleData()->m_detonateCallsKill )
