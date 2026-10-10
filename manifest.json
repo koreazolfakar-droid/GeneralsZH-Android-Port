@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "522e8ddfdf3e5619c06ab46d9f7f1a86f8485a1cbe7eaa61ed34f7b08a479312",
-        "size": 42267472,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3391/libmain.so.gz"
+        "sha256": "d26f22404c8e75629ae4c57f18f20ddf37b146038b44ddf96c3868a592300e0e",
+        "size": 42267440,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3402/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "9f60e430d5d9f6a176124d450c3ab9aac1405900ec2fc7248c900fa5208d7df5",
-        "size": 42271712,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3391/libmain60.so.gz"
+        "sha256": "6e1aac5250cded0f0868c826827c069c47107d4ad5be200ef0b78e443a310421",
+        "size": 42271728,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3402/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3391,
-    "source_commit": "a4c0ed742e4d2d00ceb2fbba1dd5b3948edca368"
+    "seq": 3402,
+    "source_commit": "9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6"
   },
-  "note": "Fix standalone Project X mod loading order before GameData.ini. Both 30Hz and 60Hz engines built incrementally and verified with SHA-256 and signed manifest; preserved original APK, vanilla, saves and networking. Real device gameplay verification remains pending.",
+  "note": "Show Project X Remastered Russian mod units/defenses from extended command slots 15-18 on Android. No gameplay, save, network or mod archive changes; full device QA pending.",
   "published": "2026-10-10",
   "schema": 1,
-  "serial": 7
+  "serial": 8
 }
