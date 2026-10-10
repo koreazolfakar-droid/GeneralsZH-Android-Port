@@ -202,6 +202,38 @@ public class LauncherHomeUiTest {
         assertNull(ShadowPopupMenu.getLatestPopupMenu().getMenu().findItem(SetupActivity.TAB_TOOLS));
     }
 
+    // GeneralsX @feature 10/10/2026 Test reference-driven navy and gold Home
+    // while guarding original interactive destinations and runtime values.
+    @Test public void navyGoldHomeRetainsLiveStateAndLatestUpdateLink() {
+        open();
+        assertEquals(0xffffc84c, LauncherUi.primary(activity));
+        assertNotNull(field("heroMod"));
+        assertNotNull(field("homeEngineSummary"));
+        assertNotNull(field("homeAccountSummary"));
+        assertNotNull(label(R.string.launcher_latest_updates));
+        assertNotNull(label(R.string.launcher_play_now));
+        assertEquals(activity.getString(R.string.launcher_build_value, UpdateManager.bundledEngineSeq(context)),
+            ((TextView) field("homeEngineSummary")).getText().toString());
+        click(R.string.launcher_latest_updates);
+        assertEquals(View.VISIBLE, ((LinearLayout) field("homeUpdateDetails")).getVisibility());
+        label(R.string.setup_button_check_updates);
+    }
+
+    @Test public void daylightGoldHomePreservesFolderAndThemeSettings() {
+        ThemeHelper.setMode(context, ThemeHelper.LIGHT);
+        try {
+            open();
+            assertFalse(ThemeHelper.isDark(activity));
+            assertEquals(0xff895300, LauncherUi.primary(activity));
+            click(R.string.setup_card_game_folder);
+            assertEquals(View.VISIBLE, ((LinearLayout) field("homeGameData")).getVisibility());
+            settings(SetupActivity.TAB_INTERFACE);
+            label(R.string.setup_appearance_title);
+        } finally {
+            ThemeHelper.setMode(context, ThemeHelper.DARK);
+        }
+    }
+
     @Test public void onlineAndSignedUpdateControlsRemainReachable() {
         open();
         click(R.string.setup_card_online);

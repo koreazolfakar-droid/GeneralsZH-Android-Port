@@ -282,7 +282,7 @@ public class SetupActivity extends Activity {
 
     private int currentTab = TAB_HOME;
     private FrameLayout contentHost;
-    private TextView appBarTitle;
+    private TextView appBarTitle, appBarSubtitle;
 
     private void buildUi() {
         clearPageReferences();
@@ -303,15 +303,26 @@ public class SetupActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(android.view.Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(16), dp(10), dp(16), dp(4));
+        // GeneralsX @feature 10/10/2026 Header from the navy/gold reference.
+        LinearLayout identity = LauncherUi.column(this);
+        bar.addView(identity, new LinearLayout.LayoutParams(0, -2, 1));
         appBarTitle = new TextView(this);
-        appBarTitle.setTextSize(22);
+        appBarTitle.setTextSize(25);
         appBarTitle.setTextColor(LauncherUi.textColor(this));
         appBarTitle.setTypeface(Typeface.DEFAULT_BOLD);
         appBarTitle.setMaxLines(2);
-        bar.addView(appBarTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        View settings = UiKit.iconButton(this, R.drawable.ic_gzh_sliders,
+        identity.addView(appBarTitle, new LinearLayout.LayoutParams(-1, -2));
+        appBarSubtitle = new TextView(this);
+        appBarSubtitle.setText(R.string.launcher_android_subtitle);
+        appBarSubtitle.setTextSize(10);
+        appBarSubtitle.setLetterSpacing(0.24f);
+        appBarSubtitle.setTextColor(UiKit.color(this, R.color.gzh_secondary));
+        identity.addView(appBarSubtitle, new LinearLayout.LayoutParams(-1, -2));
+        View settings = UiKit.iconButton(this, android.R.drawable.ic_menu_manage,
             getString(R.string.launcher_settings), this::onViewLogs);
         settings.setOnClickListener(v -> LauncherUi.settings(this, v, this::navigateLauncher));
+        settings.setBackground(LauncherUi.shape(this,
+            LauncherUi.surface(this), LauncherUi.outline(this), 24));
         bar.addView(settings);
         shell.addView(bar, new LinearLayout.LayoutParams(-1, -2));
 
@@ -375,7 +386,20 @@ public class SetupActivity extends Activity {
         clearPageReferences();
         contentHost.removeAllViews();
         if (appBarTitle != null) {
-            appBarTitle.setText(tab == TAB_HOME ? R.string.launcher_name : tabTitle(tab));
+            if (tab == TAB_HOME) {
+                String text = getString(R.string.launcher_name);
+                android.text.SpannableString heading = new android.text.SpannableString(text);
+                int gold = text.indexOf("Zero Hour");
+                if (gold >= 0) heading.setSpan(new android.text.style.ForegroundColorSpan(
+                    LauncherUi.primary(this)), gold, text.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                appBarTitle.setText(heading);
+            } else {
+                appBarTitle.setText(tabTitle(tab));
+            }
+        }
+        if (appBarSubtitle != null) {
+            appBarSubtitle.setVisibility(tab == TAB_HOME ? View.VISIBLE : View.GONE);
         }
 
         LinearLayout page = UiKit.scrollingPage(contentHost);
@@ -454,37 +478,45 @@ public class SetupActivity extends Activity {
 
     // GeneralsX @feature Android port 04/10/2026 Approved tactical Home presentation.
     private void buildHomeSection(LinearLayout page) {
-        page.setPadding(dp(16), dp(6), dp(16), dp(12));
+        // GeneralsX @feature 10/10/2026 Real navy/gold tactical Home:
+        // existing Zero Hour art, live mod/engine state and original actions.
+        page.setPadding(dp(14), dp(4), dp(14), dp(18));
         LinearLayout hero = LauncherUi.panel(this, page);
-        hero.setPadding(0, 0, 0, dp(10));
-        ((LinearLayout.LayoutParams)hero.getLayoutParams()).topMargin = dp(6);
-        FrameLayout scene = LauncherUi.artwork(this, hero, 148);
+        hero.setPadding(0, 0, 0, dp(8));
+        hero.setClipToOutline(true);
+        ((LinearLayout.LayoutParams)hero.getLayoutParams()).topMargin = dp(5);
+        FrameLayout scene = LauncherUi.artwork(this, hero, 220);
         LinearLayout overlay = LauncherUi.column(this);
         overlay.setPadding(dp(14), dp(6), dp(14), dp(10));
         overlay.setBackground(new android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[] {0x00090d14, 0xee090d14}));
+            new int[] {0x0806121f, 0xff07131f}));
         FrameLayout.LayoutParams overlayLp = new FrameLayout.LayoutParams(-1, -2,
             android.view.Gravity.BOTTOM);
         scene.addView(overlay, overlayLp);
         heroReady = LauncherUi.text(this, overlay, getString(R.string.launcher_setup_needed),
             12, LauncherUi.warning(this), true);
         heroReady.setCompoundDrawablePadding(dp(6));
-        heroReady.setPadding(dp(10), dp(5), dp(10), dp(5));
+        heroReady.setPadding(dp(12), dp(6), dp(12), dp(6));
+        heroReady.setBackground(LauncherUi.shape(this, 0xe31b180f, 0xffffc84c, 22));
+        heroReady.setTextColor(0xffffce5d);
         heroReady.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
-        LauncherUi.text(this, overlay, getString(R.string.mods_status_title), 10, LauncherUi.muted(this), false);
-        heroMod = LauncherUi.text(this, overlay, "", 14, LauncherUi.textColor(this), true);
+        TextView modCaption = LauncherUi.text(this, overlay,
+            getString(R.string.mods_status_title), 11, 0xffbfd2ed, false);
+        modCaption.setPadding(0, dp(9), 0, 0);
+        heroMod = LauncherUi.text(this, overlay, "", 17, 0xffffffff, true);
         LinearLayout playRow = new LinearLayout(this);
         playRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        playRow.setPadding(dp(10), 0, dp(10), 0);
-        hero.addView(playRow, new LinearLayout.LayoutParams(-1, dp(56)));
+        playRow.setPadding(dp(10), dp(3), dp(10), 0);
+        hero.addView(playRow, new LinearLayout.LayoutParams(-1, dp(65)));
         com.google.android.material.button.MaterialButton play = UiKit.button(playRow,
             UiKit.BTN_PRIMARY, R.drawable.ic_gzh_play, getString(R.string.launcher_play_now), this::onLaunchGame);
         LauncherUi.purple(this, play);
         UiKit.share(play, true);
-        play.setMinHeight(dp(52));
-        play.setMinimumHeight(dp(52));
-        play.setTextSize(18);
+        play.setMinHeight(dp(58));
+        play.setMinimumHeight(dp(58));
+        play.setTextSize(19);
+        play.setLetterSpacing(0.012f);
         View options = UiKit.iconButton(this, R.drawable.ic_gzh_chevron,
             getString(R.string.launcher_play_options), () -> openLauncherTab(TAB_GRAPHICS));
         options.setRotation(90);
@@ -493,7 +525,7 @@ public class SetupActivity extends Activity {
 
         LinearLayout metrics = new LinearLayout(this);
         LinearLayout.LayoutParams metricLp = new LinearLayout.LayoutParams(-1, -2);
-        metricLp.topMargin = dp(6);
+        metricLp.topMargin = dp(10);
         page.addView(metrics, metricLp);
         homeModSummary = homeMetric(metrics, R.drawable.ic_gzh_folder, R.string.mods_status_title);
         homeEngineSummary = homeMetric(metrics, R.drawable.ic_gzh_chip, R.string.launcher_engine_build);
@@ -506,6 +538,9 @@ public class SetupActivity extends Activity {
             R.string.setup_card_online, "", () -> expandHome(homeOnlineDetails));
         homeUpdatesSummary = LauncherUi.row(this, page, R.drawable.ic_gzh_refresh,
             R.string.setup_card_updates, "", () -> expandHome(homeUpdateDetails));
+        LauncherUi.row(this, page, R.drawable.ic_gzh_info,
+            R.string.launcher_latest_updates, getString(R.string.launcher_latest_updates_summary),
+            () -> expandHome(homeUpdateDetails));
 
         // Keep every original action and supporting note available in expandable sections.
         homeGameData = LauncherUi.column(this);
@@ -534,20 +569,35 @@ public class SetupActivity extends Activity {
     }
 
     private TextView homeMetric(LinearLayout row, int icon, int caption) {
-        LinearLayout cell = LauncherUi.column(this);
-        cell.setPadding(dp(8), dp(7), dp(8), dp(7));
-        cell.setBackground(LauncherUi.shape(this, LauncherUi.surface(this), LauncherUi.outline(this), 10));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1);
-        if (row.getChildCount() > 0) lp.setMarginStart(dp(6));
+        // Square gold icon + two-line status, with RTL-safe spacing and live values.
+        LinearLayout cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.HORIZONTAL);
+        cell.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        cell.setPadding(dp(8), dp(8), dp(6), dp(8));
+        cell.setBackground(LauncherUi.shape(this,
+            LauncherUi.surface(this), LauncherUi.outline(this), 14));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(65), 1f);
+        if (row.getChildCount() > 0) lp.setMarginStart(dp(5));
         row.addView(cell, lp);
-        TextView value = LauncherUi.text(this, cell, "", 12, LauncherUi.textColor(this), true);
-        value.setMaxLines(1);
-        android.graphics.drawable.Drawable glyph = getDrawable(icon);
-        glyph.setTint(LauncherUi.primary(this));
-        glyph.setBounds(0, 0, dp(18), dp(18));
-        value.setCompoundDrawablesRelative(glyph, null, null, null);
-        value.setCompoundDrawablePadding(dp(5));
-        LauncherUi.text(this, cell, getString(caption), 10, LauncherUi.muted(this), false);
+        android.widget.ImageView glyph = new android.widget.ImageView(this);
+        glyph.setImageResource(icon);
+        glyph.setImageTintList(UiKit.tint(this, R.color.gzh_primary));
+        glyph.setPadding(dp(7), dp(7), dp(7), dp(7));
+        glyph.setBackground(LauncherUi.shape(this,
+            UiKit.color(this, R.color.gzh_surface_container_high),
+            UiKit.color(this, R.color.gzh_outline_variant), 10));
+        LinearLayout.LayoutParams glyphLp = new LinearLayout.LayoutParams(dp(34), dp(34));
+        glyphLp.setMarginEnd(dp(7));
+        cell.addView(glyph, glyphLp);
+        LinearLayout copy = LauncherUi.column(this);
+        cell.addView(copy, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView captionLabel = LauncherUi.text(this, copy, getString(caption), 9,
+            LauncherUi.muted(this), false);
+        captionLabel.setSingleLine(true);
+        TextView value = LauncherUi.text(this, copy, "", 12,
+            LauncherUi.textColor(this), true);
+        value.setSingleLine(true);
+        value.setEllipsize(android.text.TextUtils.TruncateAt.END);
         return value;
     }
 

@@ -455,4 +455,31 @@
     <string name="setup_appearance_light">Day</string>
     <string name="setup_appearance_dark">Night</string>
     <string name="setup_appearance_help">Change only the app interface. System follows your phone; Day and Night stay selected across launches. Game graphics are unchanged.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_android_subtitle" translatable="false">ANDROID LAUNCHER</string>
+    <string name="launcher_latest_updates">Latest Updates</string>
+    <string name="launcher_latest_updates_summary">Newer engine builds arrive as signed updates from GitHub. Open Updates to check or review the installed version.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Details</string>
+    <string name="mods_details_title">Mod Details &amp; Health Check</string>
+    <string name="mods_health_scanning">Checking installed files…</string>
+    <string name="mods_health_unavailable">Cannot inspect this mod safely.</string>
+    <string name="mods_health_warning">Structural problems found; check the files below.</string>
+    <string name="mods_health_incomplete">Inspection incomplete; some files could not be checked.</string>
+    <string name="mods_health_no_big">No BIG archives found.</string>
+    <string name="mods_health_structural_ok">BIG index structures passed inspection (not a gameplay test).</string>
+    <string name="mods_health_big_count">BIG archives: %1$d</string>
+    <string name="mods_health_valid_count">Readable BIG archives: %1$d</string>
+    <string name="mods_health_invalid_count">Invalid BIG archives: %1$d</string>
+    <string name="mods_health_entry_count">Indexed BIG entries: %1$d</string>
+    <string name="mods_health_loose_count">Loose files: %1$d</string>
+    <string name="mods_health_nested_count">Nested BIG archives: %1$d</string>
+    <string name="mods_health_data_folder">Data folder: %1$s</string>
+    <string name="mods_health_window_folder">Window folder: %1$s</string>
+    <string name="mods_health_present">Present</string>
+    <string name="mods_health_absent">Not found</string>
+    <string name="mods_health_fs_issues">Links skipped: %1$d · Unreadable items: %2$d</string>
+    <string name="mods_health_nested_warning">Nested BIG files found. Their load order may differ from archives in the game root.</string>
+    <string name="mods_health_invalid_files">Invalid BIG files (up to 8):</string>
+    <string name="mods_health_disclaimer">This read-only check validates file structure only. It cannot confirm that models, shields, sounds or scripts work in game.</string>
 </resources>

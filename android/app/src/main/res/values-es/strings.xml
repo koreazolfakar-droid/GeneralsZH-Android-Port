@@ -404,4 +404,30 @@
     <string name="setup_appearance_light">Día</string>
     <string name="setup_appearance_dark">Noche</string>
     <string name="setup_appearance_help">Solo cambia la interfaz de la aplicación. Sistema sigue al teléfono; Día y Noche se guardan. Los gráficos del juego no cambian.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">Últimas actualizaciones</string>
+    <string name="launcher_latest_updates_summary">Las versiones nuevas del motor llegan firmadas desde GitHub. Abre Actualizaciones para comprobarlas.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Detalles</string>
+    <string name="mods_details_title">Detalles y revisión del mod</string>
+    <string name="mods_health_scanning">Revisando archivos instalados…</string>
+    <string name="mods_health_unavailable">No se puede revisar el mod con seguridad.</string>
+    <string name="mods_health_warning">Se encontraron problemas estructurales.</string>
+    <string name="mods_health_incomplete">Revisión incompleta; faltan archivos por comprobar.</string>
+    <string name="mods_health_no_big">No se encontraron archivos BIG.</string>
+    <string name="mods_health_structural_ok">Índices BIG revisados (no es prueba de juego).</string>
+    <string name="mods_health_big_count">Archivos BIG: %1$d</string>
+    <string name="mods_health_valid_count">BIG legibles: %1$d</string>
+    <string name="mods_health_invalid_count">BIG no válidos: %1$d</string>
+    <string name="mods_health_entry_count">Entradas BIG: %1$d</string>
+    <string name="mods_health_loose_count">Archivos sueltos: %1$d</string>
+    <string name="mods_health_nested_count">BIG anidados: %1$d</string>
+    <string name="mods_health_data_folder">Carpeta Data: %1$s</string>
+    <string name="mods_health_window_folder">Carpeta Window: %1$s</string>
+    <string name="mods_health_present">Presente</string>
+    <string name="mods_health_absent">No encontrada</string>
+    <string name="mods_health_fs_issues">Enlaces omitidos: %1$d · Elementos ilegibles: %2$d</string>
+    <string name="mods_health_nested_warning">Los BIG anidados pueden cargarse en otro orden.</string>
+    <string name="mods_health_invalid_files">Archivos BIG no válidos (hasta 8):</string>
+    <string name="mods_health_disclaimer">Solo se revisa la estructura, sin modificar archivos. No garantiza modelos, escudos, audio ni scripts dentro del juego.</string>
 </resources>

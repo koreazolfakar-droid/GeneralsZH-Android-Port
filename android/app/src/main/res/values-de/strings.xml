@@ -404,4 +404,30 @@
     <string name="setup_appearance_light">Tag</string>
     <string name="setup_appearance_dark">Nacht</string>
     <string name="setup_appearance_help">Ändert nur die App-Oberfläche. System folgt dem Gerät; Tag und Nacht bleiben gespeichert. Die Spielgrafik bleibt unverändert.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">Neueste Updates</string>
+    <string name="launcher_latest_updates_summary">Neue Engine-Builds kommen signiert über GitHub. Unter Updates kannst du die Version prüfen.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">Details</string>
+    <string name="mods_details_title">Mod-Details und Datei-Check</string>
+    <string name="mods_health_scanning">Installierte Dateien werden geprüft…</string>
+    <string name="mods_health_unavailable">Diese Mod kann nicht sicher geprüft werden.</string>
+    <string name="mods_health_warning">Strukturprobleme gefunden; Dateien prüfen.</string>
+    <string name="mods_health_incomplete">Prüfung unvollständig; einige Dateien fehlen.</string>
+    <string name="mods_health_no_big">Keine BIG-Archive gefunden.</string>
+    <string name="mods_health_structural_ok">BIG-Indizes geprüft (kein Spieltest).</string>
+    <string name="mods_health_big_count">BIG-Archive: %1$d</string>
+    <string name="mods_health_valid_count">Lesbare BIG-Archive: %1$d</string>
+    <string name="mods_health_invalid_count">Ungültige BIG-Archive: %1$d</string>
+    <string name="mods_health_entry_count">BIG-Indexeinträge: %1$d</string>
+    <string name="mods_health_loose_count">Lose Dateien: %1$d</string>
+    <string name="mods_health_nested_count">Verschachtelte BIG-Archive: %1$d</string>
+    <string name="mods_health_data_folder">Data-Ordner: %1$s</string>
+    <string name="mods_health_window_folder">Window-Ordner: %1$s</string>
+    <string name="mods_health_present">Vorhanden</string>
+    <string name="mods_health_absent">Nicht gefunden</string>
+    <string name="mods_health_fs_issues">Links übersprungen: %1$d · Unlesbare Elemente: %2$d</string>
+    <string name="mods_health_nested_warning">BIG-Dateien in Unterordnern können eine andere Ladereihenfolge haben.</string>
+    <string name="mods_health_invalid_files">Ungültige BIG-Dateien (max. 8):</string>
+    <string name="mods_health_disclaimer">Nur strukturelle Prüfung, ohne Änderungen. Modelle, Schilde, Ton und Skripte wurden nicht im Spiel getestet.</string>
 </resources>

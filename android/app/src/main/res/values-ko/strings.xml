@@ -404,4 +404,30 @@
     <string name="setup_appearance_light">낮</string>
     <string name="setup_appearance_dark">밤</string>
     <string name="setup_appearance_help">앱 화면만 변경합니다. 시스템은 휴대폰 설정을 따르고 낮과 밤 설정은 저장됩니다. 게임 그래픽은 변경되지 않습니다.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">최신 업데이트</string>
+    <string name="launcher_latest_updates_summary">새 엔진 빌드는 GitHub에서 서명된 업데이트로 제공됩니다. 업데이트에서 버전을 확인하세요.</string>
+    <!-- Preserved Mod Health Check strings. -->
+    <string name="mods_details_button">상세 정보</string>
+    <string name="mods_details_title">모드 정보 및 파일 검사</string>
+    <string name="mods_health_scanning">설치된 파일 검사 중…</string>
+    <string name="mods_health_unavailable">안전하게 검사할 수 없습니다.</string>
+    <string name="mods_health_warning">구조 문제가 발견되었습니다.</string>
+    <string name="mods_health_incomplete">검사가 완료되지 않았습니다.</string>
+    <string name="mods_health_no_big">BIG 파일을 찾을 수 없습니다.</string>
+    <string name="mods_health_structural_ok">BIG 인덱스 검사 완료 (게임 실행 검사는 아님).</string>
+    <string name="mods_health_big_count">BIG 파일: %1$d</string>
+    <string name="mods_health_valid_count">읽기 가능 BIG: %1$d</string>
+    <string name="mods_health_invalid_count">유효하지 않은 BIG: %1$d</string>
+    <string name="mods_health_entry_count">BIG 인덱스 항목: %1$d</string>
+    <string name="mods_health_loose_count">개별 파일: %1$d</string>
+    <string name="mods_health_nested_count">하위 폴더 BIG: %1$d</string>
+    <string name="mods_health_data_folder">Data 폴더: %1$s</string>
+    <string name="mods_health_window_folder">Window 폴더: %1$s</string>
+    <string name="mods_health_present">있음</string>
+    <string name="mods_health_absent">없음</string>
+    <string name="mods_health_fs_issues">건너뛴 링크: %1$d · 읽을 수 없음: %2$d</string>
+    <string name="mods_health_nested_warning">하위 폴더의 BIG 파일은 로드 순서가 달라질 수 있습니다.</string>
+    <string name="mods_health_invalid_files">유효하지 않은 BIG (최대 8개):</string>
+    <string name="mods_health_disclaimer">파일을 변경하지 않고 구조만 확인합니다. 게임의 모델, 실드, 소리, 스크립트 작동을 보장하지 않습니다.</string>
 </resources>
