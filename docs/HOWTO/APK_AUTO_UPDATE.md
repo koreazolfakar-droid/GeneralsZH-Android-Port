@@ -29,6 +29,14 @@ Note: the bootstrap version must itself contain the updater for future releases 
 - `SetupActivity.java` banner, update check, progress, installer permission UX
 - `ApkUpdateManagerTest.java` validates tag/version and URL policy
 
+Before publishing a newly built APK, check its package identity, signer and version against the previously distributed APK, without installing anything:
+
+```bash
+bash scripts/qa/verify-apk-update-candidate.sh /path/to/new.apk /path/to/previous.apk
+```
+
+**Distribution signing caveat:** the existing Android Gradle configuration uses a fixed debug keystore committed in the repository. That enables in-place upgrades between development builds but is not a secure secret for wider public distribution. Plan a separately protected release identity / signed APK update manifest before a general rollout; switching the APK signing certificate without an explicit migration prevents ordinary upgrades of already-installed copies.
+
 Run only launcher JVM tests with existing cached tools and staged SDL Java (no native rebuild):
 ```bash
 bash scripts/qa/test-launcher-apk-updates.sh
