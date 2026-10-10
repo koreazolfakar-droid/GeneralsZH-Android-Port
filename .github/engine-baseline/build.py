@@ -68,8 +68,12 @@ for relative in capture(['git','-C','references/fbraz3-dxvk','ls-files','--recur
 # Each exact historical timestamp required by Clang is subsequently restored by
 # the checksum-checked compiler launcher. Do not disable Ninja's compile guard.
 if build_requested:
-    from ndk_cache import prepare as prepare_ndk_pch
+    from ndk_cache import prepare as prepare_ndk_pch, restore_recorded_pch_mtimes
     report['ndk_cache'] = prepare_ndk_pch(ndk, epoch, headers, out)
+    # Prevent half-valid PCH ASTs and duplicate libc declarations from
+    # entering compilation while the old compiler wrapper learns timestamps.
+    # This only adjusts SHA-verified NDK metadata, not SDK files or PCH bytes.
+    report['pch_mtime_seed'] = restore_recorded_pch_mtimes(ndk, headers)
     save()
 verified_headers=out/'verified-unchanged-headers.json'
 verified_headers.write_text(json.dumps(headers))
