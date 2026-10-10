@@ -20,7 +20,7 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_PARENT: e136227cdb021c4e43bc1fdc413324dac6e2acda
+      EXPECTED_PARENT: e56f5ef5d3f671f8ba9960f4e8a6d7f450128782
       EXPECTED_ENGINE_SOURCE: 9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6
       EXPECTED_ENGINE_RUN: '38071407202'
     steps:
@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/dev/mobile-v4"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish verified 3402 engine from existing artifacts [publish-engine-once]'
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): correct jq PCH-free engine 3402 publish guard [publish-engine-once]'
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$EXPECTED_ENGINE_SOURCE" HEAD
@@ -51,7 +51,7 @@ jobs:
           # Verify the immutable older run directly by run metadata, not by the
           # cross-run artifacts listing endpoint (which returned HTTP 404).
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_ENGINE_RUN" --jq \
-            '[.id|tostring, .status, .conclusion, .head_sha, .path, .head_repository.full_name] | join("|")' \
+            '[(.id | tostring), .status, .conclusion, .head_sha, .path, .head_repository.full_name] | join("|")' \
             | grep -Fx "$EXPECTED_ENGINE_RUN|completed|success|$EXPECTED_ENGINE_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY"
           previous_sign="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
             --jq '[.workflow_runs[].id] | max // 0')"
