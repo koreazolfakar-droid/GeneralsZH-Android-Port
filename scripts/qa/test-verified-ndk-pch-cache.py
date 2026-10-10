@@ -42,7 +42,9 @@ class NdkCacheTests(unittest.TestCase):
             resource.write_bytes(b"clang resource header bytes")
             # Include count guard, with tiny files; no external SDK accessed.
             for i in range(2000):
-                (sysroot / ("fixture-%04d.h" % i)).write_bytes(b"header")
+                item = sysroot / ("fixture-%04d.h" % i)
+                item.write_bytes(b"header")
+                os.utime(item, (1791292742, 1791292742))
             external = root / "outside.txt"
             external.write_bytes(b"never touch")
             (sysroot / "outside-link.h").symlink_to(external)
