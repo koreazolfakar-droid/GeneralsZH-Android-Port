@@ -1625,9 +1625,9 @@ WeaponStore::~WeaponStore()
 // single-player games.  Called at the shared detonation entry point so guided
 // missiles and ballistic shells use the same event. Network games must wait
 // for PC parity because PartitionManager shroud participates in CRC.
-static void revealProjectileImpactShroud(const Object *projectile, const WeaponTemplate *detonationWeapon)
+static void revealProjectileImpactShroud(const Object *projectile, const WeaponTemplate *detonationWeapon, const Coord3D *impactPos)
 {
-	if (projectile == nullptr || detonationWeapon == nullptr || TheGameLogic == nullptr ||
+	if (projectile == nullptr || detonationWeapon == nullptr || impactPos == nullptr || TheGameLogic == nullptr ||
 			ThePartitionManager == nullptr || ThePlayerList == nullptr)
 	{
 		return;
@@ -1686,7 +1686,6 @@ static void revealProjectileImpactShroud(const Object *projectile, const WeaponT
 		return;
 	}
 
-	const Coord3D *impactPos = projectile->getPosition();
 	ThePartitionManager->doShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
 	ThePartitionManager->queueUndoShroudReveal(impactPos->x, impactPos->y, revealRadius, revealMask);
 }
@@ -1697,7 +1696,7 @@ void WeaponStore::handleProjectileDetonation(const WeaponTemplate* wt, const Obj
 	// Reveal before firing the detonation weapon: FXList suppresses impact effects
 	// in shrouded cells, and MissileAIUpdate reaches this shared entry point.
 	if (inflictDamage)
-		revealProjectileImpactShroud(source, wt);
+		revealProjectileImpactShroud(source, wt, pos);
 	Weapon* w = allocateNewWeapon(wt, PRIMARY_WEAPON);
 	w->loadAmmoNow(source);
 	w->fireProjectileDetonationWeapon( source, pos, extraBonusFlags, inflictDamage );
