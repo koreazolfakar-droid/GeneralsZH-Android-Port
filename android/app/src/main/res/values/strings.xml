@@ -466,4 +466,6 @@
     <string name="launcher_apk_update_check_failed">Could not check for an APK update: %1$s</string>
     <string name="launcher_apk_update_permission">Allow installs from this app, then return to finish updating.</string>
     <string name="launcher_apk_update_failed">APK update failed: %1$s</string>
+    <string name="launcher_apk_auto_check">Check for app APK updates automatically</string>
+    <string name="launcher_apk_auto_check_desc">Show an Update Now banner for new app releases. Separate from engine updates.</string>
 </resources>
