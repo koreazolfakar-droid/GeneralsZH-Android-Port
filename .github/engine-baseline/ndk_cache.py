@@ -65,3 +65,43 @@ def prepare(ndk: Path, epoch_seconds: int, verified: dict, report_dir: Path) -> 
     print("[GX-NDK-PCH] verified %d pinned SDK headers; normalized %d newer mtimes; bytes unchanged" %
           (len(paths), count), flush=True)
     return result
+
+
+def restore_recorded_pch_mtimes(ndk: Path, verified: dict, manifest_path=None) -> dict:
+    """Seed exact Clang-observed PCH timestamps before any translation unit compiles.
+
+    The existing compiler wrapper remains responsible for all headers not in
+    this pinned list. A two-phase all-or-nothing check prevents changing any
+    metadata if the NDK revision, source paths, or verified contents differ.
+    """
+    ndk = ndk.resolve()
+    if manifest_path is None:
+        manifest_path = Path(__file__).with_name("pch-verified-mtime-seed.json")
+    manifest = json.loads(Path(manifest_path).read_text())
+    assert manifest.get("schema") == 1
+    assert manifest.get("ndk_revision") == NDK_REVISION == ndk.name
+    items = manifest.get("expected_unix_seconds")
+    assert isinstance(items, dict) and 0 < len(items) <= MAX_HEADERS
+    base = ndk / "toolchains/llvm/prebuilt/linux-x86_64"
+    roots = (base / "sysroot/usr/include", base / "lib/clang/18/include")
+    changes = []
+    for relative, timestamp in items.items():
+        assert isinstance(relative, str) and not relative.startswith("/")
+        assert isinstance(timestamp, int) and 1791131945 <= timestamp <= 1791131947
+        path = ndk / relative
+        assert path.is_file() and not path.is_symlink(), "Missing or linked verified PCH header: " + relative
+        resolved = path.resolve()
+        assert resolved.is_relative_to(ndk)
+        assert any(resolved.is_relative_to(root) for root in roots)
+        assert str(resolved) in verified, "Header not in checked NDK cache inventory: " + relative
+        with path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        assert verified[str(resolved)] == digest, "NDK header changed: " + relative
+        stat = path.stat()
+        if stat.st_mtime_ns != timestamp * 1000000000:
+            changes.append((path, stat.st_atime_ns, timestamp))
+    for path, atime_ns, timestamp in changes:
+        os.utime(path, ns=(atime_ns, timestamp * 1000000000))
+    return dict(source="Clang PCH timestamps from prior successful Actions build",
+                validated_headers=len(items), metadata_only_adjustments=len(changes),
+                contents_modified=False)

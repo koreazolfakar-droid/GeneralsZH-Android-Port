@@ -70,6 +70,58 @@ class NdkCacheTests(unittest.TestCase):
                 cache.prepare(ndk, 1791292742, {}, root / "report2")
             self.assertEqual(resource.stat().st_mtime_ns, original_time)
 
+    def test_pch_timestamp_seed_checks_all_files_before_writing(self):
+        cache = module(TOOLS / "ndk_cache.py", "gx_pch_mtime_seed_test")
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            ndk = root / cache.NDK_REVISION
+            base = ndk / "toolchains/llvm/prebuilt/linux-x86_64"
+            sysroot = base / "sysroot/usr/include"
+            clang = base / "lib/clang/18/include"
+            sysroot.mkdir(parents=True)
+            clang.mkdir(parents=True)
+            first = sysroot / "utility"
+            second = clang / "float.h"
+            first.write_bytes(b"same PCH utility header")
+            second.write_bytes(b"same Clang header")
+            files = (first, second)
+            verified = {str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in files}
+            for p in files:
+                os.utime(p, (1791292742, 1791292742))
+            manifest = root / "seed.json"
+            relative = lambda p: str(p.relative_to(ndk))
+            manifest.write_text(json.dumps({
+                "schema": 1, "ndk_revision": cache.NDK_REVISION,
+                "expected_unix_seconds": {
+                    relative(first): 1791131946,
+                    relative(second): 1791131945,
+                },
+            }))
+            result = cache.restore_recorded_pch_mtimes(ndk, verified, manifest)
+            self.assertEqual(result["validated_headers"], 2)
+            self.assertEqual(result["metadata_only_adjustments"], 2)
+            self.assertFalse(result["contents_modified"])
+            self.assertEqual(first.stat().st_mtime_ns, 1791131946 * 1000000000)
+            self.assertEqual(second.stat().st_mtime_ns, 1791131945 * 1000000000)
+            # A mismatched checksum in the last entry must abort BEFORE
+            # restoring even the correctly verified first entry.
+            for p in files:
+                os.utime(p, (1791292742, 1791292742))
+            altered = dict(verified)
+            altered[str(second.resolve())] = "0" * 64
+            with self.assertRaises(AssertionError):
+                cache.restore_recorded_pch_mtimes(ndk, altered, manifest)
+            self.assertTrue(all(p.stat().st_mtime_ns == 1791292742 * 1000000000
+                                for p in files))
+            # A manifest with a missing path or out-of-bounds epoch also fails.
+            bad = json.loads(manifest.read_text())
+            bad["expected_unix_seconds"][relative(first)] = 1791292742
+            manifest.write_text(json.dumps(bad))
+            with self.assertRaises(AssertionError):
+                cache.restore_recorded_pch_mtimes(ndk, verified, manifest)
+            self.assertEqual(first.stat().st_mtime_ns, 1791292742 * 1000000000)
+
     def test_wrapper_restores_only_hash_verified_clang_pch_mtime(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
