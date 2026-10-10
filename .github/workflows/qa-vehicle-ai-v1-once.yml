@@ -59,7 +59,7 @@ jobs:
             scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp \
             -o /tmp/vehicle-ai-gcc
           /tmp/vehicle-ai-gcc
-      - name: Run movement snapshot and behavior regression tests
+      - name: Run corrected movement snapshot and behavior regression tests
         shell: bash
         run: |
           set -euo pipefail
