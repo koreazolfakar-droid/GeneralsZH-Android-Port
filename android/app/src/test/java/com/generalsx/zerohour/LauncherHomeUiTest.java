@@ -56,9 +56,15 @@ public class LauncherHomeUiTest {
         context.getSharedPreferences(SetupActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
             .clear().putString(SetupActivity.PREF_GAME_PATH, game.getAbsolutePath()).commit();
         UpdateManager.setAutoCheckEnabled(context, false);
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
     }
     @After public void tearDown() {
         if (controller != null) controller.pause().stop().destroy();
+        try {
+            Field f = SetupActivity.class.getDeclaredField("sAvailableApk");
+            f.setAccessible(true);
+            f.set(null, null);
+        } catch (Exception e) { throw new AssertionError(e); }
     }
     private void open() {
         controller = Robolectric.buildActivity(SetupActivity.class).setup();
@@ -200,6 +206,40 @@ public class LauncherHomeUiTest {
         settings(SetupActivity.TAB_INTERFACE);
         assertEquals(2, ShadowPopupMenu.getLatestPopupMenu().getMenu().size());
         assertNull(ShadowPopupMenu.getLatestPopupMenu().getMenu().findItem(SetupActivity.TAB_TOOLS));
+    }
+
+    @Test public void fullApkBannerAppearsOnlyForAnOfferedReleaseAndSurvivesNavigation()
+        throws Exception {
+        open();
+        TextView banner = (TextView) field("apkUpdateBanner");
+        assertNotNull(banner);
+        assertEquals(View.GONE, banner.getVisibility());
+        Field pending = SetupActivity.class.getDeclaredField("sAvailableApk");
+        pending.setAccessible(true);
+        pending.set(null, new ApkUpdateManager.Release("v1.4.8",
+            "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/"
+            + "releases/download/v1.4.8/app.apk",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 100L));
+        java.lang.reflect.Method render =
+            SetupActivity.class.getDeclaredMethod("renderApkUpdateBanner");
+        render.setAccessible(true);
+        render.invoke(activity);
+        assertEquals(View.VISIBLE, banner.getVisibility());
+        assertTrue(banner.getText().toString().contains("1.4.8"));
+        ((BottomNavigationView)field("bottomNav")).setSelectedItemId(SetupActivity.TAB_GRAPHICS);
+        assertEquals(View.VISIBLE, banner.getVisibility());
+        assertEquals(View.GONE, ((LinearLayout)field("homeUpdateDetails")) == null
+            ? View.GONE : ((LinearLayout)field("homeUpdateDetails")).getVisibility());
+    }
+
+    @Test public void apkAutoCheckSettingDoesNotChangeEngineAutoCheck() {
+        open();
+        assertFalse(ApkUpdateManager.isAutoCheckEnabled(context));
+        assertFalse(UpdateManager.isAutoCheckEnabled(context));
+        ApkUpdateManager.setAutoCheckEnabled(context, true);
+        assertTrue(ApkUpdateManager.isAutoCheckEnabled(context));
+        assertFalse(UpdateManager.isAutoCheckEnabled(context));
+        ApkUpdateManager.setAutoCheckEnabled(context, false);
     }
 
     @Test public void onlineAndSignedUpdateControlsRemainReachable() {
