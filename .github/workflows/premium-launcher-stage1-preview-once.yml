@@ -14,7 +14,7 @@ jobs:
     env:
       REPO: koreazolfakar-droid/GeneralsZH-Android-Port
       BRANCH: feature/premium-launcher-stage1-20261010
-      SOURCE_SHA: f7631d37de67745e894a1a17f86f3649653c96fc
+      SOURCE_SHA: e611965d094d39a07b3cc23e187f8c55181d0e14
       APK_NAME: GeneralsZH-Premium-Launcher-v1.4.9-Stage1-preview.apk
       VERSION_CODE: '10409'
       VERSION_NAME: '1.4.9'
@@ -34,7 +34,7 @@ jobs:
           PY
       - uses: actions/checkout@v6
         with:
-          ref: f7631d37de67745e894a1a17f86f3649653c96fc
+          ref: e611965d094d39a07b3cc23e187f8c55181d0e14
           fetch-depth: 1
           filter: blob:none
           submodules: false
