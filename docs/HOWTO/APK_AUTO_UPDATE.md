@@ -4,7 +4,7 @@ This feature is **separate** from the existing `UpdateManager` engine-only signe
 
 ## Behaviour
 
-- Once per launcher process when auto-check is enabled, query the latest non-prerelease GitHub Release. The Updates section's existing "Check for updates" button can also trigger a manual APK check.
+- Once per launcher process when auto-check is enabled, query the latest non-prerelease GitHub Release. The Updates section has its own APK-only check button and auto-check preference; the existing engine-only check button and preference are unchanged.
 - Show a blue "Update Now" strip immediately above bottom navigation only for a newer release with an APK asset, SHA-256 digest and sensible size.
 - Download on demand into `getCacheDir()/apk-updates/`; interrupted transfers retain a digest-named `.part` file and use HTTP Range on retry.
 - Before requesting installation, verify bytes/size against GitHub's SHA-256, Android package name, strictly increasing APK `versionCode`, and the installed APK's actual signing certificates.
@@ -28,5 +28,11 @@ Note: the bootstrap version must itself contain the updater for future releases 
 - `android/app/src/main/java/com/generalsx/zerohour/ApkUpdateManager.java`
 - `SetupActivity.java` banner, update check, progress, installer permission UX
 - `ApkUpdateManagerTest.java` validates tag/version and URL policy
+
+Run only launcher JVM tests with existing cached tools and staged SDL Java (no native rebuild):
+```bash
+bash scripts/qa/test-launcher-apk-updates.sh
+```
+This fails immediately if the SDK, Gradle cache or SDL Java staging are missing; it intentionally does not download a toolchain or regenerate native binaries.
 
 Static source checks are **not** a substitute for Android Gradle compile, a package-signature fixture, or device testing. Do not merge/publish on the basis of this document alone.
