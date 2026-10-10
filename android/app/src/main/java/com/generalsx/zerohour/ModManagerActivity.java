@@ -493,30 +493,30 @@ public class ModManagerActivity extends Activity {
                 } else {
                     summary.append(getString(R.string.mods_health_structural_ok));
                 }
-                summary.append("\\n\\n").append(getString(R.string.mods_health_big_count, report.archives));
-                summary.append("\\n").append(getString(R.string.mods_health_valid_count, report.validArchives));
-                summary.append("\\n").append(getString(R.string.mods_health_invalid_count, report.invalidArchives));
-                summary.append("\\n").append(getString(R.string.mods_health_entry_count, report.archivedEntries));
-                summary.append("\\n").append(getString(R.string.mods_health_loose_count, report.looseFiles));
-                summary.append("\\n").append(getString(R.string.mods_health_nested_count, report.nestedArchives));
-                summary.append("\\n").append(getString(R.string.mods_health_data_folder,
+                summary.append("\n\n").append(getString(R.string.mods_health_big_count, report.archives));
+                summary.append("\n").append(getString(R.string.mods_health_valid_count, report.validArchives));
+                summary.append("\n").append(getString(R.string.mods_health_invalid_count, report.invalidArchives));
+                summary.append("\n").append(getString(R.string.mods_health_entry_count, report.archivedEntries));
+                summary.append("\n").append(getString(R.string.mods_health_loose_count, report.looseFiles));
+                summary.append("\n").append(getString(R.string.mods_health_nested_count, report.nestedArchives));
+                summary.append("\n").append(getString(R.string.mods_health_data_folder,
                     report.dataFolder ? getString(R.string.mods_health_present) : getString(R.string.mods_health_absent)));
-                summary.append("\\n").append(getString(R.string.mods_health_window_folder,
+                summary.append("\n").append(getString(R.string.mods_health_window_folder,
                     report.windowFolder ? getString(R.string.mods_health_present) : getString(R.string.mods_health_absent)));
                 if (report.symlinks > 0 || report.unreadable > 0) {
-                    summary.append("\\n").append(getString(R.string.mods_health_fs_issues,
+                    summary.append("\n").append(getString(R.string.mods_health_fs_issues,
                         report.symlinks, report.unreadable));
                 }
                 if (report.nestedArchives > 0) {
-                    summary.append("\\n\\n").append(getString(R.string.mods_health_nested_warning));
+                    summary.append("\n\n").append(getString(R.string.mods_health_nested_warning));
                 }
                 if (!report.issues().isEmpty()) {
-                    summary.append("\\n\\n").append(getString(R.string.mods_health_invalid_files));
+                    summary.append("\n\n").append(getString(R.string.mods_health_invalid_files));
                     for (String path : report.issues()) {
-                        summary.append("\\n• ").append(path);
+                        summary.append("\n• ").append(path);
                     }
                 }
-                summary.append("\\n\\n").append(getString(R.string.mods_health_disclaimer));
+                summary.append("\n\n").append(getString(R.string.mods_health_disclaimer));
                 scan.setText(summary.toString());
             });
         });
