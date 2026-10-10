@@ -44,6 +44,20 @@ final class ApkUpdateManager {
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-fA-F]{64}$");
     private static final long MAX_APK_BYTES = 512L * 1024 * 1024;
 
+    // Never couple APK alerts to the engine-only updater's preference or state.
+    private static final String PREFS = "gx_apk_updates_v1";
+    private static final String KEY_AUTO = "auto_check";
+
+    static boolean isAutoCheckEnabled(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO, true);
+    }
+
+    static void setAutoCheckEnabled(Context context, boolean enabled) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_AUTO, enabled).apply();
+    }
+
     static final class Release {
         final String version;
         final String url;
