@@ -21,9 +21,15 @@ import com.google.android.material.navigation.NavigationBarView;
 // GeneralsX @feature Android port 04/10/2026 Shared native launcher presentation only.
 // No game, storage, import, update, account, or renderer state is owned here.
 final class LauncherUi {
-    static final int BACKGROUND = 0xff090d14, SURFACE = 0xff121621,
-        OUTLINE = 0xff2b3040, TEXT = 0xfff4f3f9, MUTED = 0xffaaa7bc,
-        PURPLE = 0xffb48afa, GOLD = 0xffefc752, GREEN = 0xff58de9b;
+    // GeneralsX @feature 10/10/2026 Resolve semantic tokens from the Activity's selected theme.
+    static int background(Activity a) { return UiKit.color(a, R.color.gzh_background); }
+    static int surface(Activity a) { return UiKit.color(a, R.color.gzh_surface_container); }
+    static int outline(Activity a) { return UiKit.color(a, R.color.gzh_outline); }
+    static int textColor(Activity a) { return UiKit.color(a, R.color.gzh_on_surface); }
+    static int muted(Activity a) { return UiKit.color(a, R.color.gzh_on_surface_variant); }
+    static int primary(Activity a) { return UiKit.color(a, R.color.gzh_primary); }
+    static int warning(Activity a) { return UiKit.color(a, R.color.gzh_status_warn); }
+    static int success(Activity a) { return UiKit.color(a, R.color.gzh_status_ok); }
     private LauncherUi() {}
 
     static int dp(Activity a, int value) { return UiKit.dp(a, value); }
@@ -45,7 +51,7 @@ final class LauncherUi {
     static LinearLayout panel(Activity a, LinearLayout parent) {
         LinearLayout body = column(a);
         body.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
-        body.setBackground(shape(a, SURFACE, OUTLINE, 12));
+        body.setBackground(shape(a, surface(a), outline(a), 12));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(a, 10);
         parent.addView(body, lp);
@@ -67,7 +73,7 @@ final class LauncherUi {
 
     static FrameLayout artwork(Activity a, LinearLayout parent, int height) {
         FrameLayout frame = new FrameLayout(a);
-        frame.setBackground(shape(a, SURFACE, OUTLINE, 12));
+        frame.setBackground(shape(a, surface(a), outline(a), 12));
         frame.setClipToOutline(true);
         parent.addView(frame, new LinearLayout.LayoutParams(-1, dp(a, height)));
         ImageView image = new ImageView(a);
@@ -80,10 +86,10 @@ final class LauncherUi {
 
     static void purple(Activity a, MaterialButton button) {
         button.setCornerRadius(dp(a, 10));
-        button.setTextColor(BACKGROUND);
-        button.setIconTint(ColorStateList.valueOf(BACKGROUND));
-        button.setBackgroundTintList(ColorStateList.valueOf(PURPLE));
-        button.setStrokeColor(ColorStateList.valueOf(PURPLE));
+        button.setTextColor(UiKit.color(a, R.color.gzh_on_primary));
+        button.setIconTint(ColorStateList.valueOf(UiKit.color(a, R.color.gzh_on_primary)));
+        button.setBackgroundTintList(ColorStateList.valueOf(primary(a)));
+        button.setStrokeColor(ColorStateList.valueOf(primary(a)));
     }
 
     static TextView row(Activity a, LinearLayout parent, int icon, int title,
@@ -95,7 +101,7 @@ final class LauncherUi {
         body.setGravity(Gravity.CENTER_VERTICAL);
         ImageView glyph = new ImageView(a);
         glyph.setImageResource(icon);
-        glyph.setImageTintList(ColorStateList.valueOf(PURPLE));
+        glyph.setImageTintList(ColorStateList.valueOf(primary(a)));
         glyph.setPadding(dp(a, 10), dp(a, 10), dp(a, 10), dp(a, 10));
         glyph.setBackground(shape(a, 0xff242035, 0xff30283f, 10));
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(a, 36), dp(a, 36));
@@ -103,18 +109,18 @@ final class LauncherUi {
         body.addView(glyph, ilp);
         LinearLayout labels = column(a);
         body.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        text(a, labels, a.getString(title), 15, TEXT, true);
-        TextView status = text(a, labels, value, 12, MUTED, false);
+        text(a, labels, a.getString(title), 15, textColor(a), true);
+        TextView status = text(a, labels, value, 12, muted(a), false);
         if (action != null) {
             ImageView next = new ImageView(a);
             next.setImageResource(R.drawable.ic_gzh_chevron);
-            next.setImageTintList(ColorStateList.valueOf(MUTED));
+            next.setImageTintList(ColorStateList.valueOf(muted(a)));
             body.addView(next, new LinearLayout.LayoutParams(dp(a, 18), dp(a, 18)));
             body.setClickable(true);
             body.setFocusable(true);
             body.setOnClickListener(v -> action.run());
             body.setForeground(new android.graphics.drawable.RippleDrawable(
-                ColorStateList.valueOf(0x33b48afa), null, shape(a, 0xffffffff, 0xffffffff, 12)));
+                UiKit.tint(a, R.color.gzh_ripple_primary), null, shape(a, 0xffffffff, 0xffffffff, 12)));
         }
         return status;
     }
@@ -136,7 +142,7 @@ final class LauncherUi {
         BottomNavigationView nav = new BottomNavigationView(a);
         nav.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         nav.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-        nav.setBackgroundColor(BACKGROUND);
+        nav.setBackgroundColor(background(a));
         nav.setElevation(0);
         nav.setMinimumHeight(dp(a, 64));
         nav.setItemPaddingTop(dp(a, 6));
@@ -144,11 +150,11 @@ final class LauncherUi {
         nav.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
         nav.setItemIconSize(dp(a, 22));
         ColorStateList tint = new ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
-            new int[]{PURPLE, MUTED});
+            new int[]{primary(a), muted(a)});
         nav.setItemTextColor(tint);
         nav.setItemIconTintList(tint);
-        nav.setItemActiveIndicatorColor(ColorStateList.valueOf(0xff30204e));
-        nav.setItemRippleColor(ColorStateList.valueOf(0x33b48afa));
+        nav.setItemActiveIndicatorColor(UiKit.tint(a, R.color.gzh_primary_container));
+        nav.setItemRippleColor(UiKit.tint(a, R.color.gzh_ripple_primary));
         Menu menu = nav.getMenu();
         menu.add(0, SetupActivity.TAB_HOME, 0, R.string.nav_tab_home).setIcon(R.drawable.ic_gzh_home);
         menu.add(0, SetupActivity.TAB_MODS, 1, R.string.mods_title).setIcon(R.drawable.ic_gzh_folder);

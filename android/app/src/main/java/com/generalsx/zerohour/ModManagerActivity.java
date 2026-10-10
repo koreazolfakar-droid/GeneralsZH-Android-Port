@@ -61,12 +61,13 @@ public class ModManagerActivity extends Activity {
 
     // GeneralsX @feature Android port 04/10/2026 Tactical Views-only library.
     // Filesystem discovery and size accounting never run on the UI thread.
-    private static final int BACKGROUND = LauncherUi.BACKGROUND;
-    private static final int SURFACE = LauncherUi.SURFACE;
-    private static final int OUTLINE = LauncherUi.OUTLINE;
-    private static final int GOLD = 0xffefc752;
-    private static final int TEXT = LauncherUi.TEXT;
-    private static final int MUTED = LauncherUi.MUTED;
+    // GeneralsX @feature 10/10/2026 No frozen dark-only palette on the mod screen.
+    private int background() { return LauncherUi.background(this); }
+    private int surface() { return LauncherUi.surface(this); }
+    private int outline() { return LauncherUi.outline(this); }
+    private int gold() { return LauncherUi.warning(this); }
+    private int textColor() { return LauncherUi.textColor(this); }
+    private int muted() { return LauncherUi.muted(this); }
     private final ExecutorService libraryWorker = Executors.newSingleThreadExecutor(
         task -> new Thread(task, "GeneralsX-ModLibrary"));
     private LinearLayout library;
@@ -99,11 +100,12 @@ public class ModManagerActivity extends Activity {
 
     @Override
     protected void attachBaseContext(Context newBase) {
-        super.attachBaseContext(LocaleHelper.wrap(newBase));
+        super.attachBaseContext(ThemeHelper.wrap(LocaleHelper.wrap(newBase)));
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.apply(this);
         super.onCreate(savedInstanceState);
         setTitle(R.string.mods_title);
         if (savedInstanceState != null) libraryQuery = savedInstanceState.getString("mods_ui_query", "");
@@ -140,11 +142,12 @@ public class ModManagerActivity extends Activity {
     }
 
     private void buildUi() {
-        getWindow().setStatusBarColor(BACKGROUND);
-        getWindow().setNavigationBarColor(BACKGROUND);
+        getWindow().setStatusBarColor(background());
+        getWindow().setNavigationBarColor(background());
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        ThemeHelper.applyBars(this);
         LinearLayout shell = column();
-        shell.setBackgroundColor(BACKGROUND);
+        shell.setBackgroundColor(background());
         setContentView(shell);
         InsetUtil.applySafeInsets(shell);
 
@@ -166,7 +169,7 @@ public class ModManagerActivity extends Activity {
         title.setText(R.string.mods_title);
         title.setTextSize(32);
         title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setTextColor(TEXT);
+        title.setTextColor(android.graphics.Color.WHITE);
         tools.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         tools.addView(UiKit.iconButton(this, android.R.drawable.ic_menu_search,
             getString(R.string.launcher_search_mods), this::searchLibrary));
@@ -174,7 +177,7 @@ public class ModManagerActivity extends Activity {
             getString(R.string.launcher_settings), () -> LauncherUi.open(this, SetupActivity.TAB_INTERFACE));
         settings.setOnClickListener(v -> LauncherUi.settings(this, v, tab -> LauncherUi.open(this, tab)));
         tools.addView(settings);
-        text(header, getString(R.string.mods_library_subtitle), 13, TEXT, false);
+        text(header, getString(R.string.mods_library_subtitle), 13, textColor(), false);
 
         LinearLayout summary = panel(page, false);
         summary.setOrientation(LinearLayout.HORIZONTAL);
@@ -182,18 +185,18 @@ public class ModManagerActivity extends Activity {
         countValue = metric(summary, R.string.mods_library_title);
         storageValue = metric(summary, R.string.mods_storage_used);
         freeValue = metric(summary, R.string.mods_free_space);
-        selection = text(page, getString(R.string.mods_library_loading), 13, MUTED, false);
+        selection = text(page, getString(R.string.mods_library_loading), 13, muted(), false);
         selection.setPadding(dp(2), dp(8), 0, dp(6));
         libraryProgress = new ProgressBar(this);
         libraryProgress.setIndeterminate(true);
-        libraryProgress.setIndeterminateTintList(ColorStateList.valueOf(GOLD));
+        libraryProgress.setIndeterminateTintList(ColorStateList.valueOf(gold()));
         page.addView(libraryProgress, new LinearLayout.LayoutParams(dp(28), dp(28)));
         library = column();
         page.addView(library, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout footer = column();
         footer.setPadding(dp(16), dp(10), dp(16), dp(12));
-        footer.setBackgroundColor(BACKGROUND);
+        footer.setBackgroundColor(background());
         shell.addView(footer, new LinearLayout.LayoutParams(-1, -2));
         LinearLayout actions = UiKit.buttonRow(footer);
         importButton = action(actions, R.string.mods_import_title, R.drawable.ic_gzh_download,
@@ -280,18 +283,18 @@ public class ModManagerActivity extends Activity {
         if (!snapshot.storageReady) {
             LinearLayout error = panel(library, false);
             text(error, getString(snapshot.root == null ? R.string.mods_no_game_title
-                : R.string.mods_storage_error_title), 18, TEXT, true);
+                : R.string.mods_storage_error_title), 18, textColor(), true);
             text(error, snapshot.root == null ? getString(R.string.mods_no_game_message)
-                : getString(R.string.mods_storage_error_message, snapshot.root.getAbsolutePath()), 14, MUTED, false);
+                : getString(R.string.mods_storage_error_message, snapshot.root.getAbsolutePath()), 14, muted(), false);
             return;
         }
         if (snapshot.legacy != null) {
-            text(library, getString(R.string.mods_legacy_warning, snapshot.legacy), 13, GOLD, false);
+            text(library, getString(R.string.mods_legacy_warning, snapshot.legacy), 13, gold(), false);
         }
         if (snapshot.entries.isEmpty()) {
             LinearLayout empty = panel(library, false);
-            text(empty, getString(R.string.mods_empty_title), 20, TEXT, true);
-            text(empty, getString(R.string.mods_library_empty), 14, MUTED, false);
+            text(empty, getString(R.string.mods_empty_title), 20, textColor(), true);
+            text(empty, getString(R.string.mods_library_empty), 14, muted(), false);
         }
         int shown = 0;
         List<Entry> ordered = new ArrayList<>(snapshot.entries);
@@ -305,7 +308,7 @@ public class ModManagerActivity extends Activity {
             heading.setGravity(Gravity.CENTER_VERTICAL);
             card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
             FrameLayout preview = new FrameLayout(this);
-            preview.setBackground(shape(0xff242035, OUTLINE));
+            preview.setBackground(shape(UiKit.color(this, R.color.gzh_surface_container_high), outline()));
             preview.setClipToOutline(true);
             ImageView artwork = new ImageView(this);
             artwork.setImageResource(R.drawable.launcher_mods_battlefield);
@@ -315,8 +318,8 @@ public class ModManagerActivity extends Activity {
             // Shared decorative artwork, never claimed as mod-specific cover metadata.
             ImageView icon = new ImageView(this);
             icon.setImageResource(R.drawable.ic_gzh_folder);
-            icon.setImageTintList(ColorStateList.valueOf(active ? GOLD : LauncherUi.PURPLE));
-            icon.setBackground(shape(0xdd121621, OUTLINE));
+            icon.setImageTintList(ColorStateList.valueOf(active ? gold() : LauncherUi.primary(this)));
+            icon.setBackground(shape(UiKit.color(this, R.color.gzh_surface_container_high), outline()));
             icon.setPadding(dp(5), dp(5), dp(5), dp(5));
             FrameLayout.LayoutParams glyph = new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM | Gravity.END);
             glyph.setMargins(dp(4), dp(4), dp(4), dp(4));
@@ -332,7 +335,7 @@ public class ModManagerActivity extends Activity {
             TextView name = new TextView(this);
             name.setText(entry.file.getName());
             name.setTextSize(16);
-            name.setTextColor(TEXT);
+            name.setTextColor(textColor());
             name.setTypeface(Typeface.DEFAULT_BOLD);
             name.setMaxLines(2);
             name.setEllipsize(TextUtils.TruncateAt.END);
@@ -341,10 +344,11 @@ public class ModManagerActivity extends Activity {
             badge.setText(active ? R.string.mods_active_button : R.string.mods_installed_badge);
             badge.setTextSize(10);
             badge.setTypeface(Typeface.DEFAULT_BOLD);
-            badge.setTextColor(active ? GOLD : LauncherUi.GREEN);
+            badge.setTextColor(active ? gold() : LauncherUi.success(this));
             badge.setPadding(dp(6), dp(4), dp(6), dp(4));
-            badge.setBackground(shape(active ? 0xff292417 : 0xff0d2520,
-                active ? GOLD : 0xff28674f));
+            badge.setBackground(shape(active ? UiKit.color(this, R.color.gzh_primary_container)
+                : UiKit.color(this, R.color.gzh_surface_container_high),
+                active ? gold() : LauncherUi.success(this)));
             LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(-2, -2);
             badgeLp.setMarginStart(dp(6));
             titleRow.addView(badge, badgeLp);
@@ -353,11 +357,11 @@ public class ModManagerActivity extends Activity {
             delete.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
             ((ImageView) delete).setImageTintList(new ColorStateList(
                 new int[][] { {-android.R.attr.state_enabled}, {} },
-                new int[] { MUTED, 0xffff6b78 }));
+                new int[] { muted(), 0xffff6b78 }));
             delete.setEnabled(enabled);
             titleRow.addView(delete);
             TextView type = text(info, sizeLabel(entry.bytes) + "  ·  " + getString(entry.directory
-                ? R.string.mods_type_folder : R.string.mods_type_big), 11, MUTED, false);
+                ? R.string.mods_type_folder : R.string.mods_type_big), 11, muted(), false);
             type.setPadding(0, dp(4), 0, 0);
             LinearLayout actions = UiKit.buttonRow(info);
             MaterialButton launch = action(actions, R.string.mods_launch_button, R.drawable.ic_gzh_play,
@@ -368,10 +372,10 @@ public class ModManagerActivity extends Activity {
             activate.setEnabled(enabled && !active);
         }
         if (shown == 0 && !snapshot.entries.isEmpty()) {
-            text(library, getString(R.string.launcher_no_matches), 14, MUTED, false);
+            text(library, getString(R.string.launcher_no_matches), 14, muted(), false);
         }
         TextView path = text(library, getString(R.string.mods_folder_path,
-            snapshot.root.getAbsolutePath()), 11, MUTED, false);
+            snapshot.root.getAbsolutePath()), 11, muted(), false);
         path.setPadding(dp(2), dp(14), dp(2), dp(4));
     }
 
@@ -456,7 +460,7 @@ public class ModManagerActivity extends Activity {
     private LinearLayout panel(LinearLayout parent, boolean active) {
         LinearLayout panel = column();
         panel.setPadding(dp(14), dp(14), dp(14), dp(14));
-        panel.setBackground(shape(active ? 0xff1b211d : SURFACE, active ? GOLD : OUTLINE));
+        panel.setBackground(shape(active ? UiKit.color(this, R.color.gzh_primary_container) : surface(), active ? gold() : outline()));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(12);
         parent.addView(panel, lp);
@@ -478,8 +482,8 @@ public class ModManagerActivity extends Activity {
         LinearLayout cell = column();
         cell.setPadding(dp(3), 0, dp(3), 0);
         parent.addView(cell, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView value = text(cell, getString(R.string.mods_size_unknown), 18, TEXT, true);
-        TextView caption = text(cell, getString(label), 10, MUTED, false);
+        TextView value = text(cell, getString(R.string.mods_size_unknown), 18, textColor(), true);
+        TextView caption = text(cell, getString(label), 10, muted(), false);
         caption.setMaxLines(2);
         return value;
     }
@@ -491,13 +495,13 @@ public class ModManagerActivity extends Activity {
         button.setCornerRadius(dp(8));
         button.setTextSize(13);
         button.setStrokeWidth(dp(1));
-        button.setStrokeColor(ColorStateList.valueOf(primary ? GOLD : OUTLINE));
-        int foreground = primary ? BACKGROUND : TEXT;
+        button.setStrokeColor(ColorStateList.valueOf(primary ? gold() : outline()));
+        int foreground = primary ? background() : textColor();
         button.setTextColor(new ColorStateList(new int[][] { {-android.R.attr.state_enabled}, {} },
-            new int[] { MUTED, foreground }));
+            new int[] { muted(), foreground }));
         button.setIconTint(button.getTextColors());
         button.setBackgroundTintList(new ColorStateList(new int[][] { {-android.R.attr.state_enabled}, {} },
-            new int[] { SURFACE, primary ? GOLD : 0xff1b2a3a }));
+            new int[] { surface(), primary ? gold() : UiKit.color(this, R.color.gzh_surface_container_high) }));
         return button;
     }
 
@@ -568,11 +572,11 @@ public class ModManagerActivity extends Activity {
         progressSurface.setPadding(dp(24), dp(12), dp(24), dp(20));
         ProgressBar spinner = new ProgressBar(this);
         spinner.setIndeterminate(true);
-        spinner.setIndeterminateTintList(ColorStateList.valueOf(GOLD));
+        spinner.setIndeterminateTintList(ColorStateList.valueOf(gold()));
         LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(dp(48), dp(48));
         spinnerParams.gravity = Gravity.CENTER_HORIZONTAL;
         progressSurface.addView(spinner, spinnerParams);
-        TextView progressMessage = text(progressSurface, getString(R.string.mods_import_working_message), 14, TEXT, false);
+        TextView progressMessage = text(progressSurface, getString(R.string.mods_import_working_message), 14, textColor(), false);
         progressMessage.setPadding(0, dp(18), 0, 0);
         importProgress = new AlertDialog.Builder(this)
             .setTitle(R.string.mods_import_working_title)

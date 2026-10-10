@@ -134,14 +134,14 @@ public class SetupActivity extends Activity {
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
-        super.attachBaseContext(LocaleHelper.wrap(newBase));
+        super.attachBaseContext(ThemeHelper.wrap(LocaleHelper.wrap(newBase)));
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // GeneralsX @bugfix Codex 04/10/2026 Keep branding in the launch window only;
         // restore the existing Material theme before creating any app widgets.
-        setTheme(R.style.Theme_GeneralsZHSettings);
+        ThemeHelper.apply(this);
         // GeneralsX @bugfix Android port 31/07/2026 No longer forced to
         // landscape here -- see the matching AndroidManifest.xml comment.
         // This screen now starts portrait-first like every other non-game
@@ -289,9 +289,10 @@ public class SetupActivity extends Activity {
 
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setBackgroundColor(LauncherUi.BACKGROUND);
-        getWindow().setStatusBarColor(LauncherUi.BACKGROUND);
-        getWindow().setNavigationBarColor(LauncherUi.BACKGROUND);
+        shell.setBackgroundColor(LauncherUi.background(this));
+        getWindow().setStatusBarColor(LauncherUi.background(this));
+        getWindow().setNavigationBarColor(LauncherUi.background(this));
+        ThemeHelper.applyBars(this);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         setContentView(shell);
         // Edge-to-edge still handled the same way: pad the outermost view by
@@ -304,7 +305,7 @@ public class SetupActivity extends Activity {
         bar.setPadding(dp(16), dp(10), dp(16), dp(4));
         appBarTitle = new TextView(this);
         appBarTitle.setTextSize(22);
-        appBarTitle.setTextColor(LauncherUi.TEXT);
+        appBarTitle.setTextColor(LauncherUi.textColor(this));
         appBarTitle.setTypeface(Typeface.DEFAULT_BOLD);
         appBarTitle.setMaxLines(2);
         bar.addView(appBarTitle, new LinearLayout.LayoutParams(0, -2, 1));
@@ -398,6 +399,7 @@ public class SetupActivity extends Activity {
                 }
                 break;
             case TAB_INTERFACE:
+                buildThemeSection(page);
                 buildLanguageSection(page);
                 buildUiScaleSection(page);
                 buildInterfaceScaleSection(page);
@@ -466,12 +468,12 @@ public class SetupActivity extends Activity {
             android.view.Gravity.BOTTOM);
         scene.addView(overlay, overlayLp);
         heroReady = LauncherUi.text(this, overlay, getString(R.string.launcher_setup_needed),
-            12, LauncherUi.GOLD, true);
+            12, LauncherUi.warning(this), true);
         heroReady.setCompoundDrawablePadding(dp(6));
         heroReady.setPadding(dp(10), dp(5), dp(10), dp(5));
         heroReady.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
-        LauncherUi.text(this, overlay, getString(R.string.mods_status_title), 10, LauncherUi.MUTED, false);
-        heroMod = LauncherUi.text(this, overlay, "", 14, LauncherUi.TEXT, true);
+        LauncherUi.text(this, overlay, getString(R.string.mods_status_title), 10, LauncherUi.muted(this), false);
+        heroMod = LauncherUi.text(this, overlay, "", 14, LauncherUi.textColor(this), true);
         LinearLayout playRow = new LinearLayout(this);
         playRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         playRow.setPadding(dp(10), 0, dp(10), 0);
@@ -534,18 +536,18 @@ public class SetupActivity extends Activity {
     private TextView homeMetric(LinearLayout row, int icon, int caption) {
         LinearLayout cell = LauncherUi.column(this);
         cell.setPadding(dp(8), dp(7), dp(8), dp(7));
-        cell.setBackground(LauncherUi.shape(this, LauncherUi.SURFACE, LauncherUi.OUTLINE, 10));
+        cell.setBackground(LauncherUi.shape(this, LauncherUi.surface(this), LauncherUi.outline(this), 10));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1);
         if (row.getChildCount() > 0) lp.setMarginStart(dp(6));
         row.addView(cell, lp);
-        TextView value = LauncherUi.text(this, cell, "", 12, LauncherUi.TEXT, true);
+        TextView value = LauncherUi.text(this, cell, "", 12, LauncherUi.textColor(this), true);
         value.setMaxLines(1);
         android.graphics.drawable.Drawable glyph = getDrawable(icon);
-        glyph.setTint(LauncherUi.PURPLE);
+        glyph.setTint(LauncherUi.primary(this));
         glyph.setBounds(0, 0, dp(18), dp(18));
         value.setCompoundDrawablesRelative(glyph, null, null, null);
         value.setCompoundDrawablePadding(dp(5));
-        LauncherUi.text(this, cell, getString(caption), 10, LauncherUi.MUTED, false);
+        LauncherUi.text(this, cell, getString(caption), 10, LauncherUi.muted(this), false);
         return value;
     }
 
@@ -896,6 +898,24 @@ public class SetupActivity extends Activity {
     // -- see LocaleHelper for why it's a manual attachBaseContext() wrap
     // rather than androidx.appcompat's per-app language API, and why
     // "System Default" needs no explicit handling.
+    // GeneralsX @feature 10/10/2026 Launcher appearance only; native game is untouched.
+    private void buildThemeSection(LinearLayout page) {
+        LinearLayout card = UiKit.card(page);
+        UiKit.sectionHeader(card, R.drawable.ic_gzh_display,
+            getString(R.string.setup_appearance_title), false);
+        UiKit.segmented(card, new CharSequence[] {
+                getString(R.string.setup_appearance_system),
+                getString(R.string.setup_appearance_light),
+                getString(R.string.setup_appearance_dark)
+            }, ThemeHelper.getMode(this), index -> {
+                if (ThemeHelper.getMode(this) == index) return;
+                ThemeHelper.setMode(this, index);
+                // Uses the established onSaveInstanceState tab restoration flow.
+                recreate();
+            });
+        UiKit.helpText(card, getString(R.string.setup_appearance_help));
+    }
+
     private void buildLanguageSection(LinearLayout root) {
         LinearLayout content = UiKit.card(root);
         // The current language is the value the header carries, so the card
@@ -2559,7 +2579,7 @@ public class SetupActivity extends Activity {
         }
         statusText.setText(sb.subSequence(0, end));
         if (heroReady != null) {
-            int color = ready ? LauncherUi.GREEN : LauncherUi.GOLD;
+            int color = ready ? LauncherUi.success(this) : LauncherUi.warning(this);
             String verdict = getString(ready ? R.string.launcher_ready : R.string.launcher_setup_needed);
             heroReady.setText(verdict);
             heroReady.setTextColor(color);

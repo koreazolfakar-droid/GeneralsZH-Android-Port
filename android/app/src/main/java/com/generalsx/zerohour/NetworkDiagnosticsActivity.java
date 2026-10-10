@@ -60,12 +60,14 @@ public class NetworkDiagnosticsActivity extends Activity {
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
-        super.attachBaseContext(LocaleHelper.wrap(newBase));
+        super.attachBaseContext(ThemeHelper.wrap(LocaleHelper.wrap(newBase)));
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.apply(this);
         super.onCreate(savedInstanceState);
+        ThemeHelper.applyBars(this);
         setTitle(R.string.netdiag_title);
 
         LinearLayout root = new LinearLayout(this);
