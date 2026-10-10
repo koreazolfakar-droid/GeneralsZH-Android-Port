@@ -168,7 +168,7 @@ final class ApkUpdateManager {
     }
 
     /** Blocking. Retains a partial file on network errors, and resumes only the same digest. */
-    static File download(Context context, Release release, ProgressListener listener) throws Exception {
+    static synchronized File download(Context context, Release release, ProgressListener listener) throws Exception {
         if (!trustedDownloadUrl(release.url) || !SHA256.matcher(release.sha256).matches() ||
                 release.size <= 0 || release.size > MAX_APK_BYTES) {
             throw new IOException("Invalid APK release metadata");
@@ -177,8 +177,16 @@ final class ApkUpdateManager {
         File completed = new File(dir, release.sha256 + ".apk");
         if (completed.isFile() && completed.length() == release.size &&
                 hash(completed).equals(release.sha256)) {
-            if (listener != null) listener.onProgress(release.size, release.size);
-            return completed;
+            // Never trust the cache just because the downloaded bytes still match the digest.
+            // The device's installed version/signer may have changed since the prior attempt.
+            try {
+                verifyArchive(context, completed, release.version);
+                if (listener != null) listener.onProgress(release.size, release.size);
+                return completed;
+            } catch (Exception rejected) {
+                if (!completed.delete()) throw new IOException("Cannot remove invalid cached APK", rejected);
+                throw rejected;
+            }
         }
         if (completed.exists() && !completed.delete()) throw new IOException("Cannot replace cached APK");
         File partial = new File(dir, release.sha256 + ".part");
@@ -195,7 +203,12 @@ final class ApkUpdateManager {
             try {
                 int status = conn.getResponseCode();
                 if (offset > 0 && status == HttpURLConnection.HTTP_OK) {
-                    offset = 0; // Server refused Range: safely start a fresh file.
+                    // Range was ignored: truncate and retry from byte zero, but first require
+                    // enough capacity for the *whole* APK, not only the resumed tail.
+                    if (dir.getUsableSpace() < release.size + 8L * 1024 * 1024) {
+                        throw new IOException("Not enough space to restart full APK download");
+                    }
+                    offset = 0;
                 } else if (offset > 0 && (status != HttpURLConnection.HTTP_PARTIAL ||
                         conn.getHeaderField("Content-Range") == null ||
                         !conn.getHeaderField("Content-Range").startsWith("bytes " + offset + "-"))) {
@@ -231,12 +244,24 @@ final class ApkUpdateManager {
             throw new IOException("APK size or SHA-256 did not match GitHub release");
         }
         if (!partial.renameTo(completed)) throw new IOException("Cannot finalize downloaded APK");
-        verifyArchive(context, completed);
+        try {
+            verifyArchive(context, completed, release.version);
+        } catch (Exception rejected) {
+            // A correctly hashed release can still contain an incompatible APK. Do not cache
+            // it as installable or offer it to the user on the next attempt.
+            if (!completed.delete()) throw new IOException("Cannot remove incompatible APK", rejected);
+            throw rejected;
+        }
+        pruneOldApks(dir, completed);
         return completed;
     }
 
     /** Enforce package identity + exact current signer, even if release metadata was altered. */
     static void verifyArchive(Context context, File apk) throws Exception {
+        verifyArchive(context, apk, null);
+    }
+
+    static void verifyArchive(Context context, File apk, String expectedRelease) throws Exception {
         PackageManager pm = context.getPackageManager();
         int flags = PackageManager.GET_SIGNING_CERTIFICATES;
         PackageInfo candidate = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
@@ -247,10 +272,34 @@ final class ApkUpdateManager {
         if (candidate.getLongVersionCode() <= installed.getLongVersionCode()) {
             throw new IOException("APK versionCode is not newer than the installed version");
         }
+        if (expectedRelease != null && !sameVersion(candidate.versionName, expectedRelease)) {
+            throw new IOException("APK versionName does not match the release tag");
+        }
         if (candidate.signingInfo == null || installed.signingInfo == null ||
                 !sameSigners(candidate.signingInfo.getApkContentsSigners(),
                              installed.signingInfo.getApkContentsSigners())) {
             throw new IOException("APK signing certificate does not match the installed app");
+        }
+    }
+
+    static boolean sameVersion(String first, String second) {
+        long[] a = parseVersion(first);
+        long[] b = parseVersion(second);
+        return a != null && b != null && Arrays.equals(a, b);
+    }
+
+    private static void pruneOldApks(File directory, File keep) {
+        File[] files = directory.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            if (file.equals(keep)) continue;
+            // Only remove private APK updater cache entries we own. No mods, game data,
+            // saved games, settings, or other update channels are touched.
+            if (file.isFile() && file.getName().matches("[0-9a-f]{64}\\.(apk|part)")) {
+                if (!file.delete()) {
+                    android.util.Log.w("GZHApkUpdate", "Unable to remove old APK cache " + file.getName());
+                }
+            }
         }
     }
 
