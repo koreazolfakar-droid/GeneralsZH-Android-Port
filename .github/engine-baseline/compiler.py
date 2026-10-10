@@ -13,7 +13,10 @@ if any('/_deps/' in str(pathlib.Path(a).resolve()) or '/opt/vcpkg/' in str(pathl
     sys.exit('EXTERNAL DEPENDENCY REBUILD REFUSED')
 repairs = []
 verified=json.loads(pathlib.Path(os.environ['GX_VERIFIED_HEADERS']).read_text()) if os.environ.get('GX_VERIFIED_HEADERS') else {}
-for attempt in range(64):
+# Clang reports one stale include at a time. The pinned libc++ sysroot alone
+# may contain hundreds of PCH inputs; 64 retries was too low for this case.
+# Only checksummed, explicitly allowlisted files may be repaired.
+for attempt in range(512):
     result = subprocess.run(['ccache', *arguments], env=dict(os.environ, CCACHE_LOGFILE=str(log)), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     sys.stdout.write(result.stdout); sys.stderr.write(result.stderr)
     if result.returncode == 0: break
@@ -22,7 +25,19 @@ for attempt in range(64):
     restored=False
     for name,expected,current in matches:
         path=pathlib.Path(name).resolve()
-        if str(path) not in verified or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=verified[str(path)]:
+        if (str(path) not in verified or not path.is_file() or path.is_symlink()
+                or hashlib.sha256(path.read_bytes()).hexdigest()!=verified[str(path)]):
+            continue
+        # No unverified NDK content or future PCH timestamps. All SDK paths
+        # must belong to the pinned, hashed header inventory from ndk_cache.py.
+        if str(path).startswith('/opt/android-sdk/ndk/'):
+            if (not str(path).startswith('/opt/android-sdk/ndk/27.2.12479018/')
+                    or int(expected) > 1791292742):
+                continue
+        # Other compiler processes may have repaired the same include first.
+        # Retry when the checksum is still valid and its mtime now matches.
+        if path.stat().st_mtime_ns // 1000000000 == int(expected):
+            restored = True
             continue
         os.utime(path,(int(expected),int(expected)))
         repairs.append({'path':str(path),'verified_sha256':verified[str(path)],'old_mtime':int(current),'restored_mtime':int(expected),'attempt':attempt})
