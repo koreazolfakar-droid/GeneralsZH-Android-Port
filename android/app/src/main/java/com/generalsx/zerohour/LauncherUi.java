@@ -93,65 +93,60 @@ final class LauncherUi {
         button.setStrokeColor(ColorStateList.valueOf(primary(a)));
     }
 
-    /** Gold-accented illustrated destination card; the entire row is tappable. */
-    // GeneralsX @feature ChatGPT 10/10/2026 Real linked rows, not decoration-only cards.
+    /**
+     * Compact, content-measured destination row (no duplicated battlefield image).
+     * 88dp minimum touch/card target, but WRAP_CONTENT for font scaling and RTL.
+     * The old FrameLayout + MATCH_PARENT bitmap inside WRAP_CONTENT could measure
+     * to the image's intrinsic height and leave hundreds of dp of empty space.
+     * Only the hero should display the game artwork.
+     */
     static TextView row(Activity a, LinearLayout parent, int icon, int title,
                         CharSequence value, Runnable action) {
-        boolean dark = ThemeHelper.isDark(a);
-        FrameLayout frame = new FrameLayout(a);
-        frame.setClipToOutline(true);
-        frame.setBackground(shape(a, surface(a), outline(a), 18));
-        LinearLayout.LayoutParams frameParams = new LinearLayout.LayoutParams(-1, -2);
-        frameParams.topMargin = dp(a, 10);
-        parent.addView(frame, frameParams);
-
-        ImageView battlefield = new ImageView(a);
-        battlefield.setImageResource(R.drawable.launcher_battlefield);
-        battlefield.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        battlefield.setAlpha(dark ? 0.18f : 0.055f);
-        battlefield.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        frame.addView(battlefield, new FrameLayout.LayoutParams(-1, -1));
-
-        LinearLayout body = new LinearLayout(a);
-        body.setOrientation(LinearLayout.HORIZONTAL);
-        body.setGravity(Gravity.CENTER_VERTICAL);
-        body.setPadding(dp(a, 14), dp(a, 13), dp(a, 14), dp(a, 13));
-        GradientDrawable scrim = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            dark ? new int[]{0xff081724,0xf00a1b2b,0x9b0a1b2b}
-                 : new int[]{0xffffffff,0xfaf7f9fc,0xdbf7f9fc});
-        body.setBackground(scrim);
-        frame.addView(body, new FrameLayout.LayoutParams(-1, -2));
+        LinearLayout card = new LinearLayout(a);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setMinimumHeight(dp(a, 86));
+        card.setPadding(dp(a, 14), dp(a, 12), dp(a, 14), dp(a, 12));
+        card.setBackground(shape(a, surface(a), outline(a), 16));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = dp(a, 10);
+        parent.addView(card, params);
 
         ImageView glyph = new ImageView(a);
         glyph.setImageResource(icon);
         glyph.setImageTintList(ColorStateList.valueOf(primary(a)));
         glyph.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
-        glyph.setBackground(shape(a, dark ? 0xff132435 : 0xfffcefd4,
-            dark ? 0xff77582a : 0xffbd9957, 14));
-        LinearLayout.LayoutParams glyphParams = new LinearLayout.LayoutParams(dp(a, 52), dp(a, 52));
-        glyphParams.setMarginEnd(dp(a, 13));
-        body.addView(glyph, glyphParams);
+        glyph.setBackground(shape(a,
+            UiKit.color(a, R.color.gzh_surface_container_high),
+            UiKit.color(a, R.color.gzh_outline_variant), 13));
+        LinearLayout.LayoutParams iconParams =
+            new LinearLayout.LayoutParams(dp(a, 52), dp(a, 52));
+        iconParams.setMarginEnd(dp(a, 12));
+        card.addView(glyph, iconParams);
 
         LinearLayout labels = column(a);
-        body.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView heading = text(a, labels, a.getString(title), 17, textColor(a), true);
-        heading.setMaxLines(2);
-        TextView status = text(a, labels, value, 12, muted(a), false);
+        card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView heading = text(a, labels, a.getString(title), 16, textColor(a), true);
+        heading.setMaxLines(3);
+        TextView status = text(a, labels, value, 13, muted(a), false);
         status.setMaxLines(3);
+        status.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        status.setPadding(0, dp(a, 3), 0, 0);
 
         if (action != null) {
-            ImageView next = new ImageView(a);
-            next.setImageResource(R.drawable.ic_gzh_chevron);
-            next.setImageTintList(ColorStateList.valueOf(muted(a)));
-            body.addView(next, new LinearLayout.LayoutParams(dp(a, 20), dp(a, 20)));
-            body.setContentDescription(a.getString(title));
-            body.setClickable(true);
-            body.setFocusable(true);
-            body.setOnClickListener(v -> action.run());
-            body.setForeground(new android.graphics.drawable.RippleDrawable(
+            ImageView chevron = new ImageView(a);
+            chevron.setImageResource(R.drawable.ic_gzh_chevron);
+            chevron.setImageTintList(ColorStateList.valueOf(muted(a)));
+            LinearLayout.LayoutParams arrowParams =
+                new LinearLayout.LayoutParams(dp(a, 22), dp(a, 22));
+            arrowParams.setMarginStart(dp(a, 9));
+            card.addView(chevron, arrowParams);
+            card.setClickable(true);
+            card.setFocusable(true);
+            card.setOnClickListener(v -> action.run());
+            card.setForeground(new android.graphics.drawable.RippleDrawable(
                 UiKit.tint(a, R.color.gzh_ripple_primary), null,
-                shape(a, 0xffffffff, 0xffffffff, 18)));
+                shape(a, 0xffffffff, 0xffffffff, 16)));
         }
         return status;
     }
@@ -180,11 +175,14 @@ final class LauncherUi {
         nav.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         nav.setBackground(shape(a, darkNavigationColor(a), outline(a), 22));
         nav.setElevation(0);
-        nav.setMinimumHeight(dp(a, 68));
+        // Allow the system's larger font setting without clipping navigation labels.
+        nav.setMinimumHeight(dp(a,
+            a.getResources().getConfiguration().fontScale >= 1.3f ? 82 : 68));
         nav.setItemPaddingTop(dp(a, 6));
-        nav.setItemPaddingBottom(dp(a, 6));
+        nav.setItemPaddingBottom(dp(a, 5));
         nav.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
-        nav.setItemIconSize(dp(a, 24));
+        nav.setItemIconSize(dp(a,
+            a.getResources().getConfiguration().screenWidthDp < 360 ? 21 : 24));
         ColorStateList tint = new ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
             new int[]{primary(a), muted(a)});
         nav.setItemTextColor(tint);
