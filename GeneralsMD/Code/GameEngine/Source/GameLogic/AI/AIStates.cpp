@@ -53,6 +53,7 @@
 #include "GameLogic/AIGuardRetaliate.h"
 #include "GameLogic/AITNGuard.h"
 #include "GameLogic/AIStateMachine.h"
+#include "GameLogic/VehicleBlockedRepathPolicy.h"
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/PartitionManager.h"
@@ -1812,9 +1813,27 @@ StateReturnType AIInternalMoveToState::update()
 	}
 	Bool blocked=false;
 	if (ai->isBlockedAndStuck() || ai->getNumFramesBlocked()>2*LOGICFRAMES_PER_SECOND) {
-		forceRecompute = true;
 		blocked = true;
-		m_blockedRepathTimestamp = TheGameLogic->getFrame();
+		const UnsignedInt currentFrame = TheGameLogic->getFrame();
+#if defined(__ANDROID__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+		// Vehicle AI V1: prevent ground vehicles with an existing route
+		// from repeatedly requesting a blocked path every simulation tick.
+		// Leave missing paths, infantry, aircraft and special modes unchanged.
+		// No new state: the timestamp is already serialized in saved games.
+		const Bool throttleVehicleRepath = obj->isKindOf( KINDOF_VEHICLE ) &&
+			ai->isDoingGroundMovement() && thePath != nullptr &&
+			!ai->isWaitingForPath();
+		if( !throttleVehicleRepath ||
+			VehicleBlockedRepathPolicy::shouldRetry(
+				currentFrame, m_blockedRepathTimestamp, MIN_REPATH_TIME ) )
+		{
+			forceRecompute = true;
+			m_blockedRepathTimestamp = currentFrame;
+		}
+#else
+		forceRecompute = true;
+		m_blockedRepathTimestamp = currentFrame;
+#endif
 		// Intense debug logging jba.
 		//DEBUG_LOG(("Info - Blocked - recomputing."));
 	}
