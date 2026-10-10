@@ -367,8 +367,12 @@ public class ModManagerActivity extends Activity {
 
         LinearLayout info = column();
         heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView name = text(info, entry.file.getName(), 16, textColor(), true);
-        name.setMaxLines(3);
+        // Keep the established title-row view hierarchy for existing UI action tests.
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        info.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
+        TextView name = text(titleRow, entry.file.getName(), 16, textColor(), true);
+        name.setMaxLines(2);
         name.setEllipsize(TextUtils.TruncateAt.END);
         TextView meta = text(info, sizeLabel(entry.bytes) + "  ·  " + getString(entry.directory
             ? R.string.mods_type_folder : R.string.mods_type_big), 12, muted(), false);
@@ -393,7 +397,7 @@ public class ModManagerActivity extends Activity {
         // Destructive action is separated from the title and retains confirmation.
         View delete = UiKit.iconButton(this, android.R.drawable.ic_menu_delete,
             getString(R.string.mods_delete_button), () -> confirmDelete(entry.file, active));
-        delete.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(44)));
+        delete.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
         ((ImageView) delete).setImageTintList(UiKit.tint(this, R.color.gzh_on_surface_variant));
         delete.setEnabled(enabled);
         heading.addView(delete);
