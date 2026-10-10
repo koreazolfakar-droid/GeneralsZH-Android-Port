@@ -2,6 +2,7 @@
 // No simulated engine or placeholder test results.
 #include "GameLogic/VehicleBlockedRepathPolicy.h"
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -37,7 +38,7 @@ int main() {
     const auto second = runStuckFrames(100,499,10);
     assert(first == second);
     assert(first.size() == 40); // 400 tick scenario with 10-tick cooldown.
-    for (size_t i=1; i<first.size(); ++i) assert(first[i]-first[i-1]==10);
+    for (std::size_t i=1; i<first.size(); ++i) assert(first[i]-first[i-1]==10);
     // Both supported frame rates: no continuous blocked-path request storm.
     const auto thirty = runStuckFrames(1,30,10);
     const auto sixty = runStuckFrames(1,60,10);
