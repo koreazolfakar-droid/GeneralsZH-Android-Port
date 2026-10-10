@@ -26,7 +26,7 @@ class ProjectileImpactShroudTests(unittest.TestCase):
     def test_reveal_precedes_detonation_effects(self):
         body = WEAPON.split("void WeaponStore::handleProjectileDetonation(", 1)[1]
         body = body.split("void WeaponStore::createAndFireTempWeapon(", 1)[0]
-        self.assertRegex(body, r"if \(inflictDamage\)\s+revealProjectileImpactShroud\(source, wt\);")
+        self.assertRegex(body, r"if \(inflictDamage\)\s+revealProjectileImpactShroud\(source, wt, pos\);")
         self.assertLess(body.index("revealProjectileImpactShroud("), body.index("fireProjectileDetonationWeapon("))
 
     def test_online_guard_and_alliance_only(self):
@@ -38,6 +38,29 @@ class ProjectileImpactShroudTests(unittest.TestCase):
         self.assertIn("MIN_IMPACT_REVEAL_RADIUS = 40.0f", body)
         self.assertIn("MAX_IMPACT_REVEAL_RADIUS = 180.0f", body)
         self.assertLess(body.index("doShroudReveal("), body.index("queueUndoShroudReveal("))
+
+    def test_actual_impact_position_is_used(self):
+        body = WEAPON.split("static void revealProjectileImpactShroud(", 1)[1]
+        body = body.split("void WeaponStore::handleProjectileDetonation(", 1)[0]
+        self.assertIn("const Coord3D *impactPos", WEAPON)
+        self.assertIn("impactPos == nullptr", body)
+        self.assertIn("doShroudReveal(impactPos->x, impactPos->y", body)
+        self.assertNotIn("projectile->getPosition()", body)
+
+    def test_independent_of_faction_names(self):
+        # Guards against accidental one-army-only logic; actual mod QA remains required.
+        body = WEAPON.split("static void revealProjectileImpactShroud(", 1)[1]
+        body = body.split("void WeaponStore::handleProjectileDetonation(", 1)[0]
+        for army in ("Russia", "Europe", "China", "America", "GLA"):
+            with self.subTest(army=army):
+                self.assertNotIn(army, body)
+        self.assertIn("owner->getRelationship(currentPlayer->getDefaultTeam()) == ALLIES", body)
+
+    def test_zero_radius_is_not_free_map_reveal(self):
+        body = WEAPON.split("static void revealProjectileImpactShroud(", 1)[1]
+        body = body.split("void WeaponStore::handleProjectileDetonation(", 1)[0]
+        self.assertIn("if (impactRadius <= 0.0f)", body)
+        self.assertIn("return;", body)
 
     def test_impact_fx_are_shroud_gated(self):
         self.assertIn("getShroudStatusForPlayer(playerIndex, primary) != CELLSHROUD_CLEAR", FX)
