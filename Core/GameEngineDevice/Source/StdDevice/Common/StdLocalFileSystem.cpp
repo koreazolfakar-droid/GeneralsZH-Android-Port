@@ -506,7 +506,12 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 			std::string filenameStr = iter->path().filename().string();
 			if(iter->is_directory() &&
 				(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
-				AsciiString tempsearchstr(filenameStr.c_str());
+				// GeneralsX @bugfix Codex 10/10/2026 Retain the parent when scanning nested mod BIGs.
+				// Passing only the leaf searches from cwd and silently misses Mods/<mod>/Assets.
+				AsciiString tempsearchstr(currentDirectory);
+				if (tempsearchstr.isNotEmpty() && !tempsearchstr.endsWith("/") && !tempsearchstr.endsWith("\\"))
+					tempsearchstr.concat('/');
+				tempsearchstr.concat(filenameStr.c_str());
 
 				// recursively add files in subdirectories if required.
 				getFileListInDirectory(tempsearchstr, originalDirectory, searchName, filenameList, searchSubdirectories);

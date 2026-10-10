@@ -94,3 +94,14 @@ grep -n "SKIRMISH_DIAG\|ScoreScreen\|SkirmishGameOptionsMenu" ~/Projects/General
 Command line parsing is implemented in:
 - `Core/GameEngine/Source/gameclient.cpp` - Client-side parameters
 - `GeneralsMD/Code/Main/WinMain.cpp` - Entry point and initial parsing
+## Standalone mod asset diagnostics
+
+`GX_ASSET_TRACE` enables `[gxasset]` read diagnostics. Alternatively, create
+`gx_asset_trace.txt` in the selected game-data root before launch. An empty
+marker or `*` traces all requested files; a virtual-path substring such as
+`shield` or `art/w3d/` limits the trace (case and slash insensitive).
+Each line names the requested path, file instance, supplying BIG or `<loose>`,
+and `OPEN`, `READ_FAILED`, or `UNRESOLVED`. A missing request may be an optional
+probe; compare it with the mod's INI/W3D reference before treating it as damage.
+The marker is read once per process. Remove it and restart to disable tracing.
+Normal mount summaries remain available as `[gxbig]` and `[gxmod-overlay]`.

@@ -11,6 +11,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_TESTS = ('test-mod-localization.py', 'smoke/test-mod-localization.py',
+                  'test-standalone-mod-overlay.py', 'test-mod-archive-loading.py',
                   'test-save-map-safety.py', 'test-engine-build-number.py',
                   'test-engine-packaging.py', 'test-engine-native-version.py',
                   'test-engine-3277-hotfix.py', 'test-engine-security.py')

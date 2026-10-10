@@ -1,0 +1,109 @@
+# GeneralsX @build Codex 10/10/2026 Reuse the registered signer with exact build/source inputs.
+name: Publish verified engine update
+on:
+  workflow_dispatch:
+    inputs:
+      engine_build_run:
+        description: 'Successful incremental dual-engine build run'
+        type: string
+        required: true
+      source_commit:
+        description: 'Exact built dev/mobile-v4 source SHA'
+        type: string
+        required: true
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  sign-publish-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ENGINE_RUN: ${{ inputs.engine_build_run }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          fetch-depth: 0
+          filter: blob:none
+          clean: false
+      - name: Require exact current mobile source and successful native run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$SOURCE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" --jq .conclusion)" = success
+          echo "Real complete-history engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: ${{ env.ENGINE_RUN }}
+          github-token: ${{ github.token }}
+          path: engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+      - name: Prepare verified dual-engine update and dependency requirements
+        run: |
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$SOURCE_COMMIT" \
+            --out prepared-update \
+            --note 'Fix standalone mod BIG priority, inactive mod isolation, virtual retail archive replacement and nested archive discovery. Add optional asset source tracing. Both 30Hz and 60Hz engines; unchanged save, simulation and network formats. Host regressions passed; final gameplay verification is pending on device.'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prepared-engine-update
+          path: prepared-update/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Sign and verify exact manifest and engine payloads
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish verified signed update preserving previous engines
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify published manifest and both payload URLs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,hashlib,importlib.util,json,os,pathlib,subprocess,urllib.request,gzip
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          repo=os.environ['GITHUB_REPOSITORY']
+          api=lambda p:json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/'+p]))
+          head=api('git/ref/heads/updates')['object']['sha']
+          directory=pathlib.Path('published-verification');directory.mkdir()
+          for name in ('manifest.json','manifest.json.sig'):
+              (directory/name).write_bytes(base64.b64decode(api(f'contents/{name}?ref={head}')['content']))
+          manifest=a.verify_manifest(directory,'android/app/src/main/assets/update-public.pem')
+          sequence=int(subprocess.check_output(['bash','scripts/build/android/engine-build-number.sh',os.getcwd()]))
+          assert manifest['engine']['seq']==sequence
+          assert manifest['engine']['source_commit']==os.environ['SOURCE_COMMIT']
+          for name,row in manifest['engine']['files'].items():
+              relative=f'engine/{sequence}/{name}.gz'
+              assert row['url']==a.BASE_URL+relative
+              with urllib.request.urlopen(row['url'],timeout=90) as response:compressed=response.read()
+              target=directory/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(compressed)
+              data=gzip.decompress(compressed)
+              assert len(data)==row['size'] and hashlib.sha256(data).hexdigest()==row['sha256']
+              a.native_stamp(data,os.environ['SOURCE_COMMIT'],sequence)
+          a.verify_directory(directory,'android/app/src/main/assets/update-public.pem')
+          print('PASS: published signed dual-engine sequence',sequence,'source',os.environ['SOURCE_COMMIT'])
+          PY

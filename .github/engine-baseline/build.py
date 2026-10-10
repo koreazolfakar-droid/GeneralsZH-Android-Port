@@ -73,6 +73,7 @@ for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
 if build_requested:
     for name in ['test-engine-incremental-state.py','test-engine-build-number.py','test-engine-packaging.py','test-engine-native-version.py',
                  'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py','smoke/test-mod-localization.py',
+                 'test-standalone-mod-overlay.py','test-mod-archive-loading.py',
                  'test-own-update-channel.py','test-android-validation-staging.py',
                  'test-engine-security.py','test-online-tls.py',
                  'test-video-upload-performance.py','test-particle-removal.py']:

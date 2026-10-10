@@ -50,11 +50,16 @@
 #include "Common/FileSystem.h"
 
 #include "Common/ArchiveFileSystem.h"
+#include "Common/ArchiveFile.h"
 #include "Common/GameAudio.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/PerfTimer.h"
 
 #include "Lib/PathUtil.h"
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <string>
 
 
 DECLARE_PERF_TIMER(FileSystem)
@@ -117,6 +122,39 @@ FileSystem	*TheFileSystem = nullptr;
 //         Public Functions
 //----------------------------------------------------------------------------
 
+// GeneralsX @feature Codex 10/10/2026 Opt-in, filtered asset provenance without release-log flooding.
+// GX_ASSET_TRACE or gx_asset_trace.txt in the game root: '*' (or empty marker)
+// traces every read; otherwise a case/slash-insensitive virtual-path substring.
+static bool gxShouldTraceAsset(const char* filename)
+{
+	static const std::string filter = []() {
+		std::string value;
+		const char* env = getenv("GX_ASSET_TRACE");
+		if (env != nullptr && env[0] != '\0')
+			value = env;
+		else if (FILE* marker = fopen("gx_asset_trace.txt", "r"))
+		{
+			char line[512] = {};
+			if (fgets(line, sizeof(line), marker) != nullptr)
+				value = line;
+			fclose(marker);
+			const size_t end = value.find_last_not_of(" \t\r\n");
+			value = end == std::string::npos ? "*" : value.substr(0, end + 1);
+		}
+		std::transform(value.begin(), value.end(), value.begin(),
+			[](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
+		return value;
+	}();
+	if (filter.empty())
+		return false;
+	if (filter == "*")
+		return true;
+	std::string path(filename);
+	std::transform(path.begin(), path.end(), path.begin(),
+		[](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
+	return path.find(filter) != std::string::npos;
+}
+
 
 //============================================================================
 // FileSystem::FileSystem
@@ -176,6 +214,9 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 {
 	USE_PERF_TIMER(FileSystem)
 	File *file = nullptr;
+	const Bool traceAsset = (access & File::WRITE) == 0 && gxShouldTraceAsset(filename);
+	const FileInstance requestedInstance = instance;
+	ArchiveFile* sourceArchive = nullptr;
 
 	if ( TheLocalFileSystem != nullptr )
 	{
@@ -212,8 +253,17 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 
 	if ( (TheArchiveFileSystem != nullptr) && (file == nullptr) )
 	{
+		if (traceAsset)
+			sourceArchive = TheArchiveFileSystem->getArchiveFile(filename, instance);
 		// TheSuperHackers @todo Pass 'access' here?
 		file = TheArchiveFileSystem->openFile( filename, 0, instance );
+	}
+	if (traceAsset)
+	{
+		fprintf(stderr, "[gxasset] path=%s instance=%u source=%s result=%s\n", filename,
+			(unsigned)requestedInstance,
+			sourceArchive != nullptr ? sourceArchive->getName().str() : (file != nullptr ? "<loose>" : "<none>"),
+			file != nullptr ? "OPEN" : (sourceArchive != nullptr ? "READ_FAILED" : "UNRESOLVED"));
 	}
 
 	return file;
