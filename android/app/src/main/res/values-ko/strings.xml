@@ -404,4 +404,7 @@
     <string name="setup_appearance_light">낮</string>
     <string name="setup_appearance_dark">밤</string>
     <string name="setup_appearance_help">앱 화면만 변경합니다. 시스템은 휴대폰 설정을 따르고 낮과 밤 설정은 저장됩니다. 게임 그래픽은 변경되지 않습니다.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">최신 업데이트</string>
+    <string name="launcher_latest_updates_summary">새 엔진 빌드는 GitHub에서 서명된 업데이트로 제공됩니다. 업데이트에서 버전을 확인하세요.</string>
 </resources>

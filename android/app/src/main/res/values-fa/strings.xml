@@ -404,4 +404,7 @@
     <string name="setup_appearance_light">روز</string>
     <string name="setup_appearance_dark">شب</string>
     <string name="setup_appearance_help">فقط ظاهر برنامه تغییر می‌کند. حالت سیستم از تنظیمات گوشی پیروی می‌کند و روز و شب ذخیره می‌شوند. گرافیک بازی تغییر نمی‌کند.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">آخرین به‌روزرسانی‌ها</string>
+    <string name="launcher_latest_updates_summary">نسخه‌های جدید موتور با امضای معتبر از GitHub دریافت می‌شوند. از بخش به‌روزرسانی‌ها بررسی کنید.</string>
 </resources>

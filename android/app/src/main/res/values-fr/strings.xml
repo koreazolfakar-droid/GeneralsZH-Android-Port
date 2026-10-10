@@ -404,4 +404,7 @@
     <string name="setup_appearance_light">Jour</string>
     <string name="setup_appearance_dark">Nuit</string>
     <string name="setup_appearance_help">Modifie uniquement l\'interface. Système suit le téléphone ; Jour et Nuit restent enregistrés. Les graphismes du jeu ne changent pas.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">Dernières mises à jour</string>
+    <string name="launcher_latest_updates_summary">Les nouvelles versions du moteur sont signées et viennent de GitHub. Ouvrez Mises à jour pour vérifier.</string>
 </resources>

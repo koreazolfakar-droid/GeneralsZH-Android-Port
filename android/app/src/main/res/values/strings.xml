@@ -455,4 +455,8 @@
     <string name="setup_appearance_light">Day</string>
     <string name="setup_appearance_dark">Night</string>
     <string name="setup_appearance_help">Change only the app interface. System follows your phone; Day and Night stay selected across launches. Game graphics are unchanged.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_android_subtitle" translatable="false">ANDROID LAUNCHER</string>
+    <string name="launcher_latest_updates">Latest Updates</string>
+    <string name="launcher_latest_updates_summary">Newer engine builds arrive as signed updates from GitHub. Open Updates to check or review the installed version.</string>
 </resources>

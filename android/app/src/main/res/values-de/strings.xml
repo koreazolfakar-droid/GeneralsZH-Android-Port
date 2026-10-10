@@ -404,4 +404,7 @@
     <string name="setup_appearance_light">Tag</string>
     <string name="setup_appearance_dark">Nacht</string>
     <string name="setup_appearance_help">Ändert nur die App-Oberfläche. System folgt dem Gerät; Tag und Nacht bleiben gespeichert. Die Spielgrafik bleibt unverändert.</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">Neueste Updates</string>
+    <string name="launcher_latest_updates_summary">Neue Engine-Builds kommen signiert über GitHub. Unter Updates kannst du die Version prüfen.</string>
 </resources>

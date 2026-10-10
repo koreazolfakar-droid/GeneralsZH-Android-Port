@@ -404,4 +404,7 @@
     <string name="setup_appearance_light">日间</string>
     <string name="setup_appearance_dark">夜间</string>
     <string name="setup_appearance_help">只更改应用界面。跟随系统会使用手机设置；日间和夜间选择会保存。游戏画面不会改变。</string>
+    <!-- Tactical Home illustrated update summary. -->
+    <string name="launcher_latest_updates">最新更新</string>
+    <string name="launcher_latest_updates_summary">引擎更新由 GitHub 签名发布。打开“更新”查看或检查已安装版本。</string>
 </resources>
