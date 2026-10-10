@@ -47,6 +47,20 @@ final class ApkUpdateManager {
     // Never couple APK alerts to the engine-only updater's preference or state.
     private static final String PREFS = "gx_apk_updates_v1";
     private static final String KEY_AUTO = "auto_check";
+    private static final String KEY_CHECK_ATTEMPT = "last_check_attempt";
+    static final long AUTO_CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000;
+
+    static boolean shouldAutoCheck(Context context, long nowMillis) {
+        if (!isAutoCheckEnabled(context)) return false;
+        long last = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_CHECK_ATTEMPT, 0L);
+        return last <= 0 || nowMillis < last || nowMillis - last >= AUTO_CHECK_INTERVAL_MS;
+    }
+
+    static void noteCheckAttempt(Context context, long nowMillis) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_CHECK_ATTEMPT, nowMillis).apply();
+    }
 
     static boolean isAutoCheckEnabled(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
