@@ -20,7 +20,9 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_PARENT: e2b38a90e17895c5e16cfaed37c8942261951df4
+      EXPECTED_PARENT: e136227cdb021c4e43bc1fdc413324dac6e2acda
+      EXPECTED_ENGINE_SOURCE: 9f5d3c7e8b38dd00a2b74d5c4520ed9363e6d4f6
+      EXPECTED_ENGINE_RUN: '38071407202'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,65 +35,50 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/dev/mobile-v4"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): retry Android mod paging after verified PCH fix [publish-engine-once]'
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish verified 3402 engine from existing artifacts [publish-engine-once]'
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA"
-          sequence="$(bash scripts/build/android/engine-build-number.sh "$PWD")"
-          echo "EXPECTED_ENGINE_SEQ=$sequence" >> "$GITHUB_ENV"
-          echo "Source $GITHUB_SHA, engine sequence $sequence; no fresh APK build requested"
-      - name: Dispatch verified incremental dual-engine build, then sign and publish
+          git merge-base --is-ancestor "$EXPECTED_ENGINE_SOURCE" HEAD
+          echo "EXPECTED_ENGINE_SEQ=3402" >> "$GITHUB_ENV"
+          echo "Publishing immutable engine 3402 from verified build $EXPECTED_ENGINE_RUN ($EXPECTED_ENGINE_SOURCE); no native rebuild"
+      - name: Reuse verified successful engine build and invoke signed publisher
         shell: bash
         run: |
           set -euo pipefail
-          current_sha() {
-            gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq '.object.sha')" = "$GITHUB_SHA" || {
+            echo "::error::Branch changed after request"; exit 1;
           }
-          max_id() {
-            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$1/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0'
-          }
-          wait_success() {
-            local workflow="$1" after="$2" limit="$3"
-            FOUND_RUN=""
-            for ((n=1; n<=limit; n++)); do
-              local run_id
-              run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq ".workflow_runs | map(select(.id > $after and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
-              if [[ "$run_id" =~ ^[0-9]+$ ]]; then
-                local state conclusion
-                state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '[.status, (.conclusion // "pending")] | join(" ")')"
-                echo "$workflow run $run_id: $state"
-                if [[ "$state" == "completed success" ]]; then
-                  FOUND_RUN="$run_id"
-                  return 0
-                fi
-                if [[ "$state" == completed* ]]; then
-                  echo "::error::$workflow run $run_id did not succeed ($state)"
-                  return 1
-                fi
-              fi
-              sleep 30
-            done
-            echo "::error::Timed out waiting for $workflow to succeed"
-            return 1
-          }
-          test "$(current_sha)" = "$GITHUB_SHA"
-          previous_build="$(max_id build-android.yml)"
-          gh workflow run build-android.yml --ref dev/mobile-v4 \
-            -f engine_incremental_mode=build \
-            -f source_ref="$GITHUB_SHA" \
-            -f require_existing_caches=true
-          wait_success build-android.yml "$previous_build" 200
-          engine_run="$FOUND_RUN"
-          echo "Verified incremental build succeeded: $engine_run"
-          count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$engine_run/artifacts" --jq '[.artifacts[] | select(.name == "engine-incremental-report" and .expired == false)] | length')"
-          test "$count" = 1 || { echo "::error::Verified engine report artifact missing"; exit 1; }
-          test "$(current_sha)" = "$GITHUB_SHA" || { echo "::error::Source branch changed; publication aborted"; exit 1; }
-          previous_sign="$(max_id sign-update.yml)"
+          # Verify the immutable older run directly by run metadata, not by the
+          # cross-run artifacts listing endpoint (which returned HTTP 404).
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_ENGINE_RUN" --jq \
+            '[.id|tostring, .status, .conclusion, .head_sha, .path, .head_repository.full_name] | join("|")' \
+            | grep -Fx "$EXPECTED_ENGINE_RUN|completed|success|$EXPECTED_ENGINE_SOURCE|.github/workflows/build-android.yml|$GITHUB_REPOSITORY"
+          previous_sign="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
+            --jq '[.workflow_runs[].id] | max // 0')"
           gh workflow run sign-update.yml --ref dev/mobile-v4 \
             -f public_identity_only=false \
-            -f engine_build_run="$engine_run" \
+            -f engine_build_run="$EXPECTED_ENGINE_RUN" \
+            -f engine_source_commit="$EXPECTED_ENGINE_SOURCE" \
             -f note='Expose Project X Remastered mod build and production commands in slots 15-18 on mobile; preserve vanilla, saves, network, 30/60Hz and mod isolation.'
-          wait_success sign-update.yml "$previous_sign" 100
-          echo "Signing and publication succeeded: $FOUND_RUN"
+          for ((n=1;n<=100;n++)); do
+            sign_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $previous_sign and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$sign_run" =~ ^[0-9]+$ ]]; then
+              state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$sign_run" \
+                --jq '[.status, (.conclusion // "pending")] | join(" ")')"
+              echo "Signed publish run $sign_run: $state"
+              if [[ "$state" == "completed success" ]]; then
+                echo "PASS: source-pinned update signed and published by run $sign_run"
+                break
+              fi
+              if [[ "$state" == completed* ]]; then
+                echo "::error::Signing/publishing failed: $state"
+                exit 1
+              fi
+            fi
+            if (( n == 100 )); then echo "::error::Signed publish timed out"; exit 1; fi
+            sleep 30
+          done
       - name: Verify exact public update points to this source and dual-engine payloads
         shell: bash
         run: |
@@ -103,7 +90,7 @@ jobs:
           import json, os
           data = json.load(open('/tmp/engine-manifest.json'))
           engine = data['engine']
-          assert engine['source_commit'] == os.environ['GITHUB_SHA'], (engine['source_commit'], os.environ['GITHUB_SHA'])
+          assert engine['source_commit'] == os.environ['EXPECTED_ENGINE_SOURCE'], (engine['source_commit'], os.environ['EXPECTED_ENGINE_SOURCE'])
           assert engine['seq'] == int(os.environ['EXPECTED_ENGINE_SEQ'])
           assert {'libmain.so', 'libmain60.so'} <= set(engine['files'])
           for key in ('libmain.so', 'libmain60.so'):
