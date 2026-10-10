@@ -109,8 +109,8 @@ class NdkCacheTests(unittest.TestCase):
             self.assertEqual(record["attempts"], 2)
             self.assertEqual(len(record["pch_mtime_repairs"]), 1)
             # A different checksum is never trusted.
-            os.utime(target, (1791292742, 1791292742))
             target.write_bytes(b"altered")
+            os.utime(target, (1791292742, 1791292742))
             second = subprocess.run([sys.executable, str(TOOLS / "compiler.py"),
                                      "clang++", "-o", str(output), "source.cpp"],
                                     env=env, capture_output=True, text=True)
