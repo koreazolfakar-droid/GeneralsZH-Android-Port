@@ -560,6 +560,27 @@ void GameEngine::init()
 
 
 		initSubsystem(TheArchiveFileSystem, "TheArchiveFileSystem", createArchiveFileSystem(), nullptr); // this MUST come after TheLocalFileSystem creation
+#if defined(__ANDROID__) && RTS_ZEROHOUR
+		// On Android the launcher supplies -mod for a standalone BIG directory.
+		// Mount it before the *first* GameData.ini parse, matching the root-BIG
+		// path (which is mounted above in the archive file system's init()).
+		// Parse only -mod here: other engine flags must retain their normal order.
+		CommandLine::parseModForEarlyArchiveInit();
+		const Bool activeModMountedBeforeGameData =
+			TheGlobalData->m_modBIG.isNotEmpty() || TheGlobalData->m_modDir.isNotEmpty();
+		if (activeModMountedBeforeGameData)
+		{
+			fprintf(stderr, "[gxmod-early] mount before GameData: modDir='%s' modBIG='%s'\n",
+				TheGlobalData->m_modDir.str(), TheGlobalData->m_modBIG.str());
+	#if defined(__ANDROID__) && RTS_ZEROHOUR
+		// Only mount here if the early pass had no active -mod. Never mount twice.
+		// Vanilla and non-Android startup retain their original ordering.
+		if (!activeModMountedBeforeGameData)
+#endif
+			TheArchiveFileSystem->loadMods();
+		}
+#endif
+
 
     	#ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
 	GetPrecisionTimer(&endTime64);//////////////////////////////////////////////////////////////////
