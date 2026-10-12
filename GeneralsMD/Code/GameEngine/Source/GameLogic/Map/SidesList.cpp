@@ -558,12 +558,22 @@ void SidesList::prepareForMP_or_Skirmish()
 				file.registerParser( "PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk );
 				file.registerParser( "ScriptsPlayers", AsciiString::TheEmptyString, ParsePlayersDataChunk );
 				file.registerParser( "ScriptTeams", AsciiString::TheEmptyString, ParseTeamsDataChunk );
+				// Map sides are already installed; newly imported mod sides must
+				// not survive a corrupt or incomplete SkirmishScripts chunk.
+				const Int sideCountBeforeParse = m_numSkirmishSides;
 				if (!file.parse(this)) {
 #ifdef ALLOW_DEBUG_UTILS
 					fprintf(stderr, "[SKIRMISH_DIAG] ERROR parsing SkirmishScripts.scb\n");
 					fflush(stderr);
 #endif
 					DEBUG_LOG(("ERROR - Unable to read in skirmish scripts."));
+					for (Int dropped = sideCountBeforeParse; dropped < m_numSkirmishSides; ++dropped)
+						m_skirmishSides[dropped].clear();
+					m_numSkirmishSides = sideCountBeforeParse;
+					m_skirmishTeamrec.clear();
+					for (Int j = 0; j < MAX_SKIRMISH_SIDES; ++j)
+						static_readPlayerNames[j].clear();
+					fprintf(stderr, "[GX-AI-SIDE] parse failed; imported sides rolled back\n");
 					return;
 				}
 				ScriptList *scripts[MAX_PLAYER_COUNT];
