@@ -157,6 +157,8 @@ public:
 	SidesInfo *findSideInfo(AsciiString name, Int* index = nullptr);
 	SidesInfo *findSkirmishSideInfo(AsciiString name, Int* index = nullptr);
 
+	// Import validated mod sides from SkirmishScripts when map side lists omit them.
+	void addSkirmishSide(const Dict* d);
 	void prepareForMP_or_Skirmish(); // After a map is loaded, save & clear any players.
 
 	Int getNumTeams() { return m_teamrec.getNumTeams(); }
@@ -180,7 +182,8 @@ public:
 
 	enum
 	{
-		MAX_TEAM_DEPTH = 3
+		MAX_TEAM_DEPTH = 3,
+		MAX_SKIRMISH_SIDES = 64
 	};
 
 protected:
@@ -194,7 +197,7 @@ protected:
 	SidesInfo		m_sides[MAX_PLAYER_COUNT];
 
 	Int					m_numSkirmishSides;
-	SidesInfo		m_skirmishSides[MAX_PLAYER_COUNT];
+	SidesInfo		m_skirmishSides[MAX_SKIRMISH_SIDES];
 
 	TeamsInfoRec	m_teamrec;
 	TeamsInfoRec	m_skirmishTeamrec;
