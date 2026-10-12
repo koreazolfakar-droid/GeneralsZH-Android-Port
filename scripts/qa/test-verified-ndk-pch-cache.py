@@ -122,6 +122,47 @@ class NdkCacheTests(unittest.TestCase):
                 cache.restore_recorded_pch_mtimes(ndk, verified, manifest)
             self.assertEqual(first.stat().st_mtime_ns, 1791292742 * 1000000000)
 
+    def test_full_verified_inventory_is_seeded_before_compilation(self):
+        cache = module(TOOLS / "ndk_cache.py", "gx_pch_inventory_test")
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            ndk = root / cache.NDK_REVISION
+            sysroot = ndk / "toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+            clang = ndk / "toolchains/llvm/prebuilt/linux-x86_64/lib/clang/18/include"
+            sysroot.mkdir(parents=True)
+            clang.mkdir(parents=True)
+            pinned = sysroot / "sys/cdefs.h"
+            default = sysroot / "c++/v1/__format/formatter_output.h"
+            special = clang / "float.h"
+            pinned.parent.mkdir(parents=True)
+            default.parent.mkdir(parents=True)
+            for path in (pinned, default, special):
+                path.write_bytes(path.name.encode())
+                os.utime(path, (1791292742, 1791292742))
+            verified = {str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in (pinned, default, special)}
+            manifest = root / "seed.json"
+            manifest.write_text(json.dumps({"schema": 1, "ndk_revision": cache.NDK_REVISION,
+                "expected_unix_seconds": {
+                    str(pinned.relative_to(ndk)): 1791131946,
+                    str(special.relative_to(ndk)): 1791131945,
+                }}))
+            result = cache.restore_recorded_pch_mtimes(ndk, verified, manifest)
+            self.assertEqual(result["validated_inventory"], 3)
+            self.assertEqual(result["metadata_only_adjustments"], 3)
+            self.assertEqual(default.stat().st_mtime_ns, 1791131946 * 1000000000)
+            self.assertEqual(special.stat().st_mtime_ns, 1791131945 * 1000000000)
+            # The routine must verify the *entire* inventory before changing
+            # any timestamps, including unlisted files using the default.
+            for p in (pinned, default, special):
+                os.utime(p, (1791292742, 1791292742))
+            bad = dict(verified)
+            bad[str(default.resolve())] = "0" * 64
+            with self.assertRaises(AssertionError):
+                cache.restore_recorded_pch_mtimes(ndk, bad, manifest)
+            self.assertTrue(all(p.stat().st_mtime_ns == 1791292742 * 1000000000
+                                for p in (pinned, default, special)))
+
     def test_wrapper_restores_only_hash_verified_clang_pch_mtime(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
