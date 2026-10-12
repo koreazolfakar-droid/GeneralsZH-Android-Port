@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 200
     env:
       GH_TOKEN: ${{ github.token }}
-      PARENT: 4159fc6396a061e3214a71a40babb234b811e26c
+      PARENT: 2a6e65f31600fd13532d04e6ade74e32637d3b0f
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,16 +36,8 @@ jobs:
           python3 - <<'PY'
           import os,json,pathlib,subprocess
           m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
-          assert m['engine']['seq']==3466 and m['serial']==12 and m['engine']['source_commit']==os.environ['PARENT']
-          allowed={
-          'Core/GameEngine/Include/Common/ArchiveFileSystem.h',
-          'Core/GameEngine/Source/Common/System/ArchiveFileSystem.cpp',
-          'Core/GameEngine/Source/Common/System/FileSystem.cpp',
-          'GeneralsMD/Code/GameEngine/Include/GameLogic/SidesList.h',
-          'GeneralsMD/Code/GameEngine/Source/GameLogic/Map/SidesList.cpp',
-          'scripts/qa/check_projectx_ai_logs.py','scripts/qa/test_projectx_ai_regressions.py',
-          '.github/workflows/projectx-ai-smoke.yml',
-          '.github/workflows/publish-projectx-ai-engine-only.yml'}
+          assert m['engine']['seq']==3466 and m['serial']==12 and m['engine']['source_commit']=='4159fc6396a061e3214a71a40babb234b811e26c'
+          allowed={'.github/workflows/publish-projectx-ai-engine-only.yml'}
           changed=set(subprocess.check_output(['git','diff','--name-only','HEAD^','HEAD'],text=True).splitlines())
           assert changed==allowed,(changed-allowed,allowed-changed)
           print('PASS: previous engine 3466 and exact AI-only changes')
