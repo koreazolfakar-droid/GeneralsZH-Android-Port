@@ -196,6 +196,7 @@ public:
     void loadMods();
     File* openFile(const Char*,Int,FileInstance=0);
     ArchiveFile* getArchiveFile(const AsciiString&,FileInstance=0) const;
+    FileInstance getFileCount(const Char*) const;
     Bool doesFileExist(const Char*,FileInstance=0) const;
     void getFileListInDirectory(const AsciiString&,const AsciiString&,const AsciiString&,FilenameList&,Bool) const;
 };
