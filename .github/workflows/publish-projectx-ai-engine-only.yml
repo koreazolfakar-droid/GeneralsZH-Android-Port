@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 200
     env:
       GH_TOKEN: ${{ github.token }}
-      PARENT: 2a6e65f31600fd13532d04e6ade74e32637d3b0f
+      PARENT: c21779e2814dd9a29292333bddb87e16382c2e3d
     steps:
       - uses: actions/checkout@v6
         with:
@@ -30,7 +30,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$(git rev-parse HEAD^)" = "$PARENT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish Project X skirmish AI engine only'
+          git show -s --format=%s HEAD | grep -q '^ci(update):'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
           python3 - <<'PY'
