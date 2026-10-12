@@ -48,13 +48,15 @@ def main():
                   "static void reconcileStandaloneModDirectory(", "ArchiveFileSystem::ArchiveFileSystem()",
                   "ArchiveFileSystem::~ArchiveFileSystem()", "void ArchiveFileSystem::loadIntoDirectoryTree(",
                   "void ArchiveFileSystem::loadMods()", "ArchiveFileSystem::ArchivedDirectoryInfoResult ArchiveFileSystem::getArchivedDirectoryInfo(",
+                  "FileInstance ArchiveFileSystem::getFileCount(",
                   "File * ArchiveFileSystem::openFile(", "ArchiveFile* ArchiveFileSystem::getArchiveFile(",
                   "Bool ArchiveFileSystem::doesFileExist(",
                   "void ArchiveFileSystem::getFileListInDirectory("],
         "local": ["void StdLocalFileSystem::getFileListInDirectory("],
         "big": ["static bool isStandaloneModArchiveBelowRoot(", "ArchiveFile * StdBIGFileSystem::openArchiveFile(",
                 "Bool StdBIGFileSystem::loadBigFilesFromDirectory("],
-        "filesystem": ["static bool gxShouldTraceAsset(", "static Bool gxTraceAssetProbe(",
+        "filesystem": ["static bool gxIsAIOverrideScriptPath(", "static FileInstance gxAIOverrideArchiveCount(",
+                       "static bool gxShouldTraceAsset(", "static Bool gxTraceAssetProbe(",
                        "File*\t\tFileSystem::openFile(", "Bool FileSystem::doesFileExist("],
     }
     implementation = []
