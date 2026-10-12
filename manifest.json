@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "51d4c23aaa31fae366e767ad758577cb77cfb7063a8b3a0300e1338271cfdf86",
-        "size": 42267456,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3466/libmain.so.gz"
+        "sha256": "3b6ce0970f56a218bca43cc3519c5340a2aa69ee8e53a3ef72348cefc4284855",
+        "size": 42271600,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3472/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "9f9d76b57c699fed16bdf45f7a0adae922a3d6be2b3666b2245d8b7dfc89dc5a",
-        "size": 42271712,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3466/libmain60.so.gz"
+        "sha256": "8ac092f317bb5e0d1d07c1b415b7fedfe05df82026de8b36c8cbf49b51fc7468",
+        "size": 42279984,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3472/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3466,
-    "source_commit": "4159fc6396a061e3214a71a40babb234b811e26c"
+    "seq": 3472,
+    "source_commit": "c9ca6a0c2928e1ae2d2e133a778b669f1aeda29c"
   },
-  "note": "Offline impact visibility: briefly reveal actual artillery and guided missile blast area for owner/allies before shroud-filtered impact FX, across faction-independent shared paths. No weapon stats or mod content changed. Multiplayer excluded for CRC compatibility. Special death-FX weapons, full Project X asset completeness, and on-device gameplay remain unverified.",
-  "published": "2026-10-10",
+  "note": "Project X AI Engine update: prefer mod-specific SkirmishScripts and import missing mod factions on custom maps. Fixed retained PCH build pipeline. Includes both 30Hz and 60Hz engines. No APK, changed assets, save-format or network-protocol changes. Physical-device AI verification and NaN vehicle physics investigation remain separate.",
+  "published": "2026-10-12",
   "schema": 1,
-  "serial": 12
+  "serial": 13
 }
