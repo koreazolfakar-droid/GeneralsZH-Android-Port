@@ -128,6 +128,24 @@ static bool gxIsAIOverrideScriptPath(const char* filename)
 {
 	if (filename == nullptr)
 		return false;
+	// Fast reject: don't allocate/normalize a path for every W3D/texture read.
+	const char* base = filename;
+	for (const char* p = filename; *p != '\0'; ++p)
+		if (*p == '/' || *p == '\\')
+			base = p + 1;
+	const auto equalsNoCase = [](const char* a, const char* b) {
+		while (*a && *b) {
+			if (std::tolower(static_cast<unsigned char>(*a)) != std::tolower(static_cast<unsigned char>(*b)))
+				return false;
+			++a;
+			++b;
+		}
+		return *a == *b;
+	};
+	if (!equalsNoCase(base, "SkirmishScripts.scb") &&
+		!equalsNoCase(base, "MultiplayerScripts.scb") &&
+		!equalsNoCase(base, "Scripts.ini"))
+		return false;
 	std::string path(filename);
 	std::transform(path.begin(), path.end(), path.begin(),
 		[](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
@@ -359,9 +377,11 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 	if (scriptCopies > 0 && instance < scriptCopies)
 	{
 #if ENABLE_FILESYSTEM_EXISTENCE_CACHE
-		FastCriticalSectionClass::LockClass lock(m_fileExistMutex);
-		FileExistMap::mapped_type& value = m_fileExist[filename];
-		value.instanceExists = max(value.instanceExists, requestedInstance);
+		{
+			FastCriticalSectionClass::LockClass lock(m_fileExistMutex);
+			FileExistMap::mapped_type& value = m_fileExist[filename];
+			value.instanceExists = max(value.instanceExists, requestedInstance);
+		}
 #endif
 		return gxTraceAssetProbe(filename, requestedInstance, TRUE);
 	}
