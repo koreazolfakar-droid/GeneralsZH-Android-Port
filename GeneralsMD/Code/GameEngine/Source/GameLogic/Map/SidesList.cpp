@@ -421,7 +421,7 @@ SidesInfo *SidesList::findSkirmishSideInfo(AsciiString name, Int* index /*= null
 	return nullptr;
 }
 
-static AsciiString static_readPlayerNames[MAX_PLAYER_COUNT];
+static AsciiString static_readPlayerNames[SidesList::MAX_SKIRMISH_SIDES];
 
 /**
 * ParsePlayersDataChunk - read players names data chunk.
@@ -434,18 +434,39 @@ static AsciiString static_readPlayerNames[MAX_PLAYER_COUNT];
 
 static Bool ParsePlayersDataChunk(DataChunkInput &file, DataChunkInfo *info, void *userData)
 {
+	SidesList *sides = (SidesList *)userData;
 	Int readDicts = 0;
 	if (info->version >= K_PLAYERS_NAMES_FOR_SCRIPTS_VERSION_2) {
 		readDicts = file.readInt();
 	}
 	Int numNames = file.readInt();
-	Int i;
-	for (i=0; i<numNames; i++) {
-		if (i>=MAX_PLAYER_COUNT) break;
-		static_readPlayerNames[i] = file.readAsciiString();
-		if (readDicts) {
-			Dict sideDict = file.readDict();
+	for (Int i = 0; i < numNames; ++i) {
+		// Consume the complete chunk even when the mod contains more side
+		// definitions than the bounded in-memory skirmish roster.
+		AsciiString playerName = file.readAsciiString();
+		if (i < SidesList::MAX_SKIRMISH_SIDES)
+			static_readPlayerNames[i] = playerName;
+		if (!readDicts)
+			continue;
+		Dict sideDict = file.readDict();
+		if (!sides || i >= SidesList::MAX_SKIRMISH_SIDES || playerName.isEmpty() ||
+			sides->findSkirmishSideInfo(playerName) != nullptr ||
+			sides->getNumSkirmishSides() >= SidesList::MAX_SKIRMISH_SIDES)
+			continue;
+
+		// Never publish a partially identified side to AI initialization.
+		const AsciiString dictName = sideDict.getAsciiString(TheKey_playerName);
+		const AsciiString faction = sideDict.getAsciiString(TheKey_playerFaction);
+		if ((!dictName.isEmpty() && dictName != playerName) || faction.isEmpty()) {
+			fprintf(stderr, "[GX-AI-SIDE] skipped inconsistent side name=%s dict=%s faction=%s\n",
+				playerName.str(), dictName.str(), faction.str());
+			continue;
 		}
+		if (dictName.isEmpty())
+			sideDict.setAsciiString(TheKey_playerName, playerName);
+		sides->addSkirmishSide(&sideDict);
+		fprintf(stderr, "[GX-AI-SIDE] imported name=%s faction=%s\n",
+			playerName.str(), faction.str());
 	}
 	DEBUG_ASSERTCRASH(file.atEndOfChunk(), ("Unexpected data left over."));
 	return true;
@@ -487,7 +508,7 @@ void SidesList::prepareForMP_or_Skirmish()
 	}
 	m_teamrec.clear();
 
-	for (i = 0; i < MAX_PLAYER_COUNT; i++) {
+	for (i = 0; i < MAX_SKIRMISH_SIDES; i++) {
 		m_skirmishSides[i].clear();
 	}
 	m_numSkirmishSides = 0;
@@ -537,12 +558,22 @@ void SidesList::prepareForMP_or_Skirmish()
 				file.registerParser( "PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk );
 				file.registerParser( "ScriptsPlayers", AsciiString::TheEmptyString, ParsePlayersDataChunk );
 				file.registerParser( "ScriptTeams", AsciiString::TheEmptyString, ParseTeamsDataChunk );
+				// Map sides are already installed; newly imported mod sides must
+				// not survive a corrupt or incomplete SkirmishScripts chunk.
+				const Int sideCountBeforeParse = m_numSkirmishSides;
 				if (!file.parse(this)) {
 #ifdef ALLOW_DEBUG_UTILS
 					fprintf(stderr, "[SKIRMISH_DIAG] ERROR parsing SkirmishScripts.scb\n");
 					fflush(stderr);
 #endif
 					DEBUG_LOG(("ERROR - Unable to read in skirmish scripts."));
+					for (Int dropped = sideCountBeforeParse; dropped < m_numSkirmishSides; ++dropped)
+						m_skirmishSides[dropped].clear();
+					m_numSkirmishSides = sideCountBeforeParse;
+					m_skirmishTeamrec.clear();
+					for (Int j = 0; j < MAX_SKIRMISH_SIDES; ++j)
+						static_readPlayerNames[j].clear();
+					fprintf(stderr, "[GX-AI-SIDE] parse failed; imported sides rolled back\n");
 					return;
 				}
 				ScriptList *scripts[MAX_PLAYER_COUNT];
@@ -583,7 +614,7 @@ void SidesList::prepareForMP_or_Skirmish()
 					if (pOldScriptList)
 						deleteInstance(pOldScriptList);
 				}
-				for (i=0; i<MAX_PLAYER_COUNT; i++) {
+				for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
 					static_readPlayerNames[i].clear();
 				}
 		} else {
@@ -625,6 +656,8 @@ void SidesList::emptySides()
 	m_numSkirmishSides = 0;
 	for (i = 0; i < MAX_PLAYER_COUNT; i++) {
 		m_sides[i].clear();
+	}
+	for (i = 0; i < MAX_SKIRMISH_SIDES; i++) {
 		m_skirmishSides[i].clear();
 	}
 }
@@ -645,6 +678,13 @@ void SidesList::addSide(const Dict* d)
 void SidesList::addTeam(const Dict* d)
 {
 	m_teamrec.addTeam(d);
+}
+
+void SidesList::addSkirmishSide(const Dict* d)
+{
+	DEBUG_ASSERTCRASH(m_numSkirmishSides < MAX_SKIRMISH_SIDES, ("too many skirmish players"));
+	if (d != nullptr && m_numSkirmishSides < MAX_SKIRMISH_SIDES)
+		m_skirmishSides[m_numSkirmishSides++].init(d);
 }
 
 void SidesList::addSkirmishTeam(const Dict* d)

@@ -1,0 +1,33 @@
+name: Project X AI focused QA
+
+on:
+  push:
+    branches:
+      - fix/projectx-skirmish-ai-20261013
+  pull_request:
+    branches:
+      - dev/mobile-v4
+    paths:
+      - 'Core/GameEngine/Include/Common/ArchiveFileSystem.h'
+      - 'Core/GameEngine/Source/Common/System/ArchiveFileSystem.cpp'
+      - 'Core/GameEngine/Source/Common/System/FileSystem.cpp'
+      - 'GeneralsMD/Code/GameEngine/Include/GameLogic/SidesList.h'
+      - 'GeneralsMD/Code/GameEngine/Source/GameLogic/Map/SidesList.cpp'
+      - 'scripts/qa/check_projectx_ai_logs.py'
+      - 'scripts/qa/test_projectx_ai_regressions.py'
+      - '.github/workflows/projectx-ai-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  script-lookup-regressions:
+    name: Script precedence and log parser
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Check Python syntax
+        run: python3 -m py_compile scripts/qa/check_projectx_ai_logs.py scripts/qa/test_projectx_ai_regressions.py
+      - name: Run focused C++ and ZIP log regressions
+        run: python3 scripts/qa/test_projectx_ai_regressions.py -v

@@ -524,6 +524,18 @@ void ArchiveFileSystem::loadMods()
 	}
 }
 
+// Query the reconciled archive lookup tree, not the physical BIG list. This
+// preserves Mod Manager's existing virtual replacement / masking semantics.
+FileInstance ArchiveFileSystem::getFileCount(const Char* filename) const
+{
+	if (filename == nullptr || filename[0] == '\0')
+		return 0;
+	ArchivedDirectoryInfoResult result = const_cast<ArchiveFileSystem*>(this)->getArchivedDirectoryInfo(filename);
+	if (!result.valid())
+		return 0;
+	return static_cast<FileInstance>(result.dirInfo->m_files.count(result.lastToken));
+}
+
 Bool ArchiveFileSystem::doesFileExist(const Char *filename, FileInstance instance) const
 {
 	ArchivedDirectoryInfoResult result = const_cast<ArchiveFileSystem*>(this)->getArchivedDirectoryInfo(filename);
