@@ -146,6 +146,8 @@ public:
 
 	// Unprotected this for copy-protection routines
 	ArchiveFile* getArchiveFile(const AsciiString& filename, FileInstance instance = 0) const;
+	// Count effective archive instances (after standalone Mod Manager overlay reconciliation).
+	FileInstance getFileCount(const Char* filename) const;
 
 	void loadMods();
 
