@@ -1,0 +1,22 @@
+name: Verify retained PCH cache recovery
+on:
+  push:
+    branches: [fix/pch-verified-ndk-preseed-20261013]
+  pull_request:
+    branches: [dev/mobile-v4]
+    paths:
+      - '.github/engine-baseline/ndk_cache.py'
+      - 'scripts/qa/test-verified-ndk-pch-cache.py'
+      - '.github/workflows/verify-pch-cache-recovery.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify Python syntax
+        run: python3 -m py_compile .github/engine-baseline/ndk_cache.py scripts/qa/test-verified-ndk-pch-cache.py
+      - name: PCH inventory and fail-closed metadata regressions
+        run: python3 scripts/qa/test-verified-ndk-pch-cache.py -v

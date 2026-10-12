@@ -68,7 +68,7 @@ def prepare(ndk: Path, epoch_seconds: int, verified: dict, report_dir: Path) -> 
 
 
 def restore_recorded_pch_mtimes(ndk: Path, verified: dict, manifest_path=None) -> dict:
-    """Seed exact Clang-observed PCH timestamps before any translation unit compiles.
+    """Seed verified original NDK include timestamps before any PCH-consuming compile.
 
     The existing compiler wrapper remains responsible for all headers not in
     this pinned list. A two-phase all-or-nothing check prevents changing any
@@ -84,24 +84,45 @@ def restore_recorded_pch_mtimes(ndk: Path, verified: dict, manifest_path=None) -
     assert isinstance(items, dict) and 0 < len(items) <= MAX_HEADERS
     base = ndk / "toolchains/llvm/prebuilt/linux-x86_64"
     roots = (base / "sysroot/usr/include", base / "lib/clang/18/include")
+    # Clang's retained PCH was serialized with the original NDK archive's
+    # file mtimes, predominantly 1791131946 (seven resource headers at 1945
+    # and three at 1947 are explicitly recorded). A later GitHub SDK cache
+    # re-extract stamps every header 1791292742. Repairing them one-by-one
+    # *during* PCH deserialization can yield duplicate libc declarations and
+    # fail after dozens of retries. Seed all hash-verified include files as
+    # one transaction BEFORE invoking any Clang translation unit.
+    # Unknown files use the recorded default, while exceptions must retain
+    # their exact Clang-reported timestamps. Compiler.py remains fail-closed
+    # for any additional mismatch that Clang reports.
+    default_timestamp = 1791131946
+    candidates = {}
+    for source, digest in verified.items():
+        path = Path(source)
+        if not any(path.is_relative_to(root) for root in roots):
+            continue
+        relative = str(path.relative_to(ndk))
+        candidates[relative] = (path, digest)
+    assert len(candidates) >= len(items), "Incomplete verified PCH header inventory"
+    assert len(candidates) <= MAX_HEADERS
     changes = []
-    for relative, timestamp in items.items():
-        assert isinstance(relative, str) and not relative.startswith("/")
+    validated = 0
+    for relative, (path, digest) in candidates.items():
+        timestamp = items.get(relative, default_timestamp)
         assert isinstance(timestamp, int) and 1791131945 <= timestamp <= 1791131947
-        path = ndk / relative
-        assert path.is_file() and not path.is_symlink(), "Missing or linked verified PCH header: " + relative
-        resolved = path.resolve()
-        assert resolved.is_relative_to(ndk)
-        assert any(resolved.is_relative_to(root) for root in roots)
-        assert str(resolved) in verified, "Header not in checked NDK cache inventory: " + relative
+        assert path.is_file() and not path.is_symlink()
+        assert path.resolve().is_relative_to(ndk)
         with path.open("rb") as stream:
-            digest = hashlib.file_digest(stream, "sha256").hexdigest()
-        assert verified[str(resolved)] == digest, "NDK header changed: " + relative
+            actual = hashlib.file_digest(stream, "sha256").hexdigest()
+        assert actual == digest, "Verified NDK bytes changed: " + relative
+        validated += 1
         stat = path.stat()
         if stat.st_mtime_ns != timestamp * 1000000000:
             changes.append((path, stat.st_atime_ns, timestamp))
+    for relative, timestamp in items.items():
+        assert isinstance(relative, str) and relative in candidates, "Missing pinned PCH include: " + str(relative)
+        assert isinstance(timestamp, int) and 1791131945 <= timestamp <= 1791131947
     for path, atime_ns, timestamp in changes:
         os.utime(path, ns=(atime_ns, timestamp * 1000000000))
-    return dict(source="Clang PCH timestamps from prior successful Actions build",
-                validated_headers=len(items), metadata_only_adjustments=len(changes),
-                contents_modified=False)
+    return dict(source="Verified full NDK inventory; Clang PCH pinned exceptions + recorded default",
+                validated_headers=len(items), validated_inventory=validated,
+                metadata_only_adjustments=len(changes), contents_modified=False)
