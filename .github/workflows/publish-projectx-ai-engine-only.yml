@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 200
     env:
       GH_TOKEN: ${{ github.token }}
-      PARENT: c21779e2814dd9a29292333bddb87e16382c2e3d
+      PARENT: b1f2f44bbac83cd544a4f92cb238303c1dfe45a2
     steps:
       - uses: actions/checkout@v6
         with:
@@ -37,7 +37,12 @@ jobs:
           import os,json,pathlib,subprocess
           m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
           assert m['engine']['seq']==3466 and m['serial']==12 and m['engine']['source_commit']=='4159fc6396a061e3214a71a40babb234b811e26c'
-          allowed={'.github/workflows/publish-projectx-ai-engine-only.yml'}
+          allowed={
+          '.github/engine-baseline/ndk_cache.py',
+          'scripts/qa/test-verified-ndk-pch-cache.py',
+          '.github/workflows/verify-pch-cache-recovery.yml',
+          '.github/workflows/publish-projectx-ai-engine-only.yml'
+          }
           changed=set(subprocess.check_output(['git','diff','--name-only','HEAD^','HEAD'],text=True).splitlines())
           assert changed==allowed,(changed-allowed,allowed-changed)
           print('PASS: previous engine 3466 and exact AI-only changes')
@@ -46,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_projectx_ai_regressions.py test-mod-localization.py test-standalone-mod-overlay.py test-mod-archive-loading.py test-save-map-safety.py; do
+          for test in test-verified-ndk-pch-cache.py test_projectx_ai_regressions.py test-mod-localization.py test-standalone-mod-overlay.py test-mod-archive-loading.py test-save-map-safety.py; do
             python3 "scripts/qa/$test"
           done
       - name: Dispatch verified native engine-only build
