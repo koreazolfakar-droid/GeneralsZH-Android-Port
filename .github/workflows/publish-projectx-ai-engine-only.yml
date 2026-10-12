@@ -1,0 +1,124 @@
+# One-time engine OTA: always build 30/60Hz .so only, never an APK.
+name: Publish Project X AI Engine OTA (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-projectx-ai-engine-only.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: projectx-ai-ota-orchestrator
+  cancel-in-progress: false
+jobs:
+  engine-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 200
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PARENT: 4159fc6396a061e3214a71a40babb234b811e26c
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify immutable source and prior signed OTA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD^)" = "$PARENT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish Project X skirmish AI engine only'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
+          python3 - <<'PY'
+          import os,json,pathlib,subprocess
+          m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
+          assert m['engine']['seq']==3466 and m['serial']==12 and m['engine']['source_commit']==os.environ['PARENT']
+          allowed={
+          'Core/GameEngine/Include/Common/ArchiveFileSystem.h',
+          'Core/GameEngine/Source/Common/System/ArchiveFileSystem.cpp',
+          'Core/GameEngine/Source/Common/System/FileSystem.cpp',
+          'GeneralsMD/Code/GameEngine/Include/GameLogic/SidesList.h',
+          'GeneralsMD/Code/GameEngine/Source/GameLogic/Map/SidesList.cpp',
+          'scripts/qa/check_projectx_ai_logs.py','scripts/qa/test_projectx_ai_regressions.py',
+          '.github/workflows/projectx-ai-smoke.yml',
+          '.github/workflows/publish-projectx-ai-engine-only.yml'}
+          changed=set(subprocess.check_output(['git','diff','--name-only','HEAD^','HEAD'],text=True).splitlines())
+          assert changed==allowed,(changed-allowed,allowed-changed)
+          print('PASS: previous engine 3466 and exact AI-only changes')
+          PY
+      - name: Verify QA before native build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_projectx_ai_regressions.py test-mod-localization.py test-standalone-mod-overlay.py test-mod-archive-loading.py test-save-map-safety.py; do
+            python3 "scripts/qa/$test"
+          done
+      - name: Dispatch verified native engine-only build
+        shell: bash
+        run: |
+          set -euo pipefail
+          prev="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          echo "PREV_NATIVE=$prev" >> "$GITHUB_ENV"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+      - name: Wait for exact-source 30/60Hz engine compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ((i=1;i<=180;i++)); do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&branch=dev%2Fmobile-v4&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $PREV_NATIVE and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$run" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending"),.head_sha,.path] | join("|")')"
+              echo "native $run: $result"
+              if [[ "$result" == "completed|success|$GITHUB_SHA|.github/workflows/build-android.yml" ]]; then
+                echo "NATIVE_RUN=$run" >> "$GITHUB_ENV"; exit 0
+              fi
+              if [[ "$result" == completed\|* ]]; then echo 'Native build failed, previous update preserved'; exit 1; fi
+            fi
+            sleep 25
+          done
+          exit 1
+      - name: Dispatch existing secret-only signer without APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          prev="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          echo "PREV_SIGN=$prev" >> "$GITHUB_ENV"
+          gh workflow run sign-update.yml --ref dev/mobile-v4 \
+            -f public_identity_only=false \
+            -f engine_build_run="$NATIVE_RUN" \
+            -f engine_source_commit="$GITHUB_SHA" \
+            -f note='Project X AI: packaged SkirmishScripts and missing mod faction sides. Native 30/60Hz only. No APK, mod files, save format or online protocol changes. On-device AI gameplay remains unverified.'
+      - name: Verify signed engine update is published
+        shell: bash
+        run: |
+          set -euo pipefail
+          result=pending
+          for ((i=1;i<=90;i++)); do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/sign-update.yml/runs?per_page=50&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $PREV_SIGN and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$run" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending")] | join("|")')"
+              echo "signer $run: $result"
+              if [[ "$result" == 'completed|success' ]]; then break; fi
+              if [[ "$result" == completed\|* ]]; then exit 1; fi
+            fi
+            sleep 20
+          done
+          test "$result" = 'completed|success'
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/new-manifest.json"
+          python3 - <<'PY'
+          import os,json,pathlib
+          m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'new-manifest.json').read_text())
+          assert m['engine']['source_commit']==os.environ['GITHUB_SHA']
+          assert m['engine']['seq']>3466 and m['serial']>12
+          assert {'libmain.so','libmain60.so'}<=set(m['engine']['files'])
+          print('PASS: engine-only signed OTA published:',m['engine']['seq'])
+          PY
