@@ -96,6 +96,7 @@
 // target's include path, and everything links into the same libmain.so.
 // Values must match the enum in Core/Libraries/Source/d3d8gles/include/d3d8gles.h.
 extern "C" int d3d8gles_SetDrawCategory(int category);
+extern "C" void d3d8gles_RecordTerrainPasses(int passes, int tilesPerPass);
 #define D3D8GLES_DRAWCAT_TERRAIN 4
 #define D3D8GLES_DRAWCAT_SHADOWS 5
 #endif
@@ -2049,6 +2050,12 @@ void HeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 	}
 
 	Int pass;
+#if defined(__ANDROID__)
+	// Count the exact fixed-grid iterations below, without changing rendering.
+	// Both main and supplemental terrain paths keep their original ordering.
+	if (!Is_Hidden())
+		d3d8gles_RecordTerrainPasses(devicePasses, m_numVBTilesX * m_numVBTilesY);
+#endif
  	for (pass=0; pass<devicePasses; pass++) {
 #ifdef TIMING_TESTS
 #endif
