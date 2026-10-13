@@ -129,6 +129,7 @@ extern NGMPGame* TheNGMPGame;
 
 #include <rts/profile.h>
 #include "GXTrace.h"
+#include <chrono>
 #include "Common/GXReplayCheck.h"
 #include "Common/GXCrcStream.h"
 
@@ -4107,8 +4108,78 @@ void gxPhysNote(Char kind, UnsignedInt id, const Real *values, Int count)
 #define GX_FP_BLAME(phase, obj, u) do {} while (0)
 #endif
 
+
+// Android diagnostic-only logic phases. gx_perf.txt opt-in; no simulation state is touched.
+// Timings are per GameLogic::update tick (not per displayed frame). The residual bucket
+// includes CRC, recorder, stores and everything that is not in a named phase.
+#if defined(__ANDROID__)
+namespace {
+enum GxLogicPhase { GXLP_SCRIPT, GXLP_TERRAIN, GXLP_COMMANDS, GXLP_MODULES, GXLP_AI, GXLP_PARTITION, GXLP_COUNT };
+struct GxLogicDiagnostic {
+  typedef std::chrono::steady_clock Clock;
+  Clock::time_point windowStart = Clock::now();
+  double phaseUs[GXLP_COUNT] = {};
+  double totalUs = 0.0;
+  double worstUs = 0.0;
+  unsigned ticks = 0;
+};
+static GxLogicDiagnostic s_gxLogicDiag;
+struct GxLogicPhaseScope {
+  bool enabled;
+  int phase;
+  GxLogicDiagnostic::Clock::time_point start;
+  GxLogicPhaseScope(bool on, int p) : enabled(on), phase(p) {
+    if (enabled) start = GxLogicDiagnostic::Clock::now();
+  }
+  ~GxLogicPhaseScope() {
+    if (enabled)
+      s_gxLogicDiag.phaseUs[phase] += std::chrono::duration<double, std::micro>(
+        GxLogicDiagnostic::Clock::now() - start).count();
+  }
+};
+struct GxLogicTickScope {
+  bool enabled;
+  unsigned frame;
+  GxLogicDiagnostic::Clock::time_point start;
+  GxLogicTickScope(bool on, unsigned n) : enabled(on), frame(n) {
+    if (enabled) start = GxLogicDiagnostic::Clock::now();
+  }
+  ~GxLogicTickScope() {
+    if (!enabled) return;
+    GxLogicDiagnostic &d = s_gxLogicDiag;
+    const GxLogicDiagnostic::Clock::time_point now = GxLogicDiagnostic::Clock::now();
+    const double us = std::chrono::duration<double, std::micro>(now - start).count();
+    d.totalUs += us;
+    if (us > d.worstUs) d.worstUs = us;
+    ++d.ticks;
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - d.windowStart).count() < 2000)
+      return;
+    const double n = d.ticks ? (double)d.ticks : 1.0;
+    double assigned = 0.0;
+    for (int i = 0; i < GXLP_COUNT; ++i) assigned += d.phaseUs[i];
+    const double residual = d.totalUs > assigned ? d.totalUs - assigned : 0.0;
+    fprintf(stderr, "[GX-PERF-LOGIC-DETAIL] frame=%u ticks=%u total=%.2fms worst=%.2fms "
+      "scripts=%.2f terrain=%.2f commands=%.2f modules=%.2f ai=%.2f partition=%.2f other=%.2f ms/tick\n",
+      frame, d.ticks, d.totalUs / n / 1000.0, d.worstUs / 1000.0,
+      d.phaseUs[GXLP_SCRIPT] / n / 1000.0, d.phaseUs[GXLP_TERRAIN] / n / 1000.0,
+      d.phaseUs[GXLP_COMMANDS] / n / 1000.0, d.phaseUs[GXLP_MODULES] / n / 1000.0,
+      d.phaseUs[GXLP_AI] / n / 1000.0, d.phaseUs[GXLP_PARTITION] / n / 1000.0,
+      residual / n / 1000.0);
+    d = GxLogicDiagnostic();
+  }
+};
+}
+#define GX_LOGIC_PROFILE(name, phase) GxLogicPhaseScope name(gxDiagLogic, phase)
+#else
+#define GX_LOGIC_PROFILE(name, phase)
+#endif
+
 void GameLogic::update()
 {
+#if defined(__ANDROID__)
+	const bool gxDiagLogic = GXTrace::isPerfEnabled();
+	GxLogicTickScope gxLogicTick(gxDiagLogic, m_frame);
+#endif
 	USE_PERF_TIMER(GameLogic_update)
 	PROFILER_SECTION_COLOR(0x4CAF50);
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
@@ -4177,6 +4248,7 @@ void GameLogic::update()
 
 	// update (execute) scripts
 	{
+		GX_LOGIC_PROFILE(gxScriptPhase, GXLP_SCRIPT);
 		TheScriptEngine->UPDATE();
 	}
 	GX_FP_BLAME("ScriptEngine", nullptr, nullptr);
@@ -4190,6 +4262,7 @@ void GameLogic::update()
 	// Note - TerrainLogic update needs to happen after ScriptEngine update, but before object updates.  jba.
 	// This way changes in bridges are noted in the script engine before being cleared in TerrainLogic->update
 	{
+		GX_LOGIC_PROFILE(gxTerrainPhase, GXLP_TERRAIN);
 		TheTerrainLogic->UPDATE();
 	}
 	GX_FP_BLAME("TerrainLogic", nullptr, nullptr);
@@ -4258,6 +4331,7 @@ void GameLogic::update()
 
 	// process client commands
 	{
+		GX_LOGIC_PROFILE(gxCommandsPhase, GXLP_COMMANDS);
 		processCommandList( TheCommandList );
 	}
 	GX_FP_BLAME("Commands", nullptr, nullptr);
@@ -4297,6 +4371,7 @@ void GameLogic::update()
 #endif
 
 	{
+		GX_LOGIC_PROFILE(gxModulesPhase, GXLP_MODULES);
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
@@ -4352,6 +4427,7 @@ void GameLogic::update()
 
 	// update the Artificial Intelligence system
 	{
+		GX_LOGIC_PROFILE(gxAiPhase, GXLP_AI);
 		TheAI->UPDATE();
 	}
 	GX_FP_BLAME("AI", nullptr, nullptr);
@@ -4364,6 +4440,7 @@ void GameLogic::update()
 
 	// update partition info
 	{
+		GX_LOGIC_PROFILE(gxPartitionPhase, GXLP_PARTITION);
 		ThePartitionManager->UPDATE();
 	}
 	GX_FP_BLAME("PartitionManager", nullptr, nullptr);

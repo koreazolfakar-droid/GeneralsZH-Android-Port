@@ -3256,7 +3256,25 @@ void WebGLPipeline::bindArrayBuffer(GLuint name)
 enum GxUploadKind { GX_UPLOAD_VB_FULL, GX_UPLOAD_VB_APPEND, GX_UPLOAD_IB_FULL, GX_UPLOAD_IB_APPEND, GX_UPLOAD_RING, GX_UPLOAD_KIND_COUNT };
 static double s_gxUploadUs[GX_UPLOAD_KIND_COUNT] = {};
 static double s_gxUploadBytes[GX_UPLOAD_KIND_COUNT] = {};
+
+// Diagnostic-only terrain pass counters: the game engine calls this before drawing
+// a legacy heightmap's fixed tile grid. Counts are consumed in the existing perf report.
+static unsigned s_gxTerrainPassCalls = 0;
+static unsigned s_gxTerrainPasses = 0;
+static unsigned s_gxTerrainBaseTileDraws = 0;
+extern "C" void d3d8gles_RecordTerrainPasses(int passes, int tilesPerPass)
+{
+	if (passes <= 0 || tilesPerPass <= 0) return;
+	++s_gxTerrainPassCalls;
+	s_gxTerrainPasses += (unsigned)passes;
+	s_gxTerrainBaseTileDraws += (unsigned)passes * (unsigned)tilesPerPass;
+}
+
 static unsigned s_gxUploadCount[GX_UPLOAD_KIND_COUNT] = {};
+static double s_gxVBAppendBytesByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxVBAppendCallsByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxSyncCallsByCategory[GX_DRAWCAT_COUNT] = {};
+
 namespace {
 struct GxUploadTimer
 {
@@ -3266,6 +3284,13 @@ struct GxUploadTimer
 	{
 		s_gxUploadBytes[k] += (double)bytes;
 		++s_gxUploadCount[k];
+		// Classify the upload against the surrounding engine pass (best-effort: uploads
+		// performed before a pass is tagged remain in OTHER).
+		if (k == GX_UPLOAD_VB_APPEND && s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT) {
+			s_gxVBAppendBytesByCategory[s_gxDrawCategory] += (double)bytes;
+			++s_gxVBAppendCallsByCategory[s_gxDrawCategory];
+		}
+
 	}
 	~GxUploadTimer() { s_gxUploadUs[kind] += gxNowUs() - start; }
 };
@@ -3488,6 +3513,8 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 				// A plain lock (no NOOVERWRITE): synchronized, as D3D would be.
 				glBufferSubData(GL_COPY_WRITE_BUFFER, off, len, vb->m_bits.data() + vb->m_gl.dirtyBegin);
 				m_perfSyncUploads++;
+				if (s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT)
+					++s_gxSyncCallsByCategory[s_gxDrawCategory];
 			} else {
 				// Map, copy and unmap on the GL thread (falling back to glBufferSubData when the
 				// driver refuses the mapping): see gxrt::bufferWrite.
@@ -3552,6 +3579,8 @@ void WebGLPipeline::ensureIBUploaded(WebGLIndexBuffer *ib)
 				// A plain lock (no NOOVERWRITE): synchronized, as D3D would be.
 				glBufferSubData(GL_COPY_WRITE_BUFFER, off, len, ib->m_bits.data() + ib->m_gl.dirtyBegin);
 				m_perfSyncUploads++;
+				if (s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT)
+					++s_gxSyncCallsByCategory[s_gxDrawCategory];
 			} else {
 				// Map, copy and unmap on the GL thread (falling back to glBufferSubData when the
 				// driver refuses the mapping): see gxrt::bufferWrite.
@@ -4220,6 +4249,25 @@ void WebGLPipeline::present()
 					snprintf(line + len, sizeof(line) - len, " textures+other=%.2fms",
 						(d3d8gles_perfUploadUs - known) / 1000.0 / f);
 					fprintf(stderr, "%s\n", line);
+				}
+				fprintf(stderr, "[d3d8gles] perf-terrain-passes: calls=%.1f/frame shaderPasses=%.1f/frame baseTileDraws=%.1f/frame (additional overlays not included)\n",
+					s_gxTerrainPassCalls / f, s_gxTerrainPasses / f, s_gxTerrainBaseTileDraws / f);
+				s_gxTerrainPassCalls = s_gxTerrainPasses = s_gxTerrainBaseTileDraws = 0;
+				{
+					// VB append KB and ordinary synchronized uploads per draw category.
+					// This separates genuine terrain work from particle/UI/model uploads.
+					const char *sourceNames[GX_DRAWCAT_COUNT] =
+						{"other", "models", "particles", "ui", "terrain", "shadows", "skin"};
+					fprintf(stderr, "[d3d8gles] perf-upload-source:");
+					for (int cat = 0; cat < GX_DRAWCAT_COUNT; ++cat) {
+						fprintf(stderr, " %s=%.0fKB/%.1f-calls sync=%.1f",
+							sourceNames[cat], s_gxVBAppendBytesByCategory[cat] / 1024.0 / f,
+							s_gxVBAppendCallsByCategory[cat] / f, s_gxSyncCallsByCategory[cat] / f);
+						s_gxVBAppendBytesByCategory[cat] = 0.0;
+						s_gxVBAppendCallsByCategory[cat] = 0;
+						s_gxSyncCallsByCategory[cat] = 0;
+					}
+					fprintf(stderr, "\n");
 				}
 				for (int i = 0; i < GX_DRAWCAT_COUNT; i++) s_gxDrawUsByCategory[i] = 0.0;
 				s_gxDrawCallUs = 0.0;
