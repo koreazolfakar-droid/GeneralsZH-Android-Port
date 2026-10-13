@@ -15,17 +15,34 @@ permissions:
   # one) drops every unlisted scope to none rather than defaulting to read.
   actions: write
 
+# Auto-QA is scoped to the Android development branch and performance
+# investigation branches. Production main stays manual/PR-only to avoid duplicate
+# full native builds and unexpected releases. Push runs can build test APK artifacts,
+# but only an explicit workflow_dispatch with create_release=true can publish.
+# Never auto-merge, auto-sign an OTA payload, or modify game/mod files.
+concurrency:
+  group: android-build-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 on:
-  # GeneralsX @bugfix Android CI 01/08/2026 dropped the push: trigger that
-  # used to fire a full CI build on every push to main/claude/** touching
-  # these paths. This session's actual dev loop builds and checksum-verifies
-  # locally (scripts/build/android/build-local-sandboxed.sh) before ever
-  # pushing, and pushes to BOTH main and the working branch on every commit
-  # (main is kept fast-forwarded) -- so every commit was silently kicking off
-  # two full ~15min CI builds nobody was looking at, burning real Actions
-  # usage for zero benefit. pull_request/workflow_dispatch (manual runs,
-  # including the "publish a Release" path) are unaffected and still work
-  # exactly as before.
+  push:
+    branches:
+      - dev/mobile-v4
+      - 'perf/**'
+    paths:
+      - 'GeneralsMD/**'
+      - 'Core/**'
+      - 'Dependencies/**'
+      - 'cmake/**'
+      - 'android/**'
+      - 'scripts/build/android/**'
+      - 'scripts/qa/**'
+      - 'Patches/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/build-android.yml'
+  # Keep the existing PR-to-main and explicit manual build behaviors.
   pull_request:
     branches:
       - main
@@ -201,6 +218,19 @@ jobs:
           set -euo pipefail
           echo "Source revision: $(git rev-parse HEAD)"
           echo "Engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
+
+      # Cheap checks first: fail in seconds instead of downloading Android/NDK/DXVK.
+      # Full native verification, 30/60 Hz builds, package checks and artifact upload
+      # remain in their original steps below. These tests do not need the Android SDK.
+      - name: Fast Android source and QA smoke tests
+        run: |
+          set -euo pipefail
+          git diff --check HEAD^ HEAD
+          python3 -m compileall -q scripts/qa
+          python3 scripts/qa/test-engine-security.py
+          python3 scripts/qa/test-engine-build-number.py
+          python3 scripts/qa/test-engine-native-version.py
+          python3 scripts/qa/test-android-validation-staging.py
 
       - name: Checkout DXVK fork submodule
         run: |
