@@ -4250,7 +4250,7 @@ void WebGLPipeline::present()
 						(d3d8gles_perfUploadUs - known) / 1000.0 / f);
 					fprintf(stderr, "%s\n", line);
 				}
-				fprintf(stderr, "[d3d8gles] perf-terrain-passes: calls=%.1f/frame shaderPasses=%.1f/frame baseTileDraws=%.1f/frame (additional overlays not included)\\n",
+				fprintf(stderr, "[d3d8gles] perf-terrain-passes: calls=%.1f/frame shaderPasses=%.1f/frame baseTileDraws=%.1f/frame (additional overlays not included)\n",
 					s_gxTerrainPassCalls / f, s_gxTerrainPasses / f, s_gxTerrainBaseTileDraws / f);
 				s_gxTerrainPassCalls = s_gxTerrainPasses = s_gxTerrainBaseTileDraws = 0;
 				{
