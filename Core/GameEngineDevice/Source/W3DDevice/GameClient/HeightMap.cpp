@@ -96,6 +96,7 @@
 // target's include path, and everything links into the same libmain.so.
 // Values must match the enum in Core/Libraries/Source/d3d8gles/include/d3d8gles.h.
 extern "C" int d3d8gles_SetDrawCategory(int category);
+extern "C" void d3d8gles_RecordTerrainPasses(int passes, int tilesPerPass);
 #define D3D8GLES_DRAWCAT_TERRAIN 4
 #define D3D8GLES_DRAWCAT_SHADOWS 5
 #endif
@@ -330,7 +331,13 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		assert(x0 >= originX && y0 >= originY && x1>x0 && y1>y0 && x1<=originX+VERTEX_BUFFER_TILE_LENGTH && y1<=originY+VERTEX_BUFFER_TILE_LENGTH);
 #endif
 
-		DX8VertexBufferClass::WriteLockClass lockVtxBuffer(pVB);
+		// GeneralsX @performance Codex 14/10/2026 Lock only the enclosing rows of
+		// this update. A full-tile lock made GLES upload unchanged terrain too,
+		// even though the loop below writes just the requested rectangle. Keep
+		// the ordinary synchronized lock and all vertex/lighting calculations.
+		const Int firstVertex = (y0-originY)*vertsPerRow + (x0-originX)*4;
+		const Int endVertex = (y1-originY-1)*vertsPerRow + (x1-originX)*4;
+		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB, firstVertex, endVertex-firstVertex);
 		VERTEX_FORMAT *vbHardware = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
 		VERTEX_FORMAT *vBase = data;
 		// Note that we are building the vertex buffer data in the memory buffer, data.
@@ -543,7 +550,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				// We don't copy the whole vertex buffer because we often update only
 				// a couple of rows and its a lot faster to just copy the ones that change.
 				Int offset = pCurVertices - vBase;
-				memcpy(vbHardware+offset, pCurVertices, 4*sizeof(VERTEX_FORMAT));
+				memcpy(vbHardware+offset-firstVertex, pCurVertices, 4*sizeof(VERTEX_FORMAT));
 			}
 		}
 		return 0; //success.
@@ -2049,6 +2056,12 @@ void HeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 	}
 
 	Int pass;
+#if defined(__ANDROID__)
+	// Count the exact fixed-grid iterations below, without changing rendering.
+	// Both main and supplemental terrain paths keep their original ordering.
+	if (!Is_Hidden())
+		d3d8gles_RecordTerrainPasses(devicePasses, m_numVBTilesX * m_numVBTilesY);
+#endif
  	for (pass=0; pass<devicePasses; pass++) {
 #ifdef TIMING_TESTS
 #endif

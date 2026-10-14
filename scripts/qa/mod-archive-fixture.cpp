@@ -254,6 +254,12 @@ int main(int argc,char** argv) {
     if(std::filesystem::exists("loose-shield.txt")) assert(payload("loose-shield.txt")=="loose");
     assert(!fs.getArchiveFile("Data/INI/InactiveOnly.ini"));
     assert(payload("Data/INI/SiblingOnly.ini")=="sibling");
+    if(selection=="Mods/TEOD") {
+        assert(payload("Art/Textures/TEODTerrain.dds")=="mod-first");
+        assert(payload("Maps/TEODTest/TEODTest.map")=="mod-first");
+        assert(payload("Data/Audio/Sounds/TEODTest.wav")=="mod-first");
+        assert(!fs.getArchiveFile("d3d8.dll"));
+    }
     if(expected=="nested") {
         assert(payload("Art/W3D/Nested.w3d")=="nested-model");
         assert(payload("Data/INI/Nested.ini")=="nested-ini");

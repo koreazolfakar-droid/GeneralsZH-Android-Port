@@ -287,18 +287,18 @@ void gxrt::rawGetIntegerv(GLenum pname, GLint *data)
 
 void gxrt::bufferWrite(GLenum target, GLintptr offset, GLsizeiptr length, const void *data, GLbitfield access)
 {
-	gxrt::post([target, offset, length, access, blob = gxrt::Blob<256>(data, (size_t)length)] {
+	gxrt::postBytes([target, offset, length, access](const void *bytes) {
 		gxrt::WorkTimer t(gxrt::kWorkUpload);
 		void *mapped = d3d8gles_pfn_glMapBufferRange(target, offset, length, access);
 		if (mapped) {
-			memcpy(mapped, blob.data(), (size_t)length);
+			memcpy(mapped, bytes, (size_t)length);
 			d3d8gles_pfn_glUnmapBuffer(target);
 		} else {
 			// Mapping can legitimately fail (driver refusal, lost context); the synchronizing
 			// path is slower but correct.
-			d3d8gles_pfn_glBufferSubData(target, offset, length, blob.data());
+			d3d8gles_pfn_glBufferSubData(target, offset, length, bytes);
 		}
-	});
+	}, data, (size_t)length);
 }
 
 extern "C" {

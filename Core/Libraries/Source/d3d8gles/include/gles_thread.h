@@ -127,6 +127,47 @@ struct Blob
 	const void *data() const { return present ? (heap ? heap : inl) : nullptr; }
 };
 
+// GeneralsX @performance Codex 14/10/2026 Ordinary dynamic uploads also carry their
+// bytes in the existing command ring. A Blob allocated/freed on different threads
+// for every upload over 256 bytes. Keep one GL operation, in the original order,
+// and retain the heap path for unusually large uploads rather than filling the ring
+// with a command that cannot fit. The ring is 16 MiB; each inline command is <= 1 MiB.
+template <class F>
+struct BytesCmd : Cmd
+{
+	F f;
+	explicit BytesCmd(F &&fn) : f(std::move(fn)) {}
+	static void exec(Cmd *c)
+	{
+		BytesCmd *t = static_cast<BytesCmd *>(c);
+		t->f(reinterpret_cast<unsigned char *>(t) + sizeof(BytesCmd));
+		t->~BytesCmd();
+	}
+};
+
+template <class F>
+inline void postBytes(F f, const void *data, size_t bytes)
+{
+	if (!g_active) {
+		f(data);
+		return;
+	}
+	typedef BytesCmd<F> T;
+	constexpr size_t maxCommandBytes = 1u << 20;
+	static_assert(sizeof(T) < maxCommandBytes, "Upload command header must fit the ring");
+	if (data == nullptr || bytes > maxCommandBytes - sizeof(T)) {
+		post([fn = std::move(f), blob = Blob<256>(data, bytes)] { fn(blob.data()); });
+		return;
+	}
+	uint32_t rounded = 0;
+	void *mem = allocCmd(sizeof(T) + bytes, &rounded);
+	T *t = new (mem) T(std::move(f));
+	t->run = &T::exec;
+	t->bytes = rounded;
+	memcpy(reinterpret_cast<unsigned char *>(t) + sizeof(T), data, bytes);
+	commitCmd();
+}
+
 // Starts the render thread and hands it the GL context current on the calling thread. Returns
 // false (and leaves everything on the calling thread) when the thread could not take it.
 bool start(SDL_Window *window);

@@ -30,6 +30,7 @@
 #include "Common/CRCDebug.h"
 // GeneralsX @feature Android port 20/09/2026 GX_NET_TRACE for the AI stage split
 #include "GXTrace.h"
+#include <chrono>
 #include "Common/GameState.h"
 #include "Common/PerfTimer.h"
 #include "Common/Player.h"
@@ -357,6 +358,13 @@ void AI::reset()
  */
 void AI::update()
 {
+#if defined(__ANDROID__)
+  // Two-stage AI split: queued pathfinding vs all player/team strategy updates.
+  // Only sampled with gx_perf.txt, once per roughly two seconds.
+  const bool gxDiagAi = GXTrace::isPerfEnabled();
+  typedef std::chrono::steady_clock GxAiClock;
+  const GxAiClock::time_point gxAiBegin = gxDiagAi ? GxAiClock::now() : GxAiClock::time_point();
+#endif
 	// Do pathfinding.
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	if (TheGameLogic->HasLegacyFrameAdvanced())
@@ -366,12 +374,32 @@ void AI::update()
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	}
 #endif
-
+#if defined(__ANDROID__)
+  const GxAiClock::time_point gxAiPathsDone = gxDiagAi ? GxAiClock::now() : GxAiClock::time_point();
+#endif
 	// run player updates
 	{
 		ThePlayerList->UPDATE();
 	}
-
+#if defined(__ANDROID__)
+  if (gxDiagAi) {
+    static GxAiClock::time_point windowStart = GxAiClock::now();
+    static double pathUs = 0.0, playersUs = 0.0;
+    static unsigned updates = 0;
+    const GxAiClock::time_point end = GxAiClock::now();
+    pathUs += std::chrono::duration<double, std::micro>(gxAiPathsDone - gxAiBegin).count();
+    playersUs += std::chrono::duration<double, std::micro>(end - gxAiPathsDone).count();
+    ++updates;
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(end - windowStart).count() >= 2000) {
+      const double count = updates ? (double)updates : 1.0;
+      fprintf(stderr, "[GX-PERF-AI-DETAIL] ticks=%u pathfinding=%.3fms players=%.3fms per AI tick\n",
+        updates, pathUs / count / 1000.0, playersUs / count / 1000.0);
+      windowStart = end;
+      updates = 0;
+      pathUs = playersUs = 0.0;
+    }
+  }
+#endif
 }
 
 /**
