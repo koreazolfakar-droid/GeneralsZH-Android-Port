@@ -30,6 +30,33 @@
 #include "GameLogic/AIPathfind.h"
 
 #include "Common/PerfTimer.h"
+#if defined(__ANDROID__)
+#include "GXTrace.h"
+#include <chrono>
+// GeneralsX @feature Codex 14/10/2026 Observe direct as well as queued path
+// requests. Keep early returns/search order and deterministic simulation intact.
+namespace {
+struct GxPathRequestScope {
+	bool enabled=GXTrace::isPerfEnabled();
+	std::chrono::steady_clock::time_point start;
+	GxPathRequestScope() { if(enabled) start=std::chrono::steady_clock::now(); }
+	~GxPathRequestScope() {
+		if(!enabled) return;
+		static auto window=start;
+		static double totalUs=0,worstUs=0;
+		static unsigned requests=0;
+		const auto now=std::chrono::steady_clock::now();
+		const double us=std::chrono::duration<double,std::micro>(now-start).count();
+		totalUs+=us; if(us>worstUs) worstUs=us; ++requests;
+		const double windowMs=std::chrono::duration<double,std::milli>(now-window).count();
+		if(windowMs<2000) return;
+		fprintf(stderr,"[GX-PERF-PATH-REQUEST] t=%.0fus windowMs=%.3f requests=%u totalWallMs=%.3f avgMs=%.3f worstMs=%.3f (nested request costs, not additional frame time)\n",
+			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),windowMs,requests,totalUs/1000,totalUs/1000/requests,worstUs/1000);
+		window=now; totalUs=worstUs=0; requests=0;
+	}
+};
+}
+#endif
 #include "Common/Player.h"
 #include "Common/CRCDebug.h"
 #include "Common/GlobalData.h"
@@ -6503,6 +6530,9 @@ Int Pathfinder::examineNeighboringCells(PathfindCell *parentCell, PathfindCell *
 Path *Pathfinder::findPath( Object *obj, const LocomotorSet& locomotorSet, const Coord3D *from,
 													 const Coord3D *rawTo)
 {
+#if defined(__ANDROID__)
+	GxPathRequestScope gxRequestTiming;
+#endif
 	if (!clientSafeQuickDoesPathExist(locomotorSet, from, rawTo)) {
 		return nullptr;
 	}

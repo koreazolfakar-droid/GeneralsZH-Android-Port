@@ -4197,6 +4197,10 @@ void WebGLPipeline::present()
 			m_perfLogLastMs = nowMs;
 		} else if (nowMs - m_perfLogLastMs >= 2000) {
 			const auto reportStart = std::chrono::steady_clock::now();
+			// GeneralsX @feature Codex 14/10/2026 Align this whole render report
+			// with CPU/logic/AI/path windows using one monotonic end timestamp.
+			fprintf(stderr,"[d3d8gles] perf-window: t=%.0fus durationMs=%u renderedFrames=%u (CPU/worker/GPU timings overlap)\n",
+				std::chrono::duration<double,std::micro>(reportStart.time_since_epoch()).count(),nowMs-m_perfLogLastMs,(unsigned)m_perfFrameCount);
 			const float seconds = (nowMs - m_perfLogLastMs) / 1000.0f;
 			const float fps = m_perfFrameCount / seconds;
 			const float drawsPerFrame = m_perfFrameCount > 0

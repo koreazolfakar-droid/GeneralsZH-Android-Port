@@ -4168,13 +4168,14 @@ struct GxLogicTickScope {
     double assigned = 0.0;
     for (int i = 0; i < GXLP_COUNT; ++i) assigned += d.phaseUs[i];
     const double residual = d.totalUs > assigned ? d.totalUs - assigned : 0.0;
+    // GeneralsX @feature Codex 14/10/2026 Shared monotonic window anchor.
     fprintf(stderr, "[GX-PERF-LOGIC-DETAIL] frame=%u ticks=%u total=%.2fms worst=%.2fms "
-      "scripts=%.2f terrain=%.2f commands=%.2f modules=%.2f ai=%.2f partition=%.2f other=%.2f ms/tick\n",
+      "scripts=%.2f terrain=%.2f commands=%.2f modules=%.2f ai=%.2f partition=%.2f other=%.2f ms/tick t=%.0fus windowMs=%.3f\n",
       frame, d.ticks, d.totalUs / n / 1000.0, d.worstUs / 1000.0,
       d.phaseUs[GXLP_SCRIPT] / n / 1000.0, d.phaseUs[GXLP_TERRAIN] / n / 1000.0,
       d.phaseUs[GXLP_COMMANDS] / n / 1000.0, d.phaseUs[GXLP_MODULES] / n / 1000.0,
       d.phaseUs[GXLP_AI] / n / 1000.0, d.phaseUs[GXLP_PARTITION] / n / 1000.0,
-      residual / n / 1000.0);
+      residual / n / 1000.0,std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),std::chrono::duration<double,std::milli>(now-d.windowStart).count());
     d = GxLogicDiagnostic();
   }
 };

@@ -77,6 +77,9 @@ Utilities for large-scale code refactoring and fixes:
 - `test-terrain-snapshot-safety.py` - Validate initialized GPU prefixes, changed
   and restored terrain versions, bounded snapshot memory and NaN/Inf bit probes
   with ASan/UBSan. Does not validate a physical GPU or mod assets.
+- `test-terrain-light-dirty.py` - Differential production terrain-lighting test
+  against 3481: exact vertices and calculation count, unchanged writes, moving
+  lights, alpha, camera/geometry changes, cache lifetime and capped fallback.
 - `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
   reconstruct the documented release-only GPU delta and inventory committed
   differences. Requires the fetched audit refs, Git and OpenSSL; never builds.

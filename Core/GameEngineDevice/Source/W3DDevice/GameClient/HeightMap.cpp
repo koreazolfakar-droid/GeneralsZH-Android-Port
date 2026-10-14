@@ -92,6 +92,93 @@
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 #include "GXTrace.h"
 #include <chrono>
+// GeneralsX @feature Codex 14/10/2026 Reuse existing shared text-atlas counters
+// in performance-only sessions, without enabling expensive verbose tracing.
+extern void GeneralsX_Report_Glyph_Pool(const char *why);
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+#include "GXTerrainLightColors.h"
+#include <map>
+#include <optional>
+#include <new>
+
+// GeneralsX @performance Codex 14/10/2026 Avoid dirtying an unchanged lit
+// tile instead of scanning its entire XYZ/UV buffer later in GLES. One compact
+// diffuse version per live VB, kept consistent by every geometry writer below.
+namespace {
+struct GxTerrainLightPool {
+	static constexpr size_t budget = 8u<<20;
+	std::map<DX8VertexBufferClass*,GXTerrainLightColors> tiles;
+	size_t bytes = 0;
+	void create(DX8VertexBufferClass *vb,size_t count) {
+		if (tiles.find(vb)!=tiles.end() || count> (budget-bytes)/(2*sizeof(uint32_t))) return;
+		try { tiles.try_emplace(vb,count); bytes+=count*2*sizeof(uint32_t); }
+		catch (const std::bad_alloc &) {
+			static bool warned=false;
+			if(!warned) { fprintf(stderr,"[GX-PERF-TERRAIN-DIRTY] cache allocation refused; retaining ordinary synchronized locks\n"); warned=true; }
+		}
+	}
+	GXTerrainLightColors *find(DX8VertexBufferClass *vb) {
+		auto it=tiles.find(vb); return it==tiles.end()?nullptr:&it->second;
+	}
+	void forget(DX8VertexBufferClass *vb) {
+		auto it=tiles.find(vb);
+		if (it!=tiles.end()) { bytes-=it->second.colors.size()*2*sizeof(uint32_t); tiles.erase(it); }
+	}
+};
+static GxTerrainLightPool *gxTerrainLightPool() {
+	// Same exit policy as the glyph pool: explicit per-buffer release, no global
+	// destructor after the engine allocator has shut down. Allocation failure
+	// leaves all buffers on the existing synchronized path.
+	static GxTerrainLightPool *pool=new(std::nothrow) GxTerrainLightPool;
+	return pool;
+}
+static size_t gxLightUpdates=0,gxLightUnchanged=0,gxLightFallback=0,gxLightChecked=0,gxLightChanged=0,gxLightLockVertices=0;
+static bool gxCompleteTerrainTile(Int index,Int tilesX,Int tilesY,Int lastColumns,Int lastRows) {
+	return (index%tilesX!=tilesX-1 || lastColumns==0) && (index/tilesX!=tilesY-1 || lastRows==0);
+}
+struct GxTerrainLightingWriter {
+	DX8VertexBufferClass *vb;
+	GXTerrainLightColors *colors;
+	VERTEX_FORMAT *base;
+	VERTEX_FORMAT temporary;
+	std::optional<DX8VertexBufferClass::WriteLockClass> fallback;
+	GxTerrainLightingWriter(DX8VertexBufferClass *buffer,VERTEX_FORMAT *mirror) : vb(buffer),
+		colors(gxTerrainLightPool()?gxTerrainLightPool()->find(buffer):nullptr),base(mirror) {
+		// Never infer zero colors for GPU bytes not initialized by geometry.
+		// An early fallback can modify partially initialized data; keep that
+		// buffer on its original path for its remaining lifetime.
+		if(colors && (!colors->initialized || colors->disabled)) { colors->disabled=true; colors=nullptr; }
+		if (colors) colors->resetRange();
+		else { fallback.emplace(buffer); base=(VERTEX_FORMAT*)fallback->Get_Vertex_Array(); }
+	}
+	VERTEX_FORMAT *destination(VERTEX_FORMAT *vertex) { return colors?&temporary:vertex; }
+	void write(VERTEX_FORMAT *vertex,uint32_t value) {
+		if (colors) colors->write(vertex-base,value); else vertex->diffuse=value;
+	}
+	~GxTerrainLightingWriter() {
+		const bool perf=GXTrace::isPerfEnabled();
+		if (perf) ++gxLightUpdates;
+		if (!colors) { if(perf) ++gxLightFallback; return; }
+		colors->finishRange();
+		if (perf) { gxLightChecked+=colors->checked; gxLightChanged+=colors->changed; }
+		if (colors->end==0) { if(perf) ++gxLightUnchanged; return; }
+		const size_t first=colors->begin, count=colors->end-first;
+		// AppendLock uses flags=0, i.e. synchronized. No GPU reads, orphaning,
+		// NOOVERWRITE promises, deferred lighting ticks or changed draw order.
+		DX8VertexBufferClass::AppendLockClass lock(vb,first,count);
+		VERTEX_FORMAT *vertices=(VERTEX_FORMAT*)lock.Get_Vertex_Array();
+		for(size_t i=0;i<count;++i) vertices[i].diffuse=colors->colors[first+i];
+		if(perf) gxLightLockVertices+=count;
+	}
+};
+}
+#endif
+
+// GeneralsX @performance Codex 14/10/2026 Keep the legacy backend's direct
+// diffuse write without introducing C++11 lambdas on the VC6 path.
+#if !defined(__ANDROID__) || defined(USE_NORMALS)
+static void gxWriteDiffuse(VERTEX_FORMAT *vertex,UnsignedInt value) { vertex->diffuse=value; }
+#endif
 
 // GeneralsX @feature Codex 14/10/2026 Nested CPU preparation/submission costs;
 // compare with GameClient main wall time, never add them again to frame totals.
@@ -114,7 +201,14 @@ struct GxTerrainCpuScope {
 		fprintf(stderr, "[GX-PERF-TERRAIN-CPU] t=%.0fus seconds=%.3f lighting=%.3fms/%u-calls center=%.3fms/%u-calls submit=%.3fms/%u-calls (nested main-thread totals)\n",
 			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(), seconds,
 			us[0]/1000.0,calls[0],us[1]/1000.0,calls[1],us[2]/1000.0,calls[2]);
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		fprintf(stderr,"[GX-PERF-TERRAIN-DIRTY] t=%.0fus updates=%zu unchanged=%zu fallback=%zu colorChecks=%zu colorChanges=%zu lockVertices=%zu cacheKB=%.1f (interval totals)\n",
+			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),gxLightUpdates,gxLightUnchanged,gxLightFallback,gxLightChecked,gxLightChanged,gxLightLockVertices,
+			gxTerrainLightPool()?gxTerrainLightPool()->bytes/1024.0:0.0);
+		gxLightUpdates=gxLightUnchanged=gxLightFallback=gxLightChecked=gxLightChanged=gxLightLockVertices=0;
+#endif
 		for (int i=0;i<3;++i) { us[i]=0; calls[i]=0; }
+		GeneralsX_Report_Glyph_Pool("terrain-window");
 		window=now;
 	}
 };
@@ -167,8 +261,12 @@ void HeightMapRenderObjClass::freeIndexVertexBuffers()
 	REF_PTR_RELEASE(m_indexBuffer);
 
 	if (m_vertexBufferTiles) {
-		for (int i=0; i<m_numVertexBufferTiles; i++)
+		for (int i=0; i<m_numVertexBufferTiles; i++) {
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+			if (gxTerrainLightPool()) gxTerrainLightPool()->forget(m_vertexBufferTiles[i]);
+#endif
 			REF_PTR_RELEASE(m_vertexBufferTiles[i]);
+		}
 		delete[] m_vertexBufferTiles;
 		m_vertexBufferTiles = nullptr;
 	}
@@ -369,6 +467,9 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB, firstVertex, endVertex-firstVertex);
 		VERTEX_FORMAT *vbHardware = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
 		VERTEX_FORMAT *vBase = data;
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		GXTerrainLightColors *litColors=gxTerrainLightPool()?gxTerrainLightPool()->find(pVB):nullptr;
+#endif
 		// Note that we are building the vertex buffer data in the memory buffer, data.
 		// At the bottom, we will copy the final vertex data for one cell into the
 		// hardware vertex buffer.
@@ -580,8 +681,15 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				// a couple of rows and its a lot faster to just copy the ones that change.
 				Int offset = pCurVertices - vBase;
 				memcpy(vbHardware+offset-firstVertex, pCurVertices, 4*sizeof(VERTEX_FORMAT));
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+				if(litColors) litColors->remember(offset,pCurVertices,4);
+#endif
 			}
 		}
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		if(litColors && x0==originX && y0==originY && x1==originX+VERTEX_BUFFER_TILE_LENGTH && y1==originY+VERTEX_BUFFER_TILE_LENGTH)
+			litColors->initialized=true;
+#endif
 		return 0; //success.
 	}
 	return -1;
@@ -611,8 +719,17 @@ Int HeightMapRenderObjClass::updateVBForLight(DX8VertexBufferClass	*pVB, VERTEX_
 		assert(x0 >= originX && y0 >= originY && x1>x0 && y1>y0 && x1<=originX+VERTEX_BUFFER_TILE_LENGTH && y1<=originY+VERTEX_BUFFER_TILE_LENGTH);
 #endif
 
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		GxTerrainLightingWriter writer(pVB,data);
+		VERTEX_FORMAT *vBase=writer.base;
+		auto doTheDynamicLight=[this,&writer](VERTEX_FORMAT *vertex,VERTEX_FORMAT *mirror,Vector3 *light,Vector3 *normal,W3DDynamicLight **lights,Int count) {
+			const UnsignedInt value=this->doTheDynamicLight(writer.destination(vertex),mirror,light,normal,lights,count);
+			writer.write(vertex,value); return value;
+		};
+#else
 		DX8VertexBufferClass::WriteLockClass lockVtxBuffer(pVB);
 		VERTEX_FORMAT *vBase = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
+#endif
 		VERTEX_FORMAT *vb;
 
 		for (j=y0; j<y1; j++)
@@ -751,9 +868,22 @@ Int HeightMapRenderObjClass::updateVBForLightOptimized(DX8VertexBufferClass	*pVB
 		assert(x0 >= originX && y0 >= originY && x1>x0 && y1>y0 && x1<=originX+VERTEX_BUFFER_TILE_LENGTH && y1<=originY+VERTEX_BUFFER_TILE_LENGTH);
 #endif
 
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		GxTerrainLightingWriter writer(pVB,data);
+		VERTEX_FORMAT *vBase=writer.base;
+		auto doTheDynamicLight=[this,&writer](VERTEX_FORMAT *vertex,VERTEX_FORMAT *mirror,Vector3 *light,Vector3 *normal,W3DDynamicLight **lights,Int count) {
+			const UnsignedInt value=this->doTheDynamicLight(writer.destination(vertex),mirror,light,normal,lights,count);
+			writer.write(vertex,value); return value;
+		};
+#else
 		DX8VertexBufferClass::WriteLockClass lockVtxBuffer(pVB);
 		VERTEX_FORMAT *vBase = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
+#endif
 		VERTEX_FORMAT *vb;
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		auto gxWriteDiffuse=[&writer](VERTEX_FORMAT *vertex,UnsignedInt value) { writer.write(vertex,value); };
+#endif
+
 
 		//
 		// (gth) the optimization in this function is to take advantage of verts in the same
@@ -862,7 +992,7 @@ Int HeightMapRenderObjClass::updateVBForLightOptimized(DX8VertexBufferClass	*pVB
 
 					if (i < x1-1) {
 						// copy light to (right,0)
-						(vBase + offset + quad_right_offset)->diffuse = (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset)->diffuse&0xff000000) ;
+						gxWriteDiffuse(vBase + offset + quad_right_offset, (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset)->diffuse&0xff000000));
 					}
 				}
 				vb++;	vbMirror++;
@@ -876,17 +1006,17 @@ Int HeightMapRenderObjClass::updateVBForLightOptimized(DX8VertexBufferClass	*pVB
 				if (i < x1-1) {
 					// copy light to (right,3)
 					//(vBase + offset + quad_right_offset + 3)->diffuse = light_copy;
-					(vBase + offset + quad_right_offset + 3)->diffuse = (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset + 3)->diffuse&0xff000000) ;
+					gxWriteDiffuse(vBase + offset + quad_right_offset + 3, (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset + 3)->diffuse&0xff000000));
 				}
 				if (j < y1-1) {
 					// copy light to (down,1)
 					//(vBase + offset + quad_below_offset + 1)->diffuse = light_copy;
-					(vBase + offset + quad_right_offset + 1)->diffuse = (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset + 1)->diffuse&0xff000000) ;
+					gxWriteDiffuse(vBase + offset + quad_right_offset + 1, (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset + 1)->diffuse&0xff000000));
 				}
 				if ((i < x1-1) && (j < y1-1)) {
 					// copy light to (right+down,0)
 					//(vBase + offset + quad_below_right_offset)->diffuse = light_copy;
-					(vBase + offset + quad_right_offset)->diffuse = (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset)->diffuse&0xff000000) ;
+					gxWriteDiffuse(vBase + offset + quad_right_offset, (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_right_offset)->diffuse&0xff000000));
 				}
 				vb++;	vbMirror++;
 
@@ -900,7 +1030,7 @@ Int HeightMapRenderObjClass::updateVBForLightOptimized(DX8VertexBufferClass	*pVB
 					if (j < y1-1) {
 						// copy light to (down,0)
 						//(vBase + offset + quad_below_offset)->diffuse = light_copy;
-						(vBase + offset + quad_below_offset)->diffuse = (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_below_offset)->diffuse&0xff000000) ;
+						gxWriteDiffuse(vBase + offset + quad_below_offset, (light_copy&0x00FFFFFF) | ((vbaseMirror + offset + quad_below_offset)->diffuse&0xff000000));
 					}
 				}
 				vb++;	vbMirror++;
@@ -1401,6 +1531,12 @@ Int HeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, 
 			m_vertexBufferTiles[i] = NEW_REF(DX8VertexBufferClass,(DX8_FVF_XYZNUV2,HEIGHTMAP_VERTEX_NUM,DX8VertexBufferClass::USAGE_DEFAULT));
 #else
 			m_vertexBufferTiles[i] = NEW_REF(DX8VertexBufferClass,(DX8_VERTEX_FORMAT,HEIGHTMAP_VERTEX_NUM,DX8VertexBufferClass::USAGE_DEFAULT));
+#endif
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+			// Partial edge tiles keep the full synchronized path: their unused
+			// GPU tail must not be considered initialized just because CPU RGB is zero.
+			if(gxCompleteTerrainTile(i,m_numVBTilesX,m_numVBTilesY,m_numBlockColumnsInLastVB,m_numBlockRowsInLastVB) && gxTerrainLightPool())
+				gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM);
 #endif
 		}
 

@@ -38,6 +38,11 @@ This manual marker is optional; the existing launcher UI has no switch for it.
 Expected candidate records include GX-PERF-LOAD-END, GX-PERF-CPU-FIRST,
 GX-PERF-CPU, GX-PERF-BATTLE-END near 120 seconds, GX-PERF-RESOURCE,
 GX-PERF-TERRAIN-CPU, perf-terrain-reuse, perf-upload-source and perf-thread.
+The lighting-dirty follow-up adds GX-PERF-TERRAIN-DIRTY, perf-window,
+GX-PERF-PATH-REQUEST and periodic glyphpool counters. Keep their monotonic
+timestamps/window durations when comparing CPU, simulation and render reports.
+These windows share a clock but overlap; GPU/worker work is not additional
+serial frame time. Terrain draw counts remain unchanged by the producer fix.
 Absence of GX-PERF-AI-NONFINITE means no nonfinite state was observed at these
 probe points; it does not rule out FE_INVALID or invalid values elsewhere.
 
