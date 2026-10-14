@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "3b6ce0970f56a218bca43cc3519c5340a2aa69ee8e53a3ef72348cefc4284855",
-        "size": 42271600,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3472/libmain.so.gz"
+        "sha256": "cf3a6c4cd9f7f894a35ad9d8226967372b55285c1a4f3ed553e93ed96f468d20",
+        "size": 42279920,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "8ac092f317bb5e0d1d07c1b415b7fedfe05df82026de8b36c8cbf49b51fc7468",
-        "size": 42279984,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3472/libmain60.so.gz"
+        "sha256": "e16e0e38d2bb6c0a487b4a4fb23bd85d8d0a906b0956e2ac8d66ed885acde59f",
+        "size": 42288336,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3472,
-    "source_commit": "c9ca6a0c2928e1ae2d2e133a778b669f1aeda29c"
+    "seq": 3477,
+    "source_commit": "0c2abdb81c76261f2ced12d5f5b1094a8cef625b"
   },
-  "note": "Project X AI Engine update: prefer mod-specific SkirmishScripts and import missing mod factions on custom maps. Fixed retained PCH build pipeline. Includes both 30Hz and 60Hz engines. No APK, changed assets, save-format or network-protocol changes. Physical-device AI verification and NaN vehicle physics investigation remain separate.",
-  "published": "2026-10-12",
+  "note": "GLES engine update: narrow partial terrain uploads, avoid heap allocation in ordinary buffer streaming, and add first-120-second battle frame/logic/AI/pathfinding diagnostics. Includes 30Hz and 60Hz engines with unchanged APK runtime dependencies and signed OTA protocol. Android TEOD/Project X performance, visual and installation checks remain pending.",
+  "published": "2026-10-14",
   "schema": 1,
-  "serial": 13
+  "serial": 14
 }
