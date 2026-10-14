@@ -80,6 +80,10 @@ Utilities for large-scale code refactoring and fixes:
 - `test-terrain-light-dirty.py` - Differential production terrain-lighting test
   against 3481: exact vertices and calculation count, unchanged writes, moving
   lights, alpha, camera/geometry changes, cache lifetime and capped fallback.
+- `test-prertt-regressions.py [--benchmark]` - ASan/UBSan production pre-render
+  attribution, trace/replay modes, region callback parity, particle tick/RNG order,
+  whole-map dirty acknowledgement and bridge geometry/flags. Optional host guard
+  and profiler-overhead timings are not Android/game frame-time benchmarks.
 - `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
   reconstruct the documented release-only GPU delta and inventory committed
   differences. Requires the fetched audit refs, Git and OpenSSL; never builds.

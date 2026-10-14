@@ -34,6 +34,11 @@
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////////////////////////
 #include <stdlib.h>
+
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
 #include <windows.h>
 
 // USER INCLUDES //////////////////////////////////////////////////////////////////////////////////
@@ -1373,6 +1378,9 @@ void W3DView::stepView()
 //DECLARE_PERF_TIMER(W3DView_updateView)
 void W3DView::update()
 {
+#if defined(__ANDROID__)
+	if(GXPreRTT::active()) ++GXPreRTT::state().viewUpdates;
+#endif
 	//USE_PERF_TIMER(W3DView_updateView)
 	Bool didScriptedMovement = false;
 
@@ -3769,6 +3777,9 @@ void W3DView::Add_Camera_Shake (const Coord3D & position,float radius,float dura
 
 void W3DView::updateTerrain()
 {
+#if defined(__ANDROID__)
+	GXPreRTT::Scope gxTerrain(GXPreRTT::Terrain,true);
+#endif
 	DEBUG_ASSERTCRASH(TheTerrainRenderObject != nullptr, ("TheTerrainRenderObject is null"));
 
 	RefRenderObjListIterator *it = W3DDisplay::m_3DScene->createLightsIterator();

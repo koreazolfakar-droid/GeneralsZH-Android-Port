@@ -1,0 +1,30 @@
+{
+  "baseline_source": "00dc954e02d1e346caa90e69739012f70ce69a80",
+  "baseline_engine": 3486,
+  "reported_device_window": {
+    "preRTT_ms": "40-44",
+    "mainScene_ms": "3-4",
+    "FPS": "20-23",
+    "independently_parsed_raw_log": false
+  },
+  "architecture": "x86_64",
+  "scope": "Production guards/branches and profiling with host counting adapters. NOT real game frames or GPU/device benchmarks.",
+  "raw_lines": [
+    "BENCH full-map-request 3486 P50us=0.020000 P95us=0.030000 refreshes=20000 geometry=0 (production guard/branch with counting adapters, not game frame time)",
+    "BENCH full-map-request fixed P50us=0.020000 P95us=0.030000 refreshes=1 geometry=1 (production guard/branch with counting adapters, not game frame time)",
+    "BENCH aggregate-only disabled scopes=600 P50us=0.200 P95us=0.201 (host profiler overhead, not game or device frame time)",
+    "BENCH aggregate-only enabled scopes=600 P50us=71.829 P95us=124.819 (host profiler overhead, not game or device frame time)"
+  ],
+  "full_map_refreshes_per_1000_stationary_checks": {
+    "3486": 1000,
+    "fixed": 1
+  },
+  "empty_bridge_discard_locks_per_1000_fills": {
+    "3486": 2000,
+    "fixed": 0
+  },
+  "device_frame_P50_P95_before_after": "NOT MEASURED: no attached Android device or original mod assets",
+  "no_timing_gain_claim": "Full-map counting-adapter timings are at clock floor; operation count improvement is verified, not device FPS.",
+  "visuals_all_units_effects": "NOT TESTED",
+  "vanilla_TEOD_ProjectX_real_scenes": "NOT TESTED"
+}

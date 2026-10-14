@@ -29,6 +29,11 @@
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 #include <stdexcept>
+
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
 #include <cstdio>
 #include <chrono>
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
@@ -1039,11 +1044,17 @@ Bool GameClient::isMovieAbortRequested()
  */
 void GameClient::iterateDrawablesInRegion( Region3D *region, GameClientFuncPtr userFunc, void *userData )
 {
+#if defined(__ANDROID__)
+	GXPreRTT::Scope gxRegion(GXPreRTT::Region);
+#endif
 	Drawable *draw, *nextDrawable;
 
 	for( draw = m_drawableList; draw; draw=nextDrawable )
 	{
 		nextDrawable = draw->getNextDrawable();
+#if defined(__ANDROID__)
+		if(gxRegion.enabled) ++GXPreRTT::state().scanned;
+#endif
 
 		Coord3D pos = *draw->getPosition();
 		if( region == nullptr ||
@@ -1051,7 +1062,11 @@ void GameClient::iterateDrawablesInRegion( Region3D *region, GameClientFuncPtr u
 			   pos.y >= region->lo.y && pos.y <= region->hi.y &&
 				 pos.z >= region->lo.z && pos.z <= region->hi.z) )
 		{
-			(*userFunc)( draw, userData );
+			#if defined(__ANDROID__)
+            if(gxRegion.enabled) ++GXPreRTT::state().matched;
+            GXPreRTT::Scope gxCallback(GXPreRTT::Callbacks);
+#endif
+            (*userFunc)( draw, userData );
 		}
 	}
 }

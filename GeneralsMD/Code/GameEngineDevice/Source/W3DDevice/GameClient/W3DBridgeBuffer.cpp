@@ -48,6 +48,11 @@
 
 #include "W3DDevice/GameClient/W3DBridgeBuffer.h"
 
+// GeneralsX @feature Codex 14/10/2026 Pre-render bridge preparation attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
+
 #include "W3DDevice/GameClient/W3DAssetManager.h"
 #include <texture.h>
 #include "Common/GlobalData.h"
@@ -690,7 +695,20 @@ void W3DBridgeBuffer::loadBridgesInVertexAndIndexBuffers(RefRenderObjListIterato
 	}
 	m_curNumBridgeVertices = 0;
 	m_curNumBridgeIndices = 0;
-	VertexFormatXYZNDUV1 *vb;
+    // GeneralsX @performance Codex 14/10/2026 Empty batches have no geometry
+    // to initialize. Avoid two full-capacity DISCARD locks, retaining zero draw
+    // counts and every lock/lighting calculation for actual bridges. GLES only
+    // uploads on a later draw, so this is not a claim of avoided GPU bytes.
+    if(m_numBridges==0) {
+#if defined(__ANDROID__)
+        if(GXPreRTT::active()) ++GXPreRTT::state().bridgeEmptyAvoided;
+#endif
+        return;
+    }
+#if defined(__ANDROID__)
+    if(GXPreRTT::active()) ++GXPreRTT::state().bridgeRebuilds;
+#endif
+    VertexFormatXYZNDUV1 *vb;
 	UnsignedShort *ib;
 	// Lock the buffers.
 	DX8IndexBufferClass::WriteLockClass lockIdxBuffer(m_indexBridge, D3DLOCK_DISCARD);
@@ -1096,6 +1114,9 @@ void W3DBridgeBuffer::addBridge(Vector3 fromLoc, Vector3 toLoc, AsciiString name
 //=============================================================================
 void W3DBridgeBuffer::updateCenter(CameraClass *camera, RefRenderObjListIterator *pLightsIterator)
 {
+#if defined(__ANDROID__)
+    GXPreRTT::Scope gxBridges(GXPreRTT::Bridges);
+#endif
 	cull(camera);
 	if (m_anythingChanged || m_curNumBridgeIndices == 0) {
 		loadBridgesInVertexAndIndexBuffers(pLightsIterator);

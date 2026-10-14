@@ -29,6 +29,11 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
+
 #include <Utility/intrin_compat.h>	// For _isnan compatibility
 #include <stdio.h>
 #include "Common/AudioEventInfo.h"
@@ -2629,6 +2634,10 @@ void Drawable::setStealthLook(StealthLookType look)
 //-------------------------------------------------------------------------------------------------
 void Drawable::draw()
 {
+#if defined(__ANDROID__)
+	GXPreRTT::Scope gxDrawable(GXPreRTT::Drawable);
+	if(gxDrawable.enabled) ++GXPreRTT::state().drawn;
+#endif
 	if ( testTintStatus( TINT_STATUS_FRENZY ) == FALSE )
 	{
 		if ( getObject() && getObject()->isEffectivelyDead() )
@@ -2652,8 +2661,11 @@ void Drawable::draw()
 		}
 	}
 
-	if (m_hidden || m_hiddenByStealth || getFullyObscuredByShroud())
-		return;	// my, that was easy
+	if (m_hidden || m_hiddenByStealth || getFullyObscuredByShroud()) {
+#if defined(__ANDROID__)
+        if(gxDrawable.enabled) ++GXPreRTT::state().hidden;
+#endif
+        return; }	// my, that was easy
 
 	if ( getObject() && !getObject()->isEffectivelyDead() )
 		setShadowsEnabled( m_stealthLook != STEALTHLOOK_VISIBLE_DETECTED );
@@ -2682,7 +2694,10 @@ void Drawable::draw()
 
 	for (DrawModule** dm = getDrawModules(); *dm; ++dm)
 	{
-		(*dm)->doDrawModule(&transformMtx);
+#if defined(__ANDROID__)
+        GXPreRTT::ModuleScope gxModule(GXPreRTT::active()?(*dm)->getModuleNameKey():0);
+#endif
+        (*dm)->doDrawModule(&transformMtx);
 	}
 }
 
