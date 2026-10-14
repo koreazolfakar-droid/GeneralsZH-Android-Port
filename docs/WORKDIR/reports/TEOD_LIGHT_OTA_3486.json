@@ -1,0 +1,138 @@
+{
+  "engine": 3486,
+  "serial": 16,
+  "source": "00dc954e02d1e346caa90e69739012f70ce69a80",
+  "channel": "koreazolfakar-droid/mobile-v4/v1",
+  "signed": true,
+  "ECDSA_P256_APK_trust": "PASS",
+  "manifest_url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/manifest.json",
+  "manifest_sha256": "cd93afe84106d4f9bae1c2bc3fc8f317f34bdf7ba9b0678073dd68ffafe8d374",
+  "signature_sha256": "abf119895f5572ac8b9e1fe0e2522fd33d6f31067a691927ad0bfadf738cfe05",
+  "runtime_fingerprints": 15,
+  "config_preserved": true,
+  "files": {
+    "libmain.so": {
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3486/libmain.so.gz",
+      "sha256": "4a1f4262146afd68901134687ff5d8612a51a5fce09e021b4fb7498ec71f708d",
+      "size": 42292432,
+      "gzip_sha256": "fa175c542e8353a7047fa2a4b2e7ac8ee6b1e144906eb0bcd425a305feba4851",
+      "gzip_size": 18355800,
+      "matches_successful_CI": true,
+      "ARM64_native_stamp": "PASS"
+    },
+    "libmain60.so": {
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3486/libmain60.so.gz",
+      "sha256": "a8060ecb1da4889c747ad22e4c069d9cc0e5e41ae950e31db0408db1254b38c0",
+      "size": 42296624,
+      "gzip_sha256": "11770f9710b9374c14451a76e3a1dd7d3fbcd4a75ad6dee3793c9024fd999424",
+      "gzip_size": 18358014,
+      "matches_successful_CI": true,
+      "ARM64_native_stamp": "PASS"
+    }
+  },
+  "app_discoverable_contract": "PASS: exact updater URLs, signed own channel, increasing serial/sequence, unchanged APK library fingerprints",
+  "phone_installation": "NOT TESTED",
+  "phone_FPS_visuals_gameplay": "NOT TESTED",
+  "ci_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38568950324",
+  "ci_passed_suites": 20,
+  "ci_not_tested": [
+    {
+      "test": "test-online-tls.py",
+      "passed": false,
+      "status": "NOT TESTED",
+      "reason": "host libcurl development files absent"
+    },
+    {
+      "test": "test-video-upload-performance.py",
+      "status": "NOT TESTED",
+      "reason": "not committed in source HEAD"
+    },
+    {
+      "test": "test-particle-removal.py",
+      "status": "NOT TESTED",
+      "reason": "not committed in source HEAD"
+    }
+  ],
+  "merge_sha": "d1c16016aab65fc5248d5b36b7b6fc8fac61ebd7",
+  "merged_tree_equals_tested_source": true,
+  "pr": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/pull/21",
+  "local_tls": "PASS",
+  "publisher_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38571071267",
+  "publisher_controller_commit": "2f5a8e10e799c7a2b7aceac5d9128b6cd826038a",
+  "publication_authorization": "User requested continued implementation and signed OTA publication after validation, with unavailable physical-device FPS/visual acceptance explicitly disclosed.",
+  "updates_branch_commit": "967d795076d4139bcebe58303c5c48836c976b54",
+  "new_apk_required": false,
+  "ABI": {
+    "libmain.so": {
+      "ELF64_AArch64": "PASS",
+      "DT_NEEDED": [
+        "libSDL3.so",
+        "libSDL3_image.so",
+        "libadrenotools.so",
+        "libandroid.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "libgamespy.so",
+        "liblog.so",
+        "libm.so",
+        "libmediandk.so",
+        "libopenal.so"
+      ],
+      "JNI_SDL_exports": [
+        "Java_com_generalsx_zerohour_GeneralsZHActivity_nativeTextEditorChanged",
+        "Java_com_generalsx_zerohour_GeneralsZHActivity_nativeTextEditorDone",
+        "SDL_main"
+      ]
+    },
+    "libmain60.so": {
+      "ELF64_AArch64": "PASS",
+      "DT_NEEDED": [
+        "libSDL3.so",
+        "libSDL3_image.so",
+        "libadrenotools.so",
+        "libandroid.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "libgamespy.so",
+        "liblog.so",
+        "libm.so",
+        "libmediandk.so",
+        "libopenal.so"
+      ],
+      "JNI_SDL_exports": [
+        "Java_com_generalsx_zerohour_GeneralsZHActivity_nativeTextEditorChanged",
+        "Java_com_generalsx_zerohour_GeneralsZHActivity_nativeTextEditorDone",
+        "SDL_main"
+      ]
+    }
+  },
+  "changed_source_files": [
+    ".github/engine-baseline/build.py",
+    "Core/GameEngine/Source/GameLogic/AI/AIPathfind.cpp",
+    "Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp",
+    "Core/Libraries/Include/GXTerrainLightColors.h",
+    "Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp",
+    "GeneralsMD/Code/GameEngine/Source/Common/GameEngine.cpp",
+    "GeneralsMD/Code/GameEngine/Source/GameLogic/AI/AI.cpp",
+    "GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp",
+    "docs/DEV_BLOG/2026-10-DIARY.md",
+    "docs/HOWTO/ANDROID_BATTLE_PERFORMANCE_CAPTURE.md",
+    "docs/WORKDIR/reports/TEOD_LIGHT_DIRTY_2026-10-14.md",
+    "scripts/README.md",
+    "scripts/qa/test-terrain-light-dirty.py",
+    "scripts/update/prepare-engine-run.py"
+  ],
+  "host_production_lighting": {
+    "unchanged_calls": 140,
+    "dirty_locks": 0,
+    "vertex_bytes_and_calculation_count": "PASS: actual current and 3481 functions with host adapters; not a device benchmark"
+  },
+  "complete_FPS_critical_path": "UNRESOLVED: synchronized real-device evidence unavailable",
+  "mod_benchmarks": {
+    "vanilla Zero Hour": "NOT TESTED: no original assets or connected physical Android device",
+    "independent TEOD": "NOT TESTED: no original assets or connected physical Android device",
+    "Project X Remastered": "NOT TESTED: no original assets or connected physical Android device"
+  }
+}
