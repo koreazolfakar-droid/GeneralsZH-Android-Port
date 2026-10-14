@@ -75,11 +75,11 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="gx-mod-archives-") as tmp:
         tmp = Path(tmp)
-        (tmp / "production.inc").write_text("\n".join(implementation))
+        (tmp / "production.inc").write_text('#include "GXTrace.h"\n#include "GXResourceStats.h"\n' + "\n".join(implementation))
         exe = tmp / "archive-test"
         subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Wno-unused-parameter",
                         "-Werror", "-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-g",
-                        "-I", str(tmp), str(ROOT / "scripts/qa/mod-archive-fixture.cpp"), "-o", str(exe)], check=True)
+                        "-I", str(tmp), "-I", str(ROOT / "Core/Libraries/Include"), str(ROOT / "scripts/qa/mod-archive-fixture.cpp"), "-o", str(exe)], check=True)
         paths = ["Data/INI/Object/Vehicle.ini", "Art/W3D/Vehicle.w3d", "Art/W3D/Infantry.w3d",
                  "Art/W3D/InfantryRun.w3d", "Art/Textures/Shield.tga", "Art/Textures/Vehicle.dds",
                  "Data/INI/FXList.ini", "Data/INI/ParticleSystem.ini"]

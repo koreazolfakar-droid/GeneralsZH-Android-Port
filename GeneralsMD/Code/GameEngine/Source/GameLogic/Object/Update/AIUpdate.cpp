@@ -42,6 +42,10 @@
 #include "Common/Team.h"
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
+#if defined(__ANDROID__)
+#include "GXTrace.h"
+#include "GXFiniteBits.h"
+#endif
 #include "Common/Upgrade.h"
 #include "Common/PerfTimer.h"
 #include "Common/UnitTimings.h"
@@ -1015,12 +1019,44 @@ void AIUpdateInterface::friend_notifyStateMachineChanged()
  * The "main loop" of the AI subsystem
  */
 DECLARE_PERF_TIMER(AIUpdateInterface_update)
+// GeneralsX @feature Codex 14/10/2026 Distinguish stored NaN/Inf inputs from
+// FE_INVALID arithmetic reports. Observe only; do not repair coordinates, goals,
+// speed, AI scheduling or simulation state, including multiplayer/replay.
+#if defined(__ANDROID__)
+static void gxAiNonFinite(const char *phase, const Object *obj, int state, const Coord3D &goal, Real speed)
+{
+	if (!GXTrace::isPerfEnabled()) return;
+	static unsigned lines = 0;
+	if (lines >= 64) return;
+	const Coord3D &pos = *obj->getPosition();
+	const PhysicsBehavior *physics = obj->getPhysics();
+	const Coord3D zero = {0,0,0};
+	const Coord3D &vel = physics ? *physics->getVelocity() : zero;
+	const Real values[] = {pos.x,pos.y,pos.z,goal.x,goal.y,goal.z,vel.x,vel.y,vel.z,speed};
+	uint32_t words[22];
+	unsigned bad = 0;
+	for (int i=0;i<10;++i) { words[i]=GXFloatBits(values[i]); if (!GXFloatFiniteBits(words[i])) bad |= 1u<<i; }
+	// Same raw 3x4 matrix representation already used by the replay trace;
+	// do not call an angle/normalization getter while diagnosing FP exceptions.
+	std::memcpy(words+10,obj->getTransformMatrix(),12*sizeof(Real));
+	for (int i=10;i<22;++i) if (!GXFloatFiniteBits(words[i])) bad |= 1u<<i;
+	if (!bad) return;
+	++lines;
+	fprintf(stderr, "[GX-PERF-AI-NONFINITE] phase=%s frame=%u state=%d id=%u template=%s mask=%06x pos/goal/velocity/speed=%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x matrix=%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		phase,TheGameLogic->getFrame(),state,(unsigned)obj->getID(),obj->getTemplate()->getName().str(),bad,
+		words[0],words[1],words[2],words[3],words[4],words[5],words[6],words[7],words[8],words[9],
+		words[10],words[11],words[12],words[13],words[14],words[15],words[16],words[17],words[18],words[19],words[20],words[21]);
+}
+#else
+#define gxAiNonFinite(phase,obj,state,goal,speed) do {} while (0)
+#endif
 #if !(defined(_MSC_VER) && defined(_M_IX86))
 extern void gxFpCheckpoint(const char *where, const Object *obj, Int detail);
 #endif
 
 UpdateSleepTime AIUpdateInterface::update()
 {
+	gxAiNonFinite("entry", getObject(), (Int)getStateMachine()->getCurrentStateID(), m_locomotorGoalData, m_curMaxBlockedSpeed);
 	//DEBUG_LOG(("AIUpdateInterface frame %d: %08lx",TheGameLogic->getFrame(),getObject()));
 
 	USE_PERF_TIMER(AIUpdateInterface_update)
@@ -1040,6 +1076,7 @@ UpdateSleepTime AIUpdateInterface::update()
 	const Int gxStateBefore = (Int)getStateMachine()->getCurrentStateID();
 #endif
 	StateReturnType stRet = getStateMachine()->updateStateMachine();
+	gxAiNonFinite("state-result", getObject(), (Int)getStateMachine()->getCurrentStateID(), m_locomotorGoalData, m_curMaxBlockedSpeed);
 #if !(defined(_MSC_VER) && defined(_M_IX86))
 	gxFpCheckpoint("AI state", getObject(), gxStateBefore);
 #endif
@@ -1148,6 +1185,7 @@ UpdateSleepTime AIUpdateInterface::update()
 #if !(defined(_MSC_VER) && defined(_M_IX86))
 	gxFpCheckpoint("AI locomotor", getObject(), -1);
 #endif
+	gxAiNonFinite("locomotor-result", getObject(), (Int)getStateMachine()->getCurrentStateID(), m_locomotorGoalData, m_curMaxBlockedSpeed);
 	if (tmp < subMachineSleep)
 		subMachineSleep = tmp;
 

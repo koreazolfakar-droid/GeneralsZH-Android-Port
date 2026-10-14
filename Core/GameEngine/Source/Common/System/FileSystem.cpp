@@ -54,6 +54,8 @@
 #include "Common/GameAudio.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/PerfTimer.h"
+#include "GXTrace.h"
+#include "GXResourceStats.h"
 
 #include "Lib/PathUtil.h"
 #include <algorithm>
@@ -270,6 +272,9 @@ void		FileSystem::reset()
 
 File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize, FileInstance instance )
 {
+	// GeneralsX @feature Codex 14/10/2026 Includes failed read-only lookups;
+	// no changes to local/mod/BIG resolution or archive precedence.
+	GXResourceStats::Scope gxResourceScope(GXTrace::isPerfEnabled() && !(access & File::WRITE),GXResourceStats::Lookup);
 	USE_PERF_TIMER(FileSystem)
 	File *file = nullptr;
 	const Bool traceAsset = (access & File::WRITE) == 0 && gxShouldTraceAsset(filename);

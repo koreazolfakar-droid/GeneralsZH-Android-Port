@@ -42,6 +42,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "gles_buffer_snapshot.h"
 
 typedef struct SDL_Window SDL_Window;
 // Not "typedef void *SDL_GLContext" here: SDL3's real header (SDL_video.h)
@@ -88,6 +89,7 @@ struct PersistentBufferSet {
 
 // GL side of a VB/IB.
 struct GLBufferState {
+	GxBufferSnapshot submittedTerrain;
 	GLuint name = 0;
 	bool dirty = true;
 	// GeneralsX @perf Android port 09/05/2026 Byte range actually written since
@@ -585,6 +587,7 @@ private:
 	// gx_gles_noopt.txt disables every one of them when empty, or only the ones it names
 	// (basevertex, upring, progcache, dxt565). See loadOptimizationSwitches() in the .cpp.
 	struct OptimizationSwitches {
+		bool terrainReuse = true;
 		// Off by default: on an Adreno 8xx (ES 3.2 core entry point) it broke stencil shadow
 		// volumes into long streaks and made UI widgets flicker out, confirmed by switching it
 		// alone off with gx_gles_noopt.txt. The likely mechanism is the driver's cached index

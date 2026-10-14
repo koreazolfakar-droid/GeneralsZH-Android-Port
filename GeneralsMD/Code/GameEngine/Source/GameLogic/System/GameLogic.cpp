@@ -1214,9 +1214,19 @@ void GameLogic::setGameMode( GameMode mode )
 // ------------------------------------------------------------------------------------------------
 void GameLogic::startNewGame( Bool loadingSaveGame )
 {
+	// GeneralsX @feature Codex 14/10/2026 Successful load-completion timestamp
+	// can be correlated with the first CPU frame; it is not display latency.
+	const bool gxLoadPerf = GXTrace::isPerfEnabled();
+	const auto gxLoadStart = gxLoadPerf ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
 	try
 	{
 		tryStartNewGame(loadingSaveGame);
+		if (gxLoadPerf) {
+			const auto now = std::chrono::steady_clock::now();
+			fprintf(stderr, "[GX-PERF-LOAD-END] t=%.0fus loadWallMs=%.3f savedGame=%d shell=%d\n",
+				std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),
+				std::chrono::duration<double,std::milli>(now-gxLoadStart).count(),(int)loadingSaveGame,(int)isInShellGame());
+		}
 	}
 	catch (QuitGameException&)
 	{
@@ -4407,7 +4417,24 @@ void GameLogic::update()
 				//DEBUG_LOG(("calling update %08lx (%d %d)...",update,update->friend_getNextCallFrame(),update->friend_getNextCallPhase()));
 				m_curUpdateModule = u;
 
+				// GeneralsX @feature Codex 14/10/2026 Name exceptional per-object
+				// simulation stalls with the existing opt-in timing, capped log volume.
+#if defined(__ANDROID__)
+				const auto gxModuleStart = gxDiagLogic ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
+#endif
 				sleepLen = u->update();
+#if defined(__ANDROID__)
+				if (gxDiagLogic) {
+					static unsigned reports = 0;
+					const double us = std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-gxModuleStart).count();
+					if (us >= 5000.0 && reports < 64) {
+						++reports;
+						const Object *obj = u->friend_getObject();
+						fprintf(stderr,"[GX-PERF-SLOW-MODULE] frame=%u id=%u template=%s module=%s wall=%.3fms\n",m_frame,
+							(unsigned)obj->getID(),obj->getTemplate()->getName().str(),TheNameKeyGenerator->keyToName(u->getModuleNameKey()).str(),us/1000.0);
+					}
+				}
+#endif
 				GX_FP_BLAME("update", u->friend_getObject(), u);
 				DEBUG_ASSERTCRASH(sleepLen > 0, ("you may not return 0 from update"));
 				if (sleepLen < 1)

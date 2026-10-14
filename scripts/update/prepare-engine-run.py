@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_TESTS = ('test-mod-localization.py', 'smoke/test-mod-localization.py',
                   'test-standalone-mod-overlay.py', 'test-mod-archive-loading.py',
                   'test-gles-upload-regressions.py', 'test-battle-perf-window.py',
+                  'test-terrain-snapshot-safety.py',
                   'test-vehicle-ai-v1.py', 'test_projectx_ai_regressions.py',
                   'test-save-map-safety.py', 'test-engine-build-number.py',
                   'test-engine-packaging.py', 'test-engine-native-version.py',

@@ -61,6 +61,8 @@
 #include "Common/FileSystem.h"
 #include "Common/RAMFile.h"
 #include "Common/PerfTimer.h"
+#include "GXTrace.h"
+#include "GXResourceStats.h"
 
 
 //----------------------------------------------------------------------------
@@ -208,6 +210,9 @@ Bool RAMFile::open( File *file )
 //============================================================================
 Bool RAMFile::openFromArchive(File *archiveFile, const AsciiString& filename, Int offset, Int size)
 {
+	// GeneralsX @feature Codex 14/10/2026 Actual eager BIG seek/read cost and
+	// returned bytes; streaming archive reads are outside this counter.
+	GXResourceStats::Scope gxBigScope(GXTrace::isPerfEnabled(),GXResourceStats::BigRead);
 	//USE_PERF_TIMER(RAMFile)
 	if (archiveFile == nullptr) {
 		return FALSE;
@@ -224,7 +229,9 @@ Bool RAMFile::openFromArchive(File *archiveFile, const AsciiString& filename, In
 	if (archiveFile->seek(offset, File::START) != offset) {
 		return FALSE;
 	}
-	if (archiveFile->read(m_data, size) != size) {
+	const Int gxReadBytes = archiveFile->read(m_data, size);
+	if (gxReadBytes > 0) gxBigScope.bytes = (uint64_t)gxReadBytes;
+	if (gxReadBytes != size) {
 		return FALSE;
 	}
 	m_nameStr = filename;

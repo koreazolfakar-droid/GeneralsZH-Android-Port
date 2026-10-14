@@ -72,7 +72,11 @@ Utilities for large-scale code refactoring and fixes:
   static/dynamic buffer updates and terrain range code with ASan/UBSan host adapters.
   Compare allocation counts and submitted bytes; this does not measure device FPS.
 - `test-battle-perf-window.py` - Validate exact bounded frame percentiles and the
-  first-120-second battle trace using a synthetic clock.
+  first-120-second battle trace, separate main/pacer wall times and resource
+  counter reset using a synthetic clock.
+- `test-terrain-snapshot-safety.py` - Validate initialized GPU prefixes, changed
+  and restored terrain versions, bounded snapshot memory and NaN/Inf bit probes
+  with ASan/UBSan. Does not validate a physical GPU or mod assets.
 - `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
   reconstruct the documented release-only GPU delta and inventory committed
   differences. Requires the fetched audit refs, Git and OpenSSL; never builds.

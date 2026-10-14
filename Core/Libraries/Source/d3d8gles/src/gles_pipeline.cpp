@@ -756,10 +756,12 @@ void WebGLPipeline::loadOptimizationSwitches()
 		}
 	}
 	if (!named) {
+		m_opt.terrainReuse = false;
 		m_opt.baseVertex = m_opt.upRing = m_opt.programCache = m_opt.dxt565 = m_opt.persistent = m_opt.persistentIB = false;
 		m_opt.thread = false;
 		m_opt.baseVertexOff = true;
 	} else {
+		if (strstr(buf, "terrainreuse")) m_opt.terrainReuse = false;
 		if (strstr(buf, "basevertex")) { m_opt.baseVertex = false; m_opt.baseVertexOff = true; }
 		if (strstr(buf, "upring")) m_opt.upRing = false;
 		if (strstr(buf, "progcache")) m_opt.programCache = false;
@@ -770,6 +772,7 @@ void WebGLPipeline::loadOptimizationSwitches()
 	fprintf(stderr, "[d3d8gles] gx_gles_noopt.txt: basevertex=%d upring=%d progcache=%d dxt565=%d persistent=%d thread=%d\n",
 		(int)m_opt.baseVertex, (int)m_opt.upRing, (int)m_opt.programCache, (int)m_opt.dxt565, (int)m_opt.persistent,
 		(int)m_opt.thread);
+	fprintf(stderr, "[d3d8gles] terrain snapshot reuse=%d\n", (int)m_opt.terrainReuse);
 }
 
 void WebGLPipeline::resize(int w, int h)
@@ -3271,6 +3274,8 @@ extern "C" void d3d8gles_RecordTerrainPasses(int passes, int tilesPerPass)
 }
 
 static unsigned s_gxUploadCount[GX_UPLOAD_KIND_COUNT] = {};
+static double s_gxTerrainCompareUs = 0.0, s_gxTerrainAttemptBytes = 0.0, s_gxTerrainAvoidedBytes = 0.0;
+static unsigned s_gxTerrainCompared = 0, s_gxTerrainUnchanged = 0;
 static double s_gxVBAppendBytesByCategory[GX_DRAWCAT_COUNT] = {};
 static unsigned s_gxVBAppendCallsByCategory[GX_DRAWCAT_COUNT] = {};
 static unsigned s_gxSyncCallsByCategory[GX_DRAWCAT_COUNT] = {};
@@ -3474,8 +3479,33 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 		vb->m_gl.allocated = false;
 	}
 	if (vb->m_gl.dirty) {
-		glBindBuffer(GL_COPY_WRITE_BUFFER, vb->m_gl.name);
 		const bool haveRange = vb->m_gl.dirtyBegin < vb->m_gl.dirtyEnd;
+		// GeneralsX @performance Codex 14/10/2026 Dynamic terrain lighting may
+		// mark a whole static tile dirty without changing any of its bytes.
+		// Compare against the last QUEUED version; never mutate GPU memory or
+		// weaken a plain D3D lock's synchronization contract. DISCARD/allocation
+		// still take the original full path and preserve older sorted ranges.
+		const bool staticTerrain = m_opt.terrainReuse && !(vb->m_usage & D3DUSAGE_DYNAMIC) && s_gxDrawCategory == GX_DRAWCAT_TERRAIN;
+		GxBufferSnapshot &submitted = vb->m_gl.submittedTerrain;
+		if (m_opt.terrainReuse && !(vb->m_usage & D3DUSAGE_DYNAMIC) && vb->m_gl.allocated && haveRange &&
+		    !vb->m_gl.pendingDiscard && submitted.ready(vb->m_bits.size())) {
+			const double compareStart = gxNowUs();
+			const size_t before = vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin;
+			submitted.trim(vb->m_bits.data(), vb->m_gl.dirtyBegin, vb->m_gl.dirtyEnd);
+			if (staticTerrain) {
+				s_gxTerrainCompareUs += gxNowUs() - compareStart;
+				s_gxTerrainAttemptBytes += before;
+				s_gxTerrainAvoidedBytes += before - (vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin);
+				++s_gxTerrainCompared;
+			}
+			if (vb->m_gl.dirtyBegin == vb->m_gl.dirtyEnd) {
+				if (staticTerrain) ++s_gxTerrainUnchanged;
+				vb->m_gl.dirty = vb->m_gl.pendingDiscard = vb->m_gl.pendingSync = false;
+				vb->m_gl.clearRange();
+				return;
+			}
+		}
+		glBindBuffer(GL_COPY_WRITE_BUFFER, vb->m_gl.name);
 		// GeneralsX @bugfix Android port 09/05/2026 D3DLOCK_DISCARD does a FULL
 		// upload rather than orphaning with glBufferData(..., nullptr) and then
 		// pushing only the fresh range. Orphaning leaves every byte outside
@@ -3494,6 +3524,10 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 			// First use, or an update with no recorded range: full upload,
 			// which also (re)allocates the GL storage.
 			fullBufferUpload(vb->m_gl, vb->m_bits.data(), vb->m_bits.size(), GX_UPLOAD_VB_FULL);
+			if (staticTerrain || submitted.ready(vb->m_bits.size())) {
+				const size_t valid = vb->m_gl.writtenEnd > 0 ? vb->m_gl.writtenEnd : vb->m_bits.size();
+				submitted.rememberFull(vb->m_bits.data(), vb->m_bits.size(), valid);
+			}
 		} else {
 			const GxUploadTimer uploadTimer(GX_UPLOAD_VB_APPEND, vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin);
 			// GeneralsX @perf Android port 09/05/2026 This is the
@@ -3521,6 +3555,8 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 				gxrt::bufferWrite(GL_COPY_WRITE_BUFFER, off, len, vb->m_bits.data() + vb->m_gl.dirtyBegin,
 					GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
 			}
+			if (submitted.ready(vb->m_bits.size()))
+				submitted.rememberRange(vb->m_bits.data(), vb->m_gl.dirtyBegin, vb->m_gl.dirtyEnd);
 		}
 		vb->m_gl.dirty = false;
 		vb->m_gl.pendingDiscard = false;
@@ -4391,6 +4427,12 @@ void WebGLPipeline::present()
 			}
 			{
 				const gxrt::Stats rt = gxrt::takeStats();
+				fprintf(stderr, "[d3d8gles] perf-terrain-reuse: t=%.0fus compared=%.1f/frame unchanged=%.1f/frame attempted=%.1fKB/frame avoided=%.1fKB/frame compare=%.3fms/frame snapshot=%.1fKB\n",
+					gxNowUs(), s_gxTerrainCompared / frames, s_gxTerrainUnchanged / frames,
+					s_gxTerrainAttemptBytes / 1024.0 / frames, s_gxTerrainAvoidedBytes / 1024.0 / frames,
+					s_gxTerrainCompareUs / 1000.0 / frames, GxBufferSnapshot::memoryBytes() / 1024.0);
+				s_gxTerrainCompared = s_gxTerrainUnchanged = 0;
+				s_gxTerrainAttemptBytes = s_gxTerrainAvoidedBytes = s_gxTerrainCompareUs = 0.0;
 				fprintf(stderr, "[d3d8gles] perf-thread: %s worker-busy=%.2f ms/frame waits: frame=%.2f sync=%.2f (%.1f calls) "
 					"ring=%.2f ms/frame, commands=%.0f/frame (%.0f KB/frame)\n",
 					gxrt::running() ? "on" : "off", rt.workerBusyUs / 1000.0 / frames, rt.frameWaitUs / 1000.0 / frames,
