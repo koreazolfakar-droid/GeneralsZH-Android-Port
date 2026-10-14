@@ -90,6 +90,35 @@
 #include "W3DDevice/GameClient/W3DCustomScene.h"
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
+#include "GXTrace.h"
+#include <chrono>
+
+// GeneralsX @feature Codex 14/10/2026 Nested CPU preparation/submission costs;
+// compare with GameClient main wall time, never add them again to frame totals.
+namespace {
+struct GxTerrainCpuScope {
+	bool enabled = GXTrace::isPerfEnabled();
+	int phase;
+	std::chrono::steady_clock::time_point start;
+	explicit GxTerrainCpuScope(int p) : phase(p) { if (enabled) start = std::chrono::steady_clock::now(); }
+	~GxTerrainCpuScope() {
+		if (!enabled) return;
+		static double us[3] = {};
+		static unsigned calls[3] = {};
+		static auto window = start;
+		const auto now = std::chrono::steady_clock::now();
+		us[phase] += std::chrono::duration<double, std::micro>(now-start).count();
+		++calls[phase];
+		const double seconds = std::chrono::duration<double>(now-window).count();
+		if (seconds < 2.0) return;
+		fprintf(stderr, "[GX-PERF-TERRAIN-CPU] t=%.0fus seconds=%.3f lighting=%.3fms/%u-calls center=%.3fms/%u-calls submit=%.3fms/%u-calls (nested main-thread totals)\n",
+			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(), seconds,
+			us[0]/1000.0,calls[0],us[1]/1000.0,calls[1],us[2]/1000.0,calls[2]);
+		for (int i=0;i<3;++i) { us[i]=0; calls[i]=0; }
+		window=now;
+	}
+};
+}
 #if defined(__ANDROID__)
 // GeneralsX @perf Android port 09/05/2026 - draw-category hook. Forward-declared
 // rather than including d3d8gles.h: that header is not on the gameenginedevice
@@ -1394,6 +1423,7 @@ Int HeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, 
 //=============================================================================
 void HeightMapRenderObjClass::On_Frame_Update()
 {
+	GxTerrainCpuScope gxTerrainLightTime(0);
 	BaseHeightMapRenderObjClass::On_Frame_Update();
 	Int i,j,k;
 	Int originX,originY;
@@ -1676,6 +1706,7 @@ rendered portion of the terrain. Only a small section is rendered at any time.
 //=============================================================================
 void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *cameraPivot, RefRenderObjListIterator *pLightsIterator)
 {
+	GxTerrainCpuScope gxTerrainCenterTime(1);
 	if (m_map==nullptr) {
 		return;
 	}
@@ -1908,6 +1939,7 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 
 void HeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 {
+	GxTerrainCpuScope gxTerrainSubmitTime(2);
 #if defined(__ANDROID__)
 	const int gxPrevCat = d3d8gles_SetDrawCategory(D3D8GLES_DRAWCAT_TERRAIN);
 	struct GxCatRestore { int prev; ~GxCatRestore() { d3d8gles_SetDrawCategory(prev); } } gxCatRestore{gxPrevCat};
