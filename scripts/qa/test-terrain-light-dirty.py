@@ -68,6 +68,7 @@ struct DX8VertexBufferClass {
     code+=gles.extract(source,'struct GxTerrainLightPool')+';\n'
     code+=gles.extract(source,'static GxTerrainLightPool *gxTerrainLightPool()')+'\n'
     code+='static size_t gxLightUpdates=0,gxLightUnchanged=0,gxLightFallback=0,gxLightChecked=0,gxLightChanged=0,gxLightLockVertices=0;\n'
+    code+=gles.extract(source,'static bool gxCompleteTerrainTile(')+'\n'
     code+=gles.extract(source,'struct GxTerrainLightingWriter')+';\n'
     code+=r'''
 struct HeightMapRenderObjClass {
@@ -96,10 +97,24 @@ static void geometry(DX8VertexBufferClass&vb,std::vector<VERTEX_FORMAT>&mirror,i
  // Exactly the production geometry writer's memcpy + remember sequence.
  DX8VertexBufferClass::AppendLockClass lock(&vb,first,count);
  memcpy(lock.Get_Vertex_Array(),mirror.data()+first,count*sizeof(VERTEX_FORMAT));
- if(auto*c=gxTerrainLightPool()->find(&vb))c->remember(first,mirror.data()+first,count);
+ if(auto*c=gxTerrainLightPool()->find(&vb)){c->remember(first,mirror.data()+first,count);if(first==0 && count==HEIGHTMAP_VERTEX_NUM)c->initialized=true;}
 }
 int main(){
  auto*pool=gxTerrainLightPool();assert(pool && pool->bytes==0);
+ for(int i=0;i<70;++i) {
+  assert(gxCompleteTerrainTile(i,10,7,0,0));
+  assert(gxCompleteTerrainTile(i,10,7,3,9)==(i%10!=9 && i/10!=6));
+ }
+ {
+  DX8VertexBufferClass vb;std::vector<VERTEX_FORMAT> mirror(HEIGHTMAP_VERTEX_NUM);pool->create(&vb,HEIGHTMAP_VERTEX_NUM);
+  HeightMapRenderObjClass map;W3DDynamicLight light;light.enabled=false;W3DDynamicLight*lights[]={&light};
+  geometry(vb,mirror,0,4,3);vb.locks=0;
+  map.updateVBForLight(&vb,mirror.data(),0,0,32,32,0,0,lights,1);
+  assert(vb.locks==1 && pool->find(&vb)->disabled); // unknown GPU tail cannot be skipped as zero
+  geometry(vb,mirror,0,HEIGHTMAP_VERTEX_NUM,3);vb.locks=0;
+  map.updateVBForLight(&vb,mirror.data(),0,0,32,32,0,0,lights,1);
+  assert(vb.locks==1);pool->forget(&vb);assert(pool->bytes==0); // early fallback stays safe
+ }
  unsigned optimized=0;
  for(int mode=0;mode<2;++mode){
   DX8VertexBufferClass current,old;std::vector<VERTEX_FORMAT> mirror(HEIGHTMAP_VERTEX_NUM),original(HEIGHTMAP_VERTEX_NUM);pool->create(&current,HEIGHTMAP_VERTEX_NUM);
@@ -141,6 +156,7 @@ int main(){
     assert 'litColors->remember(offset,pCurVertices,4)' in gles.extract(source,'Int HeightMapRenderObjClass::updateVB(')
     assert 'gxTerrainLightPool()->forget(m_vertexBufferTiles[i])' in source
     assert 'gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM)' in source
+    assert 'litColors->initialized=true' in gles.extract(source,'Int HeightMapRenderObjClass::updateVB(')
     with tempfile.TemporaryDirectory(prefix='gx-light-dirty-') as temp:
         p=Path(temp)/'test.cpp';p.write_text(code);exe=Path(temp)/'test'
         subprocess.run([os.environ.get('CXX','c++'),'-std=c++17','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(ROOT/'Core/Libraries/Include'),str(p),'-o',str(exe)],check=True)

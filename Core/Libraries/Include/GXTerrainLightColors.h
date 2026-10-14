@@ -9,6 +9,7 @@
 
 struct GXTerrainLightColors {
 	std::vector<uint32_t> colors, pending;
+	bool initialized = false, disabled = false;
 	size_t begin, end = 0, checked = 0, changed = 0;
 	explicit GXTerrainLightColors(size_t count) : colors(count,0), pending(count,0), begin(count) {}
 	void resetRange() { begin=colors.size(); end=checked=changed=0; }

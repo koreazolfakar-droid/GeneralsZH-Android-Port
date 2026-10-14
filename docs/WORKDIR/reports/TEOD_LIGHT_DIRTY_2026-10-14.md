@@ -42,6 +42,11 @@ no lighting upload or full-vertex snapshot comparison to perform. Geometry dirty
 ranges from other writers are retained. A -> B -> A during one lighting call
 is correctly clean; changes between calls remain real updates.
 
+Only complete tiles whose geometry has initialized every vertex are eligible.
+Partial edge tiles retain the original full lock so unknown GPU tails are never
+treated as unchanged zero bytes. An early lighting call before full geometry
+initialization permanently retains the original path for that buffer's lifetime.
+
 Color arrays use 32 KiB per 4,096-vertex tile and are capped at 8 MiB total,
 plus small map metadata. Allocator/cap refusal keeps the original synchronized
 WriteLock path and existing GLES snapshot protection. Buffer destruction erases
@@ -82,7 +87,8 @@ and the actual 3481 versions, including their identical production dynamic-light
 formula. Host adapters supply map/vector/float-conversion primitives; exact normals/call order/count, final vertex bytes and immutable
 base mirrors are compared. It covers stationary/moving/disabled lights, alpha,
 partial rectangles, terrain-origin wrapping, geometry edits, pointer reuse,
-fallback and cap/release. All 140 repeated unchanged updates avoid dirty locks;
+incomplete tiles/unknown GPU tails, early-call fallback and cap/release.
+All 140 repeated unchanged updates on complete initialized tiles avoid dirty locks;
 3481 still locks each call. These are operation counts, not device CPU/FPS results.
 Existing GLES upload ordering and bounded snapshot tests also pass. Native ARM64
 CI checks actual lighting math compilation and APK dependency compatibility.

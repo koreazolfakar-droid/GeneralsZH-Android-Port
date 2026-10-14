@@ -133,6 +133,9 @@ static GxTerrainLightPool *gxTerrainLightPool() {
 	return pool;
 }
 static size_t gxLightUpdates=0,gxLightUnchanged=0,gxLightFallback=0,gxLightChecked=0,gxLightChanged=0,gxLightLockVertices=0;
+static bool gxCompleteTerrainTile(Int index,Int tilesX,Int tilesY,Int lastColumns,Int lastRows) {
+	return (index%tilesX!=tilesX-1 || lastColumns==0) && (index/tilesX!=tilesY-1 || lastRows==0);
+}
 struct GxTerrainLightingWriter {
 	DX8VertexBufferClass *vb;
 	GXTerrainLightColors *colors;
@@ -141,6 +144,10 @@ struct GxTerrainLightingWriter {
 	std::optional<DX8VertexBufferClass::WriteLockClass> fallback;
 	GxTerrainLightingWriter(DX8VertexBufferClass *buffer,VERTEX_FORMAT *mirror) : vb(buffer),
 		colors(gxTerrainLightPool()?gxTerrainLightPool()->find(buffer):nullptr),base(mirror) {
+		// Never infer zero colors for GPU bytes not initialized by geometry.
+		// An early fallback can modify partially initialized data; keep that
+		// buffer on its original path for its remaining lifetime.
+		if(colors && (!colors->initialized || colors->disabled)) { colors->disabled=true; colors=nullptr; }
 		if (colors) colors->resetRange();
 		else { fallback.emplace(buffer); base=(VERTEX_FORMAT*)fallback->Get_Vertex_Array(); }
 	}
@@ -679,6 +686,10 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 #endif
 			}
 		}
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+		if(litColors && x0==originX && y0==originY && x1==originX+VERTEX_BUFFER_TILE_LENGTH && y1==originY+VERTEX_BUFFER_TILE_LENGTH)
+			litColors->initialized=true;
+#endif
 		return 0; //success.
 	}
 	return -1;
@@ -1522,7 +1533,10 @@ Int HeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, 
 			m_vertexBufferTiles[i] = NEW_REF(DX8VertexBufferClass,(DX8_VERTEX_FORMAT,HEIGHTMAP_VERTEX_NUM,DX8VertexBufferClass::USAGE_DEFAULT));
 #endif
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
-			if(gxTerrainLightPool()) gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM);
+			// Partial edge tiles keep the full synchronized path: their unused
+			// GPU tail must not be considered initialized just because CPU RGB is zero.
+			if(gxCompleteTerrainTile(i,m_numVBTilesX,m_numVBTilesY,m_numBlockColumnsInLastVB,m_numBlockRowsInLastVB) && gxTerrainLightPool())
+				gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM);
 #endif
 		}
 
