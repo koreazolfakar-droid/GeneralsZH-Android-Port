@@ -5,6 +5,7 @@ No device/GPU/FPS claim. --legacy-ref demonstrates the old allocation/range cost
 # GeneralsX @performance Codex 14/10/2026 Preserve upload ordering and exact terrain bytes.
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -41,6 +42,13 @@ def main():
     end = terrain.index('VERTEX_FORMAT *vBase = data;', begin)
     lock = terrain[begin:end]
     copy = next(line.strip() for line in terrain.splitlines() if 'memcpy(vbHardware' in line)
+    # Use the actual terrain layout and tile side for byte counts. The old
+    # generic 44-byte fixture proved range math, but was not the terrain stride.
+    layout = extract(read('Core/Libraries/Source/WWVegas/WW3D2/dx8fvf.h'),
+                     'struct VertexFormatXYZDUV2') + ';\nusing VERTEX_FORMAT=VertexFormatXYZDUV2;'
+    tile_side = int(re.search(r'#define VERTEX_BUFFER_TILE_LENGTH\s+(\d+)',
+                             read('Core/GameEngineDevice/Include/W3DDevice/GameClient/WorldHeightMap.h')).group(1))
+    assert '#define VERTEX_FORMAT VertexFormatXYZDUV2' in read('Core/GameEngineDevice/Include/W3DDevice/GameClient/BaseHeightMap.h')
     with tempfile.TemporaryDirectory(prefix='gx-gles-regression-') as temp:
         work = Path(temp)
         (work / 'GLES3').mkdir()
@@ -95,7 +103,7 @@ static void d3d8gles_pfn_glBufferSubData(GLenum,GLintptr offset,GLsizeiptr lengt
         code += extract(dispatch, 'void gxrt::bufferWrite(')
         code += r'''
 using Int=int;
-struct VERTEX_FORMAT { unsigned char bytes[44]; };
+VERTEX_LAYOUT
 struct DX8VertexBufferClass {
  std::vector<VERTEX_FORMAT> vertices;
  unsigned first=0,count=0;
@@ -160,14 +168,22 @@ int main() {
   for(int y=0;y<16;++y)for(int x=0;x<16;++x)
    for(int h=1;h<=16-y;++h)for(int w=1;w<=16-x;++w)
     terrainUpdate(ox+x,oy+y,ox+x+w,oy+y+h,ox,oy,16);
- const unsigned narrow=terrainUpdate(7,12,8,13,0,0,16);
+ for(int i=0;i<2048;++i){
+  int x=(17*i)%TILE_SIDE,y=(13*i)%TILE_SIDE;
+  terrainUpdate(x,y,x+1+(7*i)%(TILE_SIDE-x),y+1+(11*i)%(TILE_SIDE-y),0,0,TILE_SIDE);
+ }
+ terrainUpdate(0,0,TILE_SIDE,TILE_SIDE,0,0,TILE_SIDE);
+ terrainUpdate(0,TILE_SIDE-1,TILE_SIDE,TILE_SIDE,0,0,TILE_SIDE);
+ terrainUpdate(TILE_SIDE-1,TILE_SIDE-1,TILE_SIDE,TILE_SIDE,0,0,TILE_SIDE);
+ const unsigned narrow=terrainUpdate(7,12,8,13,0,0,TILE_SIDE);
  assert(narrow==EXPECTED_TERRAIN_VERTICES);
- std::printf("PASS: production upload queue FIFO, lifetime, map fallback, large writes; ordinary allocations=%u/491; one-cell terrain upload=%u bytes (full tile 45056 bytes)\n",ordinaryAllocs,narrow*44);
+ std::printf("PASS: production upload queue FIFO, lifetime, map fallback, large writes; ordinary allocations=%u/491; one-cell terrain upload=%zu bytes (actual full tile %zu bytes, vertex stride %zu)\n",ordinaryAllocs,narrow*sizeof(VERTEX_FORMAT),TILE_SIDE*TILE_SIDE*4*sizeof(VERTEX_FORMAT),sizeof(VERTEX_FORMAT));
 }
 '''
         code = code.replace('EXPECTED_ALLOCS', '491' if args.legacy_ref else '0')
         code = code.replace('EXPECTED_IMMEDIATE_ALLOCS', '1' if args.legacy_ref else '0')
-        code = code.replace('EXPECTED_TERRAIN_VERTICES', '1024' if args.legacy_ref else '4')
+        code = code.replace('EXPECTED_TERRAIN_VERTICES', str(tile_side * tile_side * 4) if args.legacy_ref else '4')
+        code = code.replace('VERTEX_LAYOUT', layout).replace('TILE_SIDE', str(tile_side))
         path = work / 'test.cpp'
         path.write_text(code)
         exe = work / 'test'

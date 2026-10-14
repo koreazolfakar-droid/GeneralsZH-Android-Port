@@ -27,7 +27,7 @@ Host ASan/UBSan comparison executes production code:
 | --- | ---: | ---: |
 | 491 queued 1-KiB buffer writes | 491 heap allocations | 0 |
 | One 400-KiB write with worker disabled | 1 heap allocation | 0 |
-| One cell in a 16x16 terrain tile, 44-byte vertices | 45,056 bytes marked for upload | 176 bytes |
+| One cell in the production 32x32 terrain tile, 32-byte vertices | 131,072 bytes marked for upload | 128 bytes |
 | Terrain vertex output | Exact reference bytes | Exact reference bytes |
 
 These scenarios isolate the defects; they do not reproduce a TEOD game or measure
@@ -69,7 +69,9 @@ Run `python3 scripts/qa/test-gles-upload-regressions.py`; add
 `--legacy-ref 88d5758621658736e652b5fcaa24a3b8531746e0` to reproduce the previous
 operation counts. Tests cover FIFO order, caller memory reuse, map refusal,
 large upload fallback, static/dynamic VB and IB behavior, DISCARD retaining older
-ranges, range accumulation and all 166,464 rectangles over nine tile origins.
+ranges, range accumulation and 166,464 representative rectangles over nine tile
+origins, plus 2048 production-sized rectangles and boundary/full-tile cases. The
+fixture extracts the actual VertexFormatXYZDUV2 layout and terrain tile constant.
 `test-battle-perf-window.py` tests statistics and match/menu/reset lifecycle.
 
 `test-mod-archive-loading.py` executes production BIG parsing/mount/index/open
@@ -96,13 +98,20 @@ per-frame P99 or a sole bottleneck from aggregate average logs.
 
 ## Native and OTA evidence
 
-Pending at the implementation commit: use the existing explicit
+The implementation was built with the existing explicit
 `build-android.yml` dispatch with `engine_incremental_mode=build`, complete Git
 history and retained state. Build only ARM64 `libmain.so`/`libmain60.so`; verify
 native source stamps, all bootstrap dependency fingerprints and required tests.
 The engine identifier is the existing complete-history commit count.
-After successful checks/integration, use `sign-update.yml` with the immutable
-successful source/run, then independently verify the live ECDSA signature,
-manifest serial/source, both compressed URLs, decompressed sizes/SHA-256 and
-native stamps. Publication evidence is recorded separately after those actions.
+The `sign-update.yml` file on dev/mobile-v4 was not registered for workflow
+dispatch (GitHub 404). Reused the registered one-time publisher
+`publish-pinned-projectx-ai-ota.yml`, pinned to the successful immutable source/run
+and exact already-merged predecessor tree. Its old serial/source guard prevents
+replacing a newer publication. The original signing/publishing helpers, secret,
+public key and protocol are unchanged. Live ECDSA, manifest identity, both raw
+download URLs, decompressed size/SHA-256, native stamps and APK entry points were
+verified independently. Engine 3477 / serial 14 is published and discoverable
+through the exact launcher URLs; installation and device FPS remain NOT TESTED.
+See [release evidence](TEOD_GLES_OTA_3477.md) and
+[machine-readable verification](TEOD_GLES_OTA_3477.json).
 No APK rebuild, signing identity change or OTA protocol change is required.

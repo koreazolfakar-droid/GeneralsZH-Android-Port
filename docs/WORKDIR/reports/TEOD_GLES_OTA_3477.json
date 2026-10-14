@@ -1,0 +1,54 @@
+{
+  "engine": 3477,
+  "source_commit": "0c2abdb81c76261f2ced12d5f5b1094a8cef625b",
+  "serial": 14,
+  "manifest_url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/manifest.json",
+  "signature_url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/manifest.json.sig",
+  "signature": "ECDSA P-256 SHA-256 PASS",
+  "runtime_dependencies": "all 15 non-engine APK native fingerprints PASS",
+  "public_immutable_downloads": [
+    {
+      "name": "libmain.so",
+      "size": 42279920,
+      "compressed_size": 18352638,
+      "sha256": "cf3a6c4cd9f7f894a35ad9d8226967372b55285c1a4f3ed553e93ed96f468d20",
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain.so.gz",
+      "ARM64_native_source_stamp": "PASS",
+      "APK_entry_points_and_DT_NEEDED": "PASS"
+    },
+    {
+      "name": "libmain60.so",
+      "size": 42288336,
+      "compressed_size": 18353118,
+      "sha256": "e16e0e38d2bb6c0a487b4a4fb23bd85d8d0a906b0956e2ac8d66ed885acde59f",
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain60.so.gz",
+      "ARM64_native_source_stamp": "PASS",
+      "APK_entry_points_and_DT_NEEDED": "PASS"
+    }
+  ],
+  "availability": "Verified exact public URLs consumed by the launcher; matching APK dependencies required",
+  "device_installation": "NOT TESTED",
+  "device_FPS": "NOT MEASURED",
+  "pull_request": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/pull/19",
+  "merge_commit": "30aedecd442d3e808d846e681fa45532975a2043",
+  "build_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38522261320",
+  "publish_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38524400292",
+  "publisher_commit": "e3398abdd1c99ee6c258279aae9faef0bb4d7c70",
+  "required_CI_source_checks_passed": 18,
+  "CI_NOT_TESTED": {
+    "test-online-tls.py": "Host libcurl development files absent; passed locally",
+    "test-video-upload-performance.py": "Not committed in the source HEAD",
+    "test-particle-removal.py": "Not committed in the source HEAD"
+  },
+  "host_comparison": {
+    "ordinary_upload_allocations_previous": 491,
+    "ordinary_upload_allocations_updated": 0,
+    "terrain_vertex_stride": 32,
+    "terrain_tile_side": 32,
+    "one_cell_previous_bytes": 131072,
+    "one_cell_updated_bytes": 128,
+    "method": "Production code with host adapters, exact before/after terrain bytes; not device FPS"
+  },
+  "critical_battle_path": "NOT IDENTIFIED ON DEVICE: no attached Android hardware or original TEOD/Project X assets",
+  "artifact_archive_sha256": "078b4052e00bf785c0d43e690e7360c09f530e02218843990e70d587a77382a9"
+}
