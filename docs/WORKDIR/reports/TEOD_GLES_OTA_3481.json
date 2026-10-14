@@ -1,0 +1,43 @@
+{
+  "engine": 3481,
+  "serial": 15,
+  "source": "c40a361857edfe70842f26ddb2a76d47ebda4ba4",
+  "channel": "koreazolfakar-droid/mobile-v4/v1",
+  "signed": true,
+  "ECDSA_P256_APK_trust": "PASS",
+  "manifest_url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/manifest.json",
+  "manifest_sha256": "f06d6d98895118844b5925b570f6cc61370bf959819d59833653f63999e3159e",
+  "signature_sha256": "4d681ee86cabac17e4375589c1f07db4c5a1b5f9150887f13aafdf29339d4488",
+  "runtime_fingerprints": 15,
+  "config_preserved": true,
+  "files": {
+    "libmain.so": {
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3481/libmain.so.gz",
+      "sha256": "2cf558759d1cf4d706f2be4225c30c31cd34288f2ee6ef605a771b844152ae17",
+      "size": 42288208,
+      "gzip_sha256": "96e2db0892a209b3fb414c2ef691345fb55b496ca50d40116a68ea8c9e1f2515",
+      "gzip_size": 18353177,
+      "matches_successful_CI": true,
+      "ARM64_native_stamp": "PASS"
+    },
+    "libmain60.so": {
+      "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3481/libmain60.so.gz",
+      "sha256": "2f592d22b06d8714852c76911236a3e15d65d0db1b15f97bb84f18aede4fe75f",
+      "size": 42288368,
+      "gzip_sha256": "fb91b5ccb3aa8a92d3e04ea6f4028c6b30dcf3c5426a96501aac5ee5fd336ed5",
+      "gzip_size": 18355427,
+      "matches_successful_CI": true,
+      "ARM64_native_stamp": "PASS"
+    }
+  },
+  "app_discoverable_contract": "PASS: exact updater URLs, signed own channel, increasing serial/sequence, unchanged APK library fingerprints",
+  "phone_installation": "NOT TESTED",
+  "phone_FPS_visuals_gameplay": "NOT TESTED",
+  "native_build_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38535040332",
+  "publisher_run": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/38538689452",
+  "publisher_commit": "238879aff9d9241f99182f3697502bdfa7892825",
+  "updates_branch_commit": "9db7b40425873412f7fedba70fc0b407527474aa",
+  "merge_commit": "71c0bc47d57f5a1bed58841fc2fddceffcd60cb5",
+  "pr": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/pull/20",
+  "publication_authorization": "User explicitly requested publication after source merge and disclosure of unavailable physical FPS/visual validation."
+}
