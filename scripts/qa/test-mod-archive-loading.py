@@ -98,6 +98,22 @@ def main():
         big(game / "Mods/Nested/Assets/Models.BIG", {"Art/W3D/Nested.w3d": "nested-model"})
         big(game / "Mods/Nested/Patches/Data/INI/INIZH.big", {"Data/INI/Nested.ini": "nested-ini"})
         big(game / "Mods/Single.big", {"Art/W3D/Vehicle.w3d": "single-big"})
+        # Synthetic TEOD archive layout: exercise the real Android overlay,
+        # without requiring or altering original mod assets.
+        teod = game / "Mods/TEOD"
+        groups = {
+            "!TEOD_INI.big": paths[:1] + paths[6:],
+            "!TEOD_W3D.big": paths[1:4],
+            "!TEOD_Textures.big": paths[4:6],
+            "!TEOD_Terrain.big": ["Art/Textures/TEODTerrain.dds"],
+            "!TEOD_Maps.big": ["Maps/TEODTest/TEODTest.map"],
+            "!TEOD_Audio.big": ["Data/Audio/Sounds/TEODTest.wav"],
+        }
+        for name, resources in groups.items():
+            big(teod / name, {path: "mod-first" for path in resources})
+        big(teod / "!z.big", {name: "wrong-last" for name in paths})
+        big(teod / "INIZH.big", {"Data/INI/NewOnly.ini": "replacement"})
+        (teod / "d3d8.dll").write_bytes(b"Windows library: never an Android engine payload")
         big(tmp / "Generals/INIZH.big", {"Data/INI/SiblingOnly.ini": "sibling"})
         original = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in tmp.rglob("*.big")}
         original.update({p: hashlib.sha256(p.read_bytes()).hexdigest() for p in tmp.rglob("*.BIG")})
@@ -133,6 +149,9 @@ def main():
         run(game, "Mods/Active", "mod-first")  # Same selection after fresh process restart.
         run(game, "Mods/Nested", "nested")
         run(game, "Mods/Single.big", "single-big")
+        run(game, "Mods/TEOD", "mod-first")
+        run(game, "vanilla", "vanilla")
+        run(game, "Mods/Active", "mod-first")
         (game / "loose-shield.txt").write_text("loose")
         run(game, "Mods/Active", "mod-first", "ART\\TEXTURES\\SHIELD")
         run(game, "Mods/Active", "mod-first", "*")

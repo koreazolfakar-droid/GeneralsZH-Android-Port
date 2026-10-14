@@ -68,6 +68,11 @@ Utilities for large-scale code refactoring and fixes:
 
 ### `qa/` - Quality Assurance & Testing
 
+- `test-gles-upload-regressions.py [--legacy-ref REF]` - Run production GLES queue,
+  static/dynamic buffer updates and terrain range code with ASan/UBSan host adapters.
+  Compare allocation counts and submitted bytes; this does not measure device FPS.
+- `test-battle-perf-window.py` - Validate exact bounded frame percentiles and the
+  first-120-second battle trace using a synthetic clock.
 - `audit-engine-3277.py [--verify-live]` - Verify the upstream signed manifest,
   reconstruct the documented release-only GPU delta and inventory committed
   differences. Requires the fetched audit refs, Git and OpenSSL; never builds.

@@ -331,7 +331,13 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		assert(x0 >= originX && y0 >= originY && x1>x0 && y1>y0 && x1<=originX+VERTEX_BUFFER_TILE_LENGTH && y1<=originY+VERTEX_BUFFER_TILE_LENGTH);
 #endif
 
-		DX8VertexBufferClass::WriteLockClass lockVtxBuffer(pVB);
+		// GeneralsX @performance Codex 14/10/2026 Lock only the enclosing rows of
+		// this update. A full-tile lock made GLES upload unchanged terrain too,
+		// even though the loop below writes just the requested rectangle. Keep
+		// the ordinary synchronized lock and all vertex/lighting calculations.
+		const Int firstVertex = (y0-originY)*vertsPerRow + (x0-originX)*4;
+		const Int endVertex = (y1-originY-1)*vertsPerRow + (x1-originX)*4;
+		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB, firstVertex, endVertex-firstVertex);
 		VERTEX_FORMAT *vbHardware = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
 		VERTEX_FORMAT *vBase = data;
 		// Note that we are building the vertex buffer data in the memory buffer, data.
@@ -544,7 +550,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				// We don't copy the whole vertex buffer because we often update only
 				// a couple of rows and its a lot faster to just copy the ones that change.
 				Int offset = pCurVertices - vBase;
-				memcpy(vbHardware+offset, pCurVertices, 4*sizeof(VERTEX_FORMAT));
+				memcpy(vbHardware+offset-firstVertex, pCurVertices, 4*sizeof(VERTEX_FORMAT));
 			}
 		}
 		return 0; //success.

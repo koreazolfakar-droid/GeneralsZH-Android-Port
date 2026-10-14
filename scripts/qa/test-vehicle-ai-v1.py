@@ -2,6 +2,9 @@
 """Fail-closed source, compatibility, and movement-state regression checks for Vehicle AI V1."""
 import pathlib
 import re
+import os
+import subprocess
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -28,6 +31,17 @@ class VehicleAIV1Safety(unittest.TestCase):
         self.assertEqual(segment.count('xfer->xfer'),8) # format remains unchanged
         self.assertIn('m_blockedRepathTimestamp = 0;',self.state)
         self.assertIn('enum { MIN_REPATH_TIME = 10 };',self.state)
+
+    def test_blocked_repath_policy_runtime(self):
+        # Reuse the existing C++ policy cases as part of the required CI gate.
+        with tempfile.TemporaryDirectory(prefix='gx-repath-policy-') as temp:
+            executable = pathlib.Path(temp) / 'repath-test'
+            subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', '-O1',
+                            '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
+                            '-I', str(ROOT / 'GeneralsMD/Code/GameEngine/Include'),
+                            str(ROOT / 'scripts/qa/test-vehicle-ai-blocked-repath-v1.cpp'),
+                            '-o', str(executable)], check=True)
+            subprocess.run([str(executable)], check=True)
 
     def test_mobile_ground_vehicle_only_and_nonmobile_backcompat(self):
         x=self.movement

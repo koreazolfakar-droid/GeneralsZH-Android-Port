@@ -85,6 +85,7 @@
 #include "Common/Registry.h"
 #include "Common/GameCommon.h"	// FOR THE ALLOW_DEBUG_CHEATS_IN_RELEASE #define
 #include "GXTrace.h"
+#include "GXFrameTimeStats.h"
 
 #include <chrono>
 
@@ -1303,10 +1304,60 @@ DECLARE_PERF_TIMER(GameEngine_update)
 // log can show which subsystem actually owns the frame budget instead of
 // guessing. Cost when disabled is the single bool check below -- none of
 // the now()/duration calls execute.
+// GeneralsX @feature Codex 14/10/2026 Extend the existing opt-in phase trace with
+// battle-only frame intervals. Main duration excludes FramePacer; intervals include
+// it. First main-frame duration is CPU latency, not a GPU/display latency claim.
+static void gxTraceBattleWindow(bool battle, unsigned logicFrame, double mainUs)
+{
+	typedef std::chrono::steady_clock Clock;
+	static bool active = false, complete = false;
+	static unsigned lastLogicFrame = 0;
+	static Clock::time_point start, last, windowStart;
+	static GXFrameTimeStats<4096> window;
+	static GXFrameTimeStats<32768> total;
+	if (!battle) {
+		active = false;
+		return;
+	}
+	const Clock::time_point now = Clock::now();
+	if (!active || logicFrame < lastLogicFrame) {
+		active = true;
+		complete = false;
+		start = last = windowStart = now;
+		window.reset();
+		total.reset();
+		fprintf(stderr, "[GX-PERF-BATTLE-BEGIN] logicFrame=%u firstMainFrameMs=%.3f (CPU update; GPU presentation latency unavailable)\n", logicFrame, mainUs / 1000.0);
+	} else if (!complete) {
+		const double intervalMs = std::chrono::duration<double, std::milli>(now - last).count();
+		window.add(intervalMs, mainUs);
+		total.add(intervalMs, mainUs);
+	}
+	last = now;
+	lastLogicFrame = logicFrame;
+	if (complete) return;
+	const double elapsed = std::chrono::duration<double>(now - start).count();
+	const bool finish = elapsed >= 120.0;
+	if (std::chrono::duration<double>(now - windowStart).count() >= 2.0 || finish) {
+		GXFrameTimeStats<4096> &w = window;
+		fprintf(stderr, "[GX-PERF-BATTLE] seconds=%.3f logicFrame=%u samples=%zu dropped=%zu p50=%.3f p95=%.3f p99=%.3f worst=%.3f main=%.3f ms/frame\n",
+			elapsed, logicFrame, w.count, w.dropped, w.percentile(0.50), w.percentile(0.95), w.percentile(0.99), w.worstMs,
+			w.mainUs / (w.count + w.dropped ? w.count + w.dropped : 1) / 1000.0);
+		w.reset();
+		windowStart = now;
+	}
+	if (finish) {
+		fprintf(stderr, "[GX-PERF-BATTLE-END] seconds=%.3f samples=%zu dropped=%zu p50=%.3f p95=%.3f p99=%.3f worst=%.3f ms/frame\n",
+			elapsed, total.count, total.dropped, total.percentile(0.50), total.percentile(0.95), total.percentile(0.99), total.worstMs);
+		complete = true;
+	}
+}
+
 static void gxTraceEngineUpdatePhase(
 	double radarUs, double audioUs, double clientUs,
-	double networkUs, double logicUs, double stepUs)
+	double networkUs, double logicUs, double stepUs,
+	bool battle, unsigned logicFrame, double mainUs)
 {
+	gxTraceBattleWindow(battle, logicFrame, mainUs);
 	static std::chrono::steady_clock::time_point s_windowStart = std::chrono::steady_clock::now();
 	static double s_radarUs = 0, s_audioUs = 0, s_clientUs = 0,
 		s_networkUs = 0, s_logicUs = 0, s_stepUs = 0;
@@ -1381,6 +1432,8 @@ void GameEngine::update()
 		// this cheap ~1-line-per-second summary without also paying for
 		// (and drowning the exported log in) full GX_TRACE font/UI tracing.
 		const bool gxPerfTrace = GXTrace::isPerfEnabled();
+		const bool gxPerfBattle = gxPerfTrace && TheGameLogic->isInGame() &&
+			!TheGameLogic->isInShellGame() && !TheShell->isShellActive();
 		std::chrono::steady_clock::time_point gxT0, gxT1, gxT2, gxT3, gxT4, gxT5;
 
 		{
@@ -1472,7 +1525,8 @@ void GameEngine::update()
 				std::chrono::duration<double, std::micro>(gxT2 - gxT1).count(),
 				std::chrono::duration<double, std::micro>(gxT3 - gxT2).count(),
 				std::chrono::duration<double, std::micro>(gxT4 - gxT3).count(),
-				logicUs, stepUs);
+				logicUs, stepUs, gxPerfBattle, TheGameLogic->getFrame(),
+				std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - gxT0).count());
 		}
 	}
 }
