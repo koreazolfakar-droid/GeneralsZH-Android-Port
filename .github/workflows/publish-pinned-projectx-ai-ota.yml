@@ -1,6 +1,8 @@
 # One-time recovery: publish the ALREADY successful native 30/60Hz engine build.
-# No engine recompilation, no APK, pinned 2026-10-13 Project X AI source.
-name: Sign and publish verified Project X AI engine (one time)
+# GeneralsX @build Codex 14/10/2026 Reuse the registered publisher for the verified
+# GLES upload pair; sign-update.yml on the development branch is not registered.
+# No engine recompilation, no APK, pinned and already merged source.
+name: Sign and publish verified GLES upload engine (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -17,14 +19,15 @@ jobs:
     timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_COMMIT: c9ca6a0c2928e1ae2d2e133a778b669f1aeda29c
-      NATIVE_RUN: '38319757761'
-      PREVIOUS_ENGINE: '3466'
-      PREVIOUS_SERIAL: '12'
+      SOURCE_COMMIT: 0c2abdb81c76261f2ced12d5f5b1094a8cef625b
+      NATIVE_RUN: '38522261320'
+      PREVIOUS_HEAD: 30aedecd442d3e808d846e681fa45532975a2043
+      PREVIOUS_ENGINE: '3472'
+      PREVIOUS_SERIAL: '13'
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: c9ca6a0c2928e1ae2d2e133a778b669f1aeda29c
+          ref: 0c2abdb81c76261f2ced12d5f5b1094a8cef625b
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
@@ -37,9 +40,11 @@ jobs:
           test "$(git rev-parse --is-shallow-repository)" = false
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
           git fetch origin "$GITHUB_SHA" --filter=blob:none
-          test "$(git rev-parse "$GITHUB_SHA^")" = "$SOURCE_COMMIT"
-          test "$(git show -s --format=%s "$GITHUB_SHA")" = 'ci(update): sign and publish verified Project X AI native engine'
-          changed="$(git diff --name-only "$SOURCE_COMMIT" "$GITHUB_SHA")"
+          test "$(git rev-parse "$GITHUB_SHA^")" = "$PREVIOUS_HEAD"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" "$PREVIOUS_HEAD"
+          test "$(git rev-parse "$SOURCE_COMMIT^{tree}")" = "$(git rev-parse "$PREVIOUS_HEAD^{tree}")"
+          test "$(git show -s --format=%s "$GITHUB_SHA")" = 'ci(update): sign and publish verified GLES upload engine'
+          changed="$(git diff --name-only "$PREVIOUS_HEAD" "$GITHUB_SHA")"
           test "$changed" = .github/workflows/publish-pinned-projectx-ai-ota.yml
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
           python3 - <<'PY'
@@ -47,7 +52,7 @@ jobs:
           m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
           assert m['serial']==int(os.environ['PREVIOUS_SERIAL'])
           assert m['engine']['seq']==int(os.environ['PREVIOUS_ENGINE'])
-          assert m['engine']['source_commit']=='4159fc6396a061e3214a71a40babb234b811e26c'
+          assert m['engine']['source_commit']=='c9ca6a0c2928e1ae2d2e133a778b669f1aeda29c'
           assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
           print('PASS: existing signed channel unchanged and previous engine available')
           PY
@@ -69,7 +74,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: engine-incremental-report
-          run-id: 38319757761
+          run-id: 38522261320
           github-token: ${{ github.token }}
           path: engine-build
       - uses: actions/download-artifact@v5
@@ -87,7 +92,7 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$SOURCE_COMMIT" \
             --out prepared-update \
-            --note 'Project X AI Engine update: prefer mod-specific SkirmishScripts and import missing mod factions on custom maps. Fixed retained PCH build pipeline. Includes both 30Hz and 60Hz engines. No APK, changed assets, save-format or network-protocol changes. Physical-device AI verification and NaN vehicle physics investigation remain separate.'
+            --note 'GLES engine update: narrow partial terrain uploads, avoid heap allocation in ordinary buffer streaming, and add first-120-second battle frame/logic/AI/pathfinding diagnostics. Includes 30Hz and 60Hz engines with unchanged APK runtime dependencies and signed OTA protocol. Android TEOD/Project X performance, visual and installation checks remain pending.'
           python3 - <<'PY'
           import json,os
           r=json.load(open("engine-build/result.json"))
@@ -95,7 +100,7 @@ jobs:
           assert r["build"]=="PASS" and r["new_apk_required"] is False
           assert r["source_head"]==os.environ["SOURCE_COMMIT"]
           assert m["engine"]["source_commit"]==os.environ["SOURCE_COMMIT"]
-          assert m["engine"]["seq"]>3466 and m["serial"]>12
+          assert m["engine"]["seq"]>int(os.environ["PREVIOUS_ENGINE"]) and m["serial"]>int(os.environ["PREVIOUS_SERIAL"])
           assert set(m["engine"]["files"])=={"libmain.so","libmain60.so"}
           print("PASS: prepared safe native engine",m["engine"]["seq"])
           PY
@@ -126,7 +131,7 @@ jobs:
           a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
           m=a.verify_manifest("published-check","android/app/src/main/assets/update-public.pem")
           assert m["engine"]["source_commit"]==os.environ["SOURCE_COMMIT"]
-          assert m["engine"]["seq"]>3466 and m["serial"]>12
+          assert m["engine"]["seq"]>int(os.environ["PREVIOUS_ENGINE"]) and m["serial"]>int(os.environ["PREVIOUS_SERIAL"])
           for name,row in m["engine"]["files"].items():
             url=row["url"]
             assert url==a.BASE_URL+f"engine/{m['engine']['seq']}/{name}.gz"
