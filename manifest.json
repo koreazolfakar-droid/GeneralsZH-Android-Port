@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "cf3a6c4cd9f7f894a35ad9d8226967372b55285c1a4f3ed553e93ed96f468d20",
-        "size": 42279920,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain.so.gz"
+        "sha256": "2cf558759d1cf4d706f2be4225c30c31cd34288f2ee6ef605a771b844152ae17",
+        "size": 42288208,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3481/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "e16e0e38d2bb6c0a487b4a4fb23bd85d8d0a906b0956e2ac8d66ed885acde59f",
-        "size": 42288336,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3477/libmain60.so.gz"
+        "sha256": "2f592d22b06d8714852c76911236a3e15d65d0db1b15f97bb84f18aede4fe75f",
+        "size": 42288368,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3481/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3477,
-    "source_commit": "0c2abdb81c76261f2ced12d5f5b1094a8cef625b"
+    "seq": 3481,
+    "source_commit": "c40a361857edfe70842f26ddb2a76d47ebda4ba4"
   },
-  "note": "GLES engine update: narrow partial terrain uploads, avoid heap allocation in ordinary buffer streaming, and add first-120-second battle frame/logic/AI/pathfinding diagnostics. Includes 30Hz and 60Hz engines with unchanged APK runtime dependencies and signed OTA protocol. Android TEOD/Project X performance, visual and installation checks remain pending.",
+  "note": "Engine 3481 candidate: reuse identical static terrain bytes, narrow changed transfers with synchronized D3D lock semantics, and add complete CPU/pacer percentiles, load/terrain/BIG timing and AI NaN/Inf probes. ARM64 30Hz/60Hz engines pass CI and preserve APK runtime dependencies. User-authorized publication for device validation; phone FPS, mod visual correctness and installation remain unmeasured.",
   "published": "2026-10-14",
   "schema": 1,
-  "serial": 14
+  "serial": 15
 }
