@@ -1372,8 +1372,8 @@ static void gxTraceCpuFrame(bool battle, unsigned logicFrame, double mainUs, dou
 	lastFrame=logicFrame;
 	main.add(mainUs/1000.0,0); pacing.add(pacingUs/1000.0,0); wall.add((mainUs+pacingUs)/1000.0,0);
 	if (std::chrono::duration<double>(now-start).count()<2.0) return;
-	fprintf(stderr, "[GX-PERF-CPU] t=%.0fus samples=%zu dropped=%zu mainWallP50/P95/P99=%.3f/%.3f/%.3f pacerP50/P95/P99=%.3f/%.3f/%.3f frameWallP50/P95/P99=%.3f/%.3f/%.3f renderLimit=%d logicHz=%d fullTrace=%d netTrace=%d (ms; worker waits included in main)\n",
-		std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),main.count,main.dropped,
+	fprintf(stderr, "[GX-PERF-CPU] t=%.0fus windowMs=%.3f logicFrame=%u samples=%zu dropped=%zu mainWallP50/P95/P99=%.3f/%.3f/%.3f pacerP50/P95/P99=%.3f/%.3f/%.3f frameWallP50/P95/P99=%.3f/%.3f/%.3f renderLimit=%d logicHz=%d fullTrace=%d netTrace=%d (ms; worker waits included in main)\n",
+		std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),std::chrono::duration<double,std::milli>(now-start).count(),logicFrame,main.count,main.dropped,
 		main.percentile(.50),main.percentile(.95),main.percentile(.99),
 		pacing.percentile(.50),pacing.percentile(.95),pacing.percentile(.99),
 		wall.percentile(.50),wall.percentile(.95),wall.percentile(.99),renderLimit,logicHz,(int)GXTrace::isEnabled(),(int)GXTrace::isNetEnabled());

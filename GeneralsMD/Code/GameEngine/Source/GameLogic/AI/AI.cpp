@@ -392,8 +392,10 @@ void AI::update()
     ++updates;
     if (std::chrono::duration_cast<std::chrono::milliseconds>(end - windowStart).count() >= 2000) {
       const double count = updates ? (double)updates : 1.0;
-      fprintf(stderr, "[GX-PERF-AI-DETAIL] ticks=%u pathfinding=%.3fms players=%.3fms per AI tick\n",
-        updates, pathUs / count / 1000.0, playersUs / count / 1000.0);
+      // GeneralsX @feature Codex 14/10/2026 Shared monotonic window anchor.
+      fprintf(stderr, "[GX-PERF-AI-DETAIL] ticks=%u pathfinding=%.3fms players=%.3fms per AI tick t=%.0fus windowMs=%.3f\n",
+        updates, pathUs / count / 1000.0, playersUs / count / 1000.0,
+        std::chrono::duration<double,std::micro>(end.time_since_epoch()).count(),std::chrono::duration<double,std::milli>(end-windowStart).count());
       windowStart = end;
       updates = 0;
       pathUs = playersUs = 0.0;
