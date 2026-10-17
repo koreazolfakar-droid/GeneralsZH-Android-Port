@@ -2688,7 +2688,7 @@ AGAIN:
 						std::chrono::duration<double, std::micro>(gxdT4 - gxdT3b).count());
 #if defined(__ANDROID__)
             GXPreRTT::report([](int key,double wall,double calls) {
-                const AsciiString type=TheNameKeyGenerator?TheNameKeyGenerator->keyToName(key):AsciiString("<unknown>");
+                const AsciiString type=TheNameKeyGenerator?TheNameKeyGenerator->keyToName(static_cast<NameKeyType>(key)):AsciiString("<unknown>");
                 fprintf(stderr,"[GX-PERF-DRAWMODULE] type=%s wallMs=%.3f calls=%.1f per frame (inclusive)\n",type.str(),wall,calls);
             },TheGameLogic->getFrame(),TheGlobalData->m_loadScreenRender);
 #endif
