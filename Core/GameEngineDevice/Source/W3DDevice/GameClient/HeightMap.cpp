@@ -1863,9 +1863,11 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
         // but must consume lighting/rebuild requests. The early return left
         // this flag set forever, repeating preRTT terrain/bridge refreshes.
         if(m_needFullUpdate) {
+            // Match the normal scrolling branch: acknowledge the old request
+            // before updating, so a new request raised during the update survives.
+            m_needFullUpdate=false;
             m_updating=true;
-            const Int refreshed=updateBlock(0,0,m_x-1,m_y-1,m_map,pLightsIterator);
-            if(refreshed==0) m_needFullUpdate=false;
+            updateBlock(0,0,m_x-1,m_y-1,m_map,pLightsIterator);
             m_updating=false;
 #if defined(__ANDROID__)
             if(GXPreRTT::active()) ++GXPreRTT::state().fullMapRefreshes;
