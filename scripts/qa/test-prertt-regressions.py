@@ -259,10 +259,10 @@ struct BaseHeightMapRenderObjClass{bool m_needFullUpdate=true,m_updating=false;u
  void updateCenter(CameraClass*,const Vector3*,RefRenderObjListIterator*){++baseCalls;++treeVis;++roadVis;if(m_needFullUpdate)++bridgeFull;}
 };
 struct HeightMapRenderObjClass:BaseHeightMapRenderObjClass{
- FakeMap map;FakeMap*m_map=&map;void*m_vertexBufferTiles=this;int m_x=65,m_y=49;unsigned geometry=0;int result=0;
+ FakeMap map;FakeMap*m_map=&map;void*m_vertexBufferTiles=this;int m_x=65,m_y=49;unsigned geometry=0;bool requestDuringUpdate=false;
  void updateCenter(CameraClass*,const Vector3*,RefRenderObjListIterator*);void legacy(CameraClass*,const Vector3*,RefRenderObjListIterator*);
  int updateBlock(int x0,int y0,int x1,int y1,FakeMap*p,RefRenderObjListIterator*){
-  assert(x0==0&&y0==0&&x1==m_x-1&&y1==m_y-1&&p==m_map&&m_updating);++geometry;return result;
+  assert(x0==0&&y0==0&&x1==m_x-1&&y1==m_y-1&&p==m_map&&m_updating);++geometry;if(requestDuringUpdate)m_needFullUpdate=true;return 0;
  }
 };
 '''
@@ -278,9 +278,9 @@ int main(){
  assert(b.geometry==8 && b.bridgeFull==8);
  // Camera-driven center still performs tree/road/bridge visibility; no blanket skip.
  unsigned before=b.baseCalls;b.updateCenter(nullptr,nullptr,nullptr);assert(b.baseCalls==before+1&&b.geometry==8);
- // Failure and transient missing resources retain retry; no dirty state lost.
- b.result=-1;b.m_needFullUpdate=true;view(b,false);assert(b.m_needFullUpdate&&!b.m_updating);
- b.result=0;view(b,false);assert(!b.m_needFullUpdate);
+ // A fresh request raised during refresh must not be cleared by acknowledging the old one.
+ b.requestDuringUpdate=true;b.m_needFullUpdate=true;view(b,false);assert(b.m_needFullUpdate&&!b.m_updating);
+ b.requestDuringUpdate=false;view(b,false);assert(!b.m_needFullUpdate);
  b.m_needFullUpdate=true;b.m_vertexBufferTiles=nullptr;view(b,false);assert(b.m_needFullUpdate);
  b.m_vertexBufferTiles=&b;b.m_updating=true;view(b,false);assert(b.m_needFullUpdate);b.m_updating=false;view(b,false);assert(!b.m_needFullUpdate);
  b.m_needFullUpdate=true;auto*map=b.m_map;b.m_map=nullptr;view(b,false);assert(b.m_needFullUpdate);b.m_map=map;
