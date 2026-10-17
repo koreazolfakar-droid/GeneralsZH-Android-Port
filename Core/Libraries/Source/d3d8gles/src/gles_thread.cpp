@@ -65,6 +65,9 @@ bool s_watchInstalled = false;
 std::atomic<uint64_t> s_workerBusyNs{0};
 std::atomic<uint64_t> s_workNs[kWorkKinds];
 Stats s_stats; // engine-thread fields only
+// GeneralsX @feature Codex 14/10/2026 Monotonic producer waits for preRTT
+// attribution. takeStats() must not reset this counter between phase snapshots.
+double s_producerWaitUsTotal=0;
 
 // Fence proxies: created in order on the render thread, polled by it while idle.
 struct FenceProxy
@@ -104,7 +107,8 @@ void waitMain(P pred, double *accumUs)
 	for (int spin = 0; spin < 16; spin++) {
 		std::this_thread::yield();
 		if (pred()) {
-			*accumUs += usSince(t0);
+			const double waited=usSince(t0);
+			*accumUs += waited; s_producerWaitUsTotal+=waited;
 			return;
 		}
 	}
@@ -113,7 +117,8 @@ void waitMain(P pred, double *accumUs)
 	while (!pred())
 		s_doneCv.wait_for(lock, std::chrono::milliseconds(2));
 	s_mainWaiting.store(false, std::memory_order_seq_cst);
-	*accumUs += usSince(t0);
+	const double waited=usSince(t0);
+	*accumUs += waited; s_producerWaitUsTotal+=waited;
 }
 
 void pollFences()
@@ -549,3 +554,6 @@ bool running()
 }
 
 } // namespace gxrt
+
+// GeneralsX @feature Codex 14/10/2026 Engine-thread-only wait snapshot.
+extern "C" double d3d8gles_GetProducerWaitUsTotal() { return gxrt::s_producerWaitUsTotal; }

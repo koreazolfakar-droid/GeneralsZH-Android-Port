@@ -32,6 +32,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include "Common/GXLogging.h"
+#include "GXTrace.h"
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
@@ -469,6 +470,11 @@ int main(int argc, char* argv[])
 	// Store command line arguments in globals for CommandLine.cpp parser
 	__argc = argc;
 	__argv = argv;
+#if defined(__ANDROID__)
+	// GeneralsX @feature Codex 14/10/2026 Retain Replay Check diagnostics
+	// when performance summaries were also enabled in the installed launcher.
+	GXTrace::configureDiagnosticArguments(argc,argv);
+#endif
 
 #if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
 	// Diagnostic capture: an icon-launched app's stderr goes nowhere we can read,

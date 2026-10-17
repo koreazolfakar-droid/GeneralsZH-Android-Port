@@ -53,6 +53,13 @@ probe points; it does not rule out FE_INVALID or invalid values elsewhere.
 Compare CPU/frame P50/P95/P99, first CPU frame, avoided terrain bytes/calls,
 logic/AI/path cost, producer waits and swap. Report GPU time unavailable when
 queries are unavailable/disjoint; never substitute render-worker busy time.
+The preRTT follow-up adds GX-PERF-MODE, PRERTT, PRERTT-WORK and DRAWMODULE:
+keep their timestamps, frame counts and CPU/wall/producer-wait fields. Explicit
+Performance summary suppresses stale full/net event traces. To request detailed
+diagnostics, turn Performance summary off, or explicitly create gx_perf_detail.txt
+alongside the existing trace markers (GX_PERF_DETAIL also works for developers).
+Replay Check intentionally preserves its CRC diagnostics and is not a normal
+benchmark; use the in-game replay menu for matched performance runs.
 The load-end to CPU-first timestamp difference is CPU transition latency, not
 first displayed-frame latency. Nested timings overlap and must not be summed.
 

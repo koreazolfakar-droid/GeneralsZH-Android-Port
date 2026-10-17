@@ -127,6 +127,11 @@
 
 
 #include "hlod.h"
+
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
 #include "assetmgr.h"
 #include "hmdldef.h"
 #include "w3derr.h"
@@ -3329,6 +3334,13 @@ void HLodClass::Get_Snap_Point(int index,Vector3 * set)
  *=============================================================================================*/
 void HLodClass::Update_Sub_Object_Transforms()
 {
+#if defined(__ANDROID__)
+    GXPreRTT::Scope gxHierarchy(GXPreRTT::Hierarchy);
+    if(gxHierarchy.enabled) {
+        GXPreRTT::state().poseBones+=HTree?HTree->Num_Pivots():0;
+        GXPreRTT::state().poseChildren+=Get_Num_Sub_Objects();
+    }
+#endif
 	/*
 	** Update the animation transforms, recurse up to the
 	** top of the tree...
