@@ -1,8 +1,8 @@
 # One-time recovery: publish the ALREADY successful native 30/60Hz engine build.
-# GeneralsX @build Codex 14/10/2026 Reuse the registered publisher for the verified
-# terrain lighting pair; sign-update.yml on the development branch is not registered.
+# GeneralsX @build Codex 21/10/2026 Reuse the registered publisher for the verified
+# preRTT CPU pair; sign-update.yml on the development branch is not registered.
 # No engine recompilation, no APK, pinned and already merged source.
-name: Sign and publish terrain lighting engine (one time)
+name: Sign and publish preRTT CPU engine (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -19,15 +19,15 @@ jobs:
     timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_COMMIT: 00dc954e02d1e346caa90e69739012f70ce69a80
-      NATIVE_RUN: '38568950324'
-      PREVIOUS_HEAD: d1c16016aab65fc5248d5b36b7b6fc8fac61ebd7
-      PREVIOUS_ENGINE: '3481'
-      PREVIOUS_SERIAL: '15'
+      SOURCE_COMMIT: a126959e0774ff791256ace21923f7d1cea8804d
+      NATIVE_RUN: '39656153137'
+      PREVIOUS_HEAD: b6ecdca9a98ce5503b17c821bd5c0c12c755bd34
+      PREVIOUS_ENGINE: '3486'
+      PREVIOUS_SERIAL: '16'
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 00dc954e02d1e346caa90e69739012f70ce69a80
+          ref: a126959e0774ff791256ace21923f7d1cea8804d
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
@@ -43,7 +43,7 @@ jobs:
           test "$(git rev-parse "$GITHUB_SHA^")" = "$PREVIOUS_HEAD"
           git merge-base --is-ancestor "$SOURCE_COMMIT" "$PREVIOUS_HEAD"
           test "$(git rev-parse "$SOURCE_COMMIT^{tree}")" = "$(git rev-parse "$PREVIOUS_HEAD^{tree}")"
-          test "$(git show -s --format=%s "$GITHUB_SHA")" = 'ci(update): publish terrain lighting dirty fix'
+          test "$(git show -s --format=%s "$GITHUB_SHA")" = 'ci(update): publish preRTT CPU engine'
           changed="$(git diff --name-only "$PREVIOUS_HEAD" "$GITHUB_SHA")"
           test "$changed" = .github/workflows/publish-pinned-projectx-ai-ota.yml
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/old-manifest.json"
@@ -52,7 +52,7 @@ jobs:
           m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old-manifest.json').read_text())
           assert m['serial']==int(os.environ['PREVIOUS_SERIAL'])
           assert m['engine']['seq']==int(os.environ['PREVIOUS_ENGINE'])
-          assert m['engine']['source_commit']=='c40a361857edfe70842f26ddb2a76d47ebda4ba4'
+          assert m['engine']['source_commit']=='00dc954e02d1e346caa90e69739012f70ce69a80'
           assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
           print('PASS: existing signed channel unchanged and previous engine available')
           PY
@@ -74,7 +74,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: engine-incremental-report
-          run-id: 38568950324
+          run-id: 39656153137
           github-token: ${{ github.token }}
           path: engine-build
       - uses: actions/download-artifact@v5
@@ -92,7 +92,7 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$SOURCE_COMMIT" \
             --out prepared-update \
-            --note 'Engine 3486 candidate: omit unchanged terrain-light dirty locks on complete initialized tiles, retain synchronized changed writes and partial-tile fallback, and align CPU/render/logic/AI/path diagnostics. Differential production lighting tests preserve exact vertex bytes and all calculations; ARM64 30Hz/60Hz engines preserve APK dependencies. User-authorized publication for device validation; phone FPS, mod visual correctness, installation and replay CRC remain unmeasured.'
+            --note 'Engine 3493 candidate: consume whole-map terrain refresh requests once while preserving requests raised during refresh; skip empty bridge buffer locks; separate preRTT view, terrain, drawable modules, particles, thread CPU and producer waits. Normal performance mode suppresses per-event full/net traces with opt-in detail. Host differential and ARM64 CI validation preserve native APK compatibility. Physical-device FPS, P50/P95, mod visuals, installation and replay CRC remain unmeasured.'
           python3 - <<'PY'
           import json,os
           r=json.load(open("engine-build/result.json"))
@@ -100,7 +100,7 @@ jobs:
           assert r["build"]=="PASS" and r["new_apk_required"] is False
           assert r["source_head"]==os.environ["SOURCE_COMMIT"]
           assert m["engine"]["source_commit"]==os.environ["SOURCE_COMMIT"]
-          assert m["engine"]["seq"]==3486 and m["serial"]==int(os.environ["PREVIOUS_SERIAL"])+1
+          assert m["engine"]["seq"]==3493 and m["serial"]==int(os.environ["PREVIOUS_SERIAL"])+1
           assert set(m["engine"]["files"])=={"libmain.so","libmain60.so"}
           print("PASS: prepared safe native engine",m["engine"]["seq"])
           PY
@@ -131,7 +131,7 @@ jobs:
           a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
           m=a.verify_manifest("published-check","android/app/src/main/assets/update-public.pem")
           assert m["engine"]["source_commit"]==os.environ["SOURCE_COMMIT"]
-          assert m["engine"]["seq"]==3486 and m["serial"]==int(os.environ["PREVIOUS_SERIAL"])+1
+          assert m["engine"]["seq"]==3493 and m["serial"]==int(os.environ["PREVIOUS_SERIAL"])+1
           for name,row in m["engine"]["files"].items():
             url=row["url"]
             assert url==a.BASE_URL+f"engine/{m['engine']['seq']}/{name}.gz"
