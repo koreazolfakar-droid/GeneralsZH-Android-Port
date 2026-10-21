@@ -35,6 +35,22 @@ static void drawFramerateBar();
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 #include <chrono>
+
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#include "Common/NameKeyGenerator.h"
+extern "C" double d3d8gles_GetProducerWaitUsTotal();
+#include <time.h>
+// GeneralsX @feature Codex 14/10/2026 Keep the Android thread CPU clock
+// in the device layer; generic aggregation only receives this reader.
+static double gxPreRTTThreadCpuUs() {
+    timespec t{};
+    if(clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t)==0)
+        return double(t.tv_sec)*1000000.0+double(t.tv_nsec)/1000.0;
+    return -1;
+}
+#endif
 #include <numeric>
 #include <stdlib.h>
 #include <windows.h>
@@ -2248,6 +2264,7 @@ void W3DDisplay::draw()
 {
 	//USE_PERF_TIMER(W3DDisplay_draw)
 	const bool gxPerfTrace = GXTrace::isPerfEnabled();
+	GXTrace::reportPerformanceMode();
 	std::chrono::steady_clock::time_point gxdT0, gxdT1, gxdT2, gxdT3, gxdT3b;
 
 	// GeneralsX @feature xxorza 15/04/2026 Process deferred window resize for pillarbox
@@ -2392,15 +2409,27 @@ AGAIN:
 
 	do {
 
-		if (gxPerfTrace) gxdT0 = std::chrono::steady_clock::now();
+		if (gxPerfTrace) gxdT0 = gxdT1 = std::chrono::steady_clock::now();
+#if defined(__ANDROID__)
+		GXPreRTT::Frame gxPreFrame(gxPerfTrace,gxPerfTrace?d3d8gles_GetProducerWaitUsTotal():0,TheGlobalData->m_loadScreenRender,TheGameLogic->getFrame(),gxPreRTTThreadCpuUs);
+#endif
 
 		// update all views of the world - recomputes data which will affect drawing
 		if (DX8Wrapper::_Get_D3D_Device8() && (DX8Wrapper::_Get_D3D_Device8()->TestCooperativeLevel()) == D3D_OK)
 		{	//Checking if we have the device before updating views because the heightmap crashes otherwise while
 			//trying to refresh the visible terrain geometry.
 //			if(TheGlobalData->m_loadScreenRender != TRUE)
-				updateViews();
-     		TheParticleSystemManager->update();//LORENZEN AND WILCZYNSKI MOVED THIS FROM ITS NATIVE POSITION, ABOVE
+			{
+#if defined(__ANDROID__)
+                GXPreRTT::Scope gxViews(GXPreRTT::Views,true);
+#endif
+                updateViews();
+            }
+            {
+#if defined(__ANDROID__)
+                GXPreRTT::Scope gxParticles(GXPreRTT::Particles,true);
+#endif
+                TheParticleSystemManager->update();//LORENZEN AND WILCZYNSKI MOVED THIS FROM ITS NATIVE POSITION, ABOVE
                                            //FOR THE PURPOSE OF LETTING THE PARTICLE SYSTEM LOOK UP THE RENDER OBJECT"S
                                            //TRANSFORM MATRIX, WHILE IT IS STILL VALID (HAVING DONE ITS CLIENT TRANSFORMS
                                            //BUT NOT YET RESETTING TOT HE LOGICAL TRANSFORM)
@@ -2409,7 +2438,11 @@ AGAIN:
                                            //REVOLUTIONARY!
                                            //-LORENZEN
 
-			if (gxPerfTrace) gxdT1 = std::chrono::steady_clock::now();
+            }
+#if defined(__ANDROID__)
+            gxPreFrame.finish(gxPerfTrace?d3d8gles_GetProducerWaitUsTotal():0);
+#endif
+            if (gxPerfTrace) gxdT1 = std::chrono::steady_clock::now();
 
 			if (TheWaterRenderObj && TheGlobalData->m_waterType == 2)
 				TheWaterRenderObj->updateRenderTargetTextures(primaryW3DView->get3DCamera());	//do a render into each texture
@@ -2420,6 +2453,9 @@ AGAIN:
 				TheW3DProjectedShadowManager->updateRenderTargetTextures();
 		}
 
+#if defined(__ANDROID__)
+        gxPreFrame.finish(gxPerfTrace?d3d8gles_GetProducerWaitUsTotal():0);
+#endif
 		if (gxPerfTrace) gxdT2 = std::chrono::steady_clock::now();
 
 		// Switch to offscreen RT AFTER pre-render (shadows/water) completes, BEFORE main render.
@@ -2650,6 +2686,13 @@ AGAIN:
 						std::chrono::duration<double, std::micro>(gxdT3 - gxdT2).count(),
 						std::chrono::duration<double, std::micro>(gxdT3b - gxdT3).count(),
 						std::chrono::duration<double, std::micro>(gxdT4 - gxdT3b).count());
+#if defined(__ANDROID__)
+            GXPreRTT::report([](int key,double wall,double calls) {
+                const AsciiString type=TheNameKeyGenerator?TheNameKeyGenerator->keyToName(static_cast<NameKeyType>(key)):AsciiString("<unknown>");
+                fprintf(stderr,"[GX-PERF-DRAWMODULE] type=%s wallMs=%.3f calls=%.1f per frame (inclusive)\n",type.str(),wall,calls);
+            },TheGameLogic->getFrame(),TheGlobalData->m_loadScreenRender);
+#endif
+
 				}
 			}
 			else

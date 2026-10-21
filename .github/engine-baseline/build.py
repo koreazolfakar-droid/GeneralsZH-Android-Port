@@ -88,7 +88,7 @@ if build_requested:
                  'test-standalone-mod-overlay.py','test-mod-archive-loading.py',
                  'test-gles-upload-regressions.py','test-battle-perf-window.py',
                  'test-terrain-snapshot-safety.py',
-                 'test-terrain-light-dirty.py',
+                 'test-terrain-light-dirty.py', 'test-prertt-regressions.py',
                  'test-vehicle-ai-v1.py','test_projectx_ai_regressions.py',
                  'test-verified-ndk-pch-cache.py',
                  'test-own-update-channel.py','test-android-validation-staging.py',

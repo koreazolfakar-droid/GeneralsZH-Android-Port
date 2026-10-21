@@ -29,6 +29,11 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+// GeneralsX @feature Codex 14/10/2026 Aggregated pre-render attribution.
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
+
 #define DEFINE_PARTICLE_SYSTEM_NAMES
 
 #include "Common/GameState.h"
@@ -2062,7 +2067,10 @@ Bool ParticleSystem::update( Int localPlayerIndex  )
 	// If we are a slave system, do not generate particles ourselves - our master will force us to
 	//
 	if (m_isDestroyed == false)
-	{
+    {
+#if defined(__ANDROID__)
+        GXPreRTT::Scope gxEmission(GXPreRTT::Emission);
+#endif
 		if (m_isForever || (m_isForever == false && m_systemLifetimeLeft > 0))
 		{
 			if (!isShrouded && m_isStopped == false && m_masterSystem == nullptr)
@@ -2125,12 +2133,19 @@ Bool ParticleSystem::update( Int localPlayerIndex  )
 	//
 	// Update all particles in the system
 	//
-	Particle *p = m_systemParticlesHead;
+    {
+#if defined(__ANDROID__)
+    GXPreRTT::Scope gxSteps(GXPreRTT::ParticleSteps);
+#endif
+    Particle *p = m_systemParticlesHead;
 	Particle *oldParticle;
 	while (p)
 	{
 
-		// apply 'gravity' force
+#if defined(__ANDROID__)
+        if(gxSteps.enabled) ++GXPreRTT::state().particleSteps;
+#endif
+        // apply 'gravity' force
 		if (m_gravity != 0.0f)
 		{
 			Coord3D force;
@@ -2150,6 +2165,7 @@ Bool ParticleSystem::update( Int localPlayerIndex  )
 		}
 	}
 
+	}
 	//
 	// If we have been "destroyed", wait for all of our particles to die off,
 	// then destroy ourselves (return false).
@@ -3032,7 +3048,10 @@ void ParticleSystemManager::update()
 	m_lastLogicFrameUpdate = TheGameLogic->getFrame();
 #endif
 
-	//USE_PERF_TIMER(ParticleSystemManager)
+#if defined(__ANDROID__)
+    if(GXPreRTT::active()) ++GXPreRTT::state().particleTicks;
+#endif
+    //USE_PERF_TIMER(ParticleSystemManager)
 	ParticleSystemListIt it = m_allParticleSystemList.begin();
 	while( it != m_allParticleSystemList.end() )
 	{
@@ -3045,13 +3064,20 @@ void ParticleSystemManager::update()
 			continue;
 		}
 
-		if (sys->update(m_localPlayerIndex) == false)
+#if defined(__ANDROID__)
+        GXPreRTT::Scope gxSystem(GXPreRTT::ParticleSystems);
+        if(gxSystem.enabled) ++GXPreRTT::state().systems;
+#endif
+        if (sys->update(m_localPlayerIndex) == false)
 		{
 			deleteInstance(sys);
 		}
 	}
 
-	// GeneralsX @bugfix fbraz 04/05/2026 Skip smudge rendering path in headless replay simulation.
+#if defined(__ANDROID__)
+    GXPreRTT::Scope gxSmudge(GXPreRTT::Smudge);
+#endif
+    // GeneralsX @bugfix fbraz 04/05/2026 Skip smudge rendering path in headless replay simulation.
 	const Bool drawSmudge = !TheGlobalData->m_headless && TheSmudgeManager && TheSmudgeManager->getHardwareSupport() && TheGlobalData->m_useHeatEffects;
 
 	if (drawSmudge)

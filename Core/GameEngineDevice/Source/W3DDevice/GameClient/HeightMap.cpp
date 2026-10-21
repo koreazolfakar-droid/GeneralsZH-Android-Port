@@ -91,6 +91,9 @@
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 #include "GXTrace.h"
+#if defined(__ANDROID__)
+#include "GXPreRenderStats.h"
+#endif
 #include <chrono>
 // GeneralsX @feature Codex 14/10/2026 Reuse existing shared text-atlas counters
 // in performance-only sessions, without enabling expensive verbose tracing.
@@ -1855,9 +1858,23 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 	BaseHeightMapRenderObjClass::updateCenter(camera, cameraPivot, pLightsIterator);
 
 	if (m_x >= m_map->getXExtent() && m_y >= m_map->getYExtent())
-  {
-		return; // no need to center.
-	}
+    {
+        // GeneralsX @bugfix Codex 14/10/2026 A full-map window never scrolls,
+        // but must consume lighting/rebuild requests. The early return left
+        // this flag set forever, repeating preRTT terrain/bridge refreshes.
+        if(m_needFullUpdate) {
+            // Match the normal scrolling branch: acknowledge the old request
+            // before updating, so a new request raised during the update survives.
+            m_needFullUpdate=false;
+            m_updating=true;
+            updateBlock(0,0,m_x-1,m_y-1,m_map,pLightsIterator);
+            m_updating=false;
+#if defined(__ANDROID__)
+            if(GXPreRTT::active()) ++GXPreRTT::state().fullMapRefreshes;
+#endif
+        }
+        return; // no need to center; required refresh has been applied.
+    }
 
 	const Real cameraPitch = asin(fabs(camera->Get_Forward_Dir().Z));
 	Int newOrgX;

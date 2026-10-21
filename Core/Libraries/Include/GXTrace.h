@@ -47,6 +47,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace GXTrace
 {
@@ -69,13 +70,15 @@ namespace GXTrace
 		return false;
 	}
 
-	inline bool isEnabled()
-	{
-		// Function-local static: resolved once, thread-safe since C++11, and
-		// shared across every translation unit that includes this header.
-		static const bool enabled = computeEnabled();
-		return enabled;
-	}
+    // GeneralsX @performance Codex 14/10/2026 Explicit performance summary
+    // is a benchmark, even if old full/net markers were left behind. Detailed
+    // diagnostics remain opt-in; Replay Check must keep its existing CRC logs.
+    inline bool &replayDiagnostics() { static bool replay=false; return replay; }
+    inline void configureDiagnosticArguments(int argc,char **argv) {
+        replayDiagnostics()=false;
+        for(int i=1;i<argc;++i) if(argv[i] && std::strcmp(argv[i],"-replay")==0) replayDiagnostics()=true;
+    }
+    inline bool fullRequested() { static const bool on=computeEnabled(); return on; }
 
 	inline bool computePerfEnabled()
 	{
@@ -93,12 +96,21 @@ namespace GXTrace
 		return false;
 	}
 
-	inline bool isPerfEnabled()
-	{
-		// GX_TRACE implies GX_PERF: a full trace session wants the summary too.
-		static const bool enabled = isEnabled() || computePerfEnabled();
-		return enabled;
-	}
+    inline bool explicitPerfRequested() { static const bool on=computePerfEnabled(); return on; }
+    inline bool computeDetailedPerfEnabled() {
+        const char *env=getenv("GX_PERF_DETAIL");
+        if(env && env[0] && env[0]!='0') return true;
+        FILE *marker=fopen("gx_perf_detail.txt","r");
+        if(marker) { fclose(marker); return true; }
+        return false;
+    }
+    inline bool detailedPerfRequested() {
+        static const bool on=computeDetailedPerfEnabled();
+        return on||replayDiagnostics();
+    }
+    inline bool isSummaryBenchmark() { return explicitPerfRequested()&&!detailedPerfRequested(); }
+    inline bool isEnabled() { return fullRequested()&&!isSummaryBenchmark(); }
+    inline bool isPerfEnabled() { return fullRequested()||explicitPerfRequested(); }
 
 	// GeneralsX @feature Android port 09/09/2026 A third, separate opt-in, for the
 	// [GX-AUDIO] instrumentation. Chasing the silent intro movies and the fragmenting
@@ -165,11 +177,15 @@ namespace GXTrace
 		return false;
 	}
 
-	inline bool isNetEnabled()
-	{
-		static const bool enabled = computeNetEnabled();
-		return enabled;
-	}
+    inline bool netRequested() { static const bool on=computeNetEnabled(); return on; }
+    inline bool isNetEnabled() { return netRequested()&&!isSummaryBenchmark(); }
+    inline void reportPerformanceMode() {
+        static bool logged=false;
+        if(logged||!isPerfEnabled()) return;
+        logged=true;
+        fprintf(stderr,"[GX-PERF-MODE] summaryBenchmark=%d fullRequested=%d netRequested=%d fullTrace=%d netTrace=%d detailedOverride=%d replayDiagnostic=%d\n",
+            int(isSummaryBenchmark()),int(fullRequested()),int(netRequested()),int(isEnabled()),int(isNetEnabled()),int(detailedPerfRequested()),int(replayDiagnostics()));
+    }
 
 	// GeneralsX @feature Android port 22/09/2026 Who is running right now.
 	//
