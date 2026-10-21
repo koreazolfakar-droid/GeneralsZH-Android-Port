@@ -3,7 +3,8 @@
 GeneralsX @feature Codex 14/10/2026
 
 Use the installed application; no ADB or APK rebuild is required. Signed engine
-3486 adds producer terrain-dirty and aligned CPU/render/logic/AI/path windows.
+3493 adds preRTT CPU/particle/DrawModule attribution and redundant whole-map
+refresh correction, on top of 3486 terrain-dirty and CPU/render/logic/AI/path windows.
 Existing engine 3481 exports provide the terrain-snapshot baseline. Actual phone
 FPS/visual acceptance remains unmeasured; keep the build number with each ZIP.
 

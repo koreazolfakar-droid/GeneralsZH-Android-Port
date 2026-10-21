@@ -1,0 +1,208 @@
+{
+  "engine": 3493,
+  "serial": 17,
+  "source": "a126959e0774ff791256ace21923f7d1cea8804d",
+  "merge": "b6ecdca9a98ce5503b17c821bd5c0c12c755bd34",
+  "publisher_controller": "aa149e155a73c69ca7eccdbb97461a736967054c",
+  "updates_commit": "62a1c3afd21902072819f2271d85a8872b2e8f88",
+  "pr": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/pull/22",
+  "native_ci": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/39656153137",
+  "publisher_ci": "https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/39658945517",
+  "native_build": "PASS",
+  "dependency_compatibility": "PASS",
+  "new_apk_required": false,
+  "source_tests": [
+    {
+      "test": "test-engine-incremental-state.py",
+      "passed": true
+    },
+    {
+      "test": "test-engine-build-number.py",
+      "passed": true
+    },
+    {
+      "test": "test-engine-packaging.py",
+      "passed": true
+    },
+    {
+      "test": "test-engine-native-version.py",
+      "passed": true
+    },
+    {
+      "test": "test-engine-3277-hotfix.py",
+      "passed": true
+    },
+    {
+      "test": "test-save-map-safety.py",
+      "passed": true
+    },
+    {
+      "test": "test-mod-localization.py",
+      "passed": true
+    },
+    {
+      "test": "smoke/test-mod-localization.py",
+      "passed": true
+    },
+    {
+      "test": "test-standalone-mod-overlay.py",
+      "passed": true
+    },
+    {
+      "test": "test-mod-archive-loading.py",
+      "passed": true
+    },
+    {
+      "test": "test-gles-upload-regressions.py",
+      "passed": true
+    },
+    {
+      "test": "test-battle-perf-window.py",
+      "passed": true
+    },
+    {
+      "test": "test-terrain-snapshot-safety.py",
+      "passed": true
+    },
+    {
+      "test": "test-terrain-light-dirty.py",
+      "passed": true
+    },
+    {
+      "test": "test-prertt-regressions.py",
+      "passed": true
+    },
+    {
+      "test": "test-vehicle-ai-v1.py",
+      "passed": true
+    },
+    {
+      "test": "test_projectx_ai_regressions.py",
+      "passed": true
+    },
+    {
+      "test": "test-verified-ndk-pch-cache.py",
+      "passed": true
+    },
+    {
+      "test": "test-own-update-channel.py",
+      "passed": true
+    },
+    {
+      "test": "test-android-validation-staging.py",
+      "passed": true
+    },
+    {
+      "test": "test-engine-security.py",
+      "passed": true
+    },
+    {
+      "test": "test-online-tls.py",
+      "passed": false,
+      "status": "NOT TESTED",
+      "reason": "host libcurl development files absent"
+    },
+    {
+      "test": "test-video-upload-performance.py",
+      "status": "NOT TESTED",
+      "reason": "not committed in source HEAD"
+    },
+    {
+      "test": "test-particle-removal.py",
+      "status": "NOT TESTED",
+      "reason": "not committed in source HEAD"
+    }
+  ],
+  "local_TLS": "PASS",
+  "abi": {
+    "libmain.so": {
+      "ABI": "ARM64 ELF64 DYN",
+      "DT_NEEDED_matches_3486": true,
+      "JNI_SDL_exports_match_3486": true,
+      "entrypoints": 3
+    },
+    "libmain60.so": {
+      "ABI": "ARM64 ELF64 DYN",
+      "DT_NEEDED_matches_3486": true,
+      "JNI_SDL_exports_match_3486": true,
+      "entrypoints": 3
+    }
+  },
+  "CI_artifacts": [
+    {
+      "id": 12372453497,
+      "name": "engine-incremental-state",
+      "size_in_bytes": 5363496622,
+      "expired": false,
+      "digest": "sha256:ea4296f4fb6283ea995d3a225a40e504b5cf69f64a865a9df73aa1ddb65a7c96"
+    },
+    {
+      "id": 12372433944,
+      "name": "engine-incremental-report",
+      "size_in_bytes": 41827556,
+      "expired": false,
+      "digest": "sha256:05361055ad08f3f63dd762c130b9c3acb1bed42f927ee0bea19404423778615d"
+    }
+  ],
+  "device_before_after_frame_P50_P95": "NOT TESTED",
+  "device_FPS_gain": "NOT MEASURED",
+  "original_mod_visuals_gameplay_installation_replay_CRC": "NOT TESTED",
+  "live": {
+    "engine": 3493,
+    "serial": 17,
+    "source": "a126959e0774ff791256ace21923f7d1cea8804d",
+    "channel": "koreazolfakar-droid/mobile-v4/v1",
+    "signed": true,
+    "ECDSA_P256_APK_trust": "PASS",
+    "manifest_url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/manifest.json",
+    "manifest_sha256": "3d81a23a3d0a200a04501befdfac18059ac9d8472fcfa1fb7c9ea75427950a10",
+    "signature_sha256": "ba32ca53862387e150afe9390c80729b613accf9d0f8234d979d838d2444f56d",
+    "runtime_fingerprints": 15,
+    "config_preserved": true,
+    "files": {
+      "libmain.so": {
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3493/libmain.so.gz",
+        "sha256": "894c1b842af689675beeb10d5e58a0bc55b942cbbf210d8866a13fc13175d19b",
+        "size": 42301296,
+        "gzip_sha256": "7a1bb12900491c8aae5358e83f265eb110cf5839cc58cec37388fb23b4141aa8",
+        "gzip_size": 18366247,
+        "matches_successful_CI": true,
+        "ARM64_native_stamp": "PASS"
+      },
+      "libmain60.so": {
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3493/libmain60.so.gz",
+        "sha256": "7bf0286a8153fe15dd2f4138cd1ff2be38bf818bb7e78dbc6fea162a5bf1a347",
+        "size": 42305568,
+        "gzip_sha256": "561a3fe63e5d88880e75d1a5b1af7284834c7cc6fdf834c634ade1b3ffbbd2ca",
+        "gzip_size": 18367718,
+        "matches_successful_CI": true,
+        "ARM64_native_stamp": "PASS"
+      }
+    },
+    "app_discoverable_contract": "PASS: exact updater URLs, signed own channel, increasing serial/sequence, unchanged APK library fingerprints",
+    "phone_installation": "NOT TESTED",
+    "phone_FPS_visuals_gameplay": "NOT TESTED"
+  },
+  "changed_files": [
+    ".github/engine-baseline/build.py",
+    "Core/GameEngine/Source/GameClient/System/ParticleSys.cpp",
+    "Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp",
+    "Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DView.cpp",
+    "Core/Libraries/Include/GXPreRenderStats.h",
+    "Core/Libraries/Include/GXTrace.h",
+    "Core/Libraries/Source/d3d8gles/src/gles_thread.cpp",
+    "GeneralsMD/Code/GameEngine/Source/GameClient/Drawable.cpp",
+    "GeneralsMD/Code/GameEngine/Source/GameClient/GameClient.cpp",
+    "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DBridgeBuffer.cpp",
+    "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DDisplay.cpp",
+    "GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/hlod.cpp",
+    "GeneralsMD/Code/Main/SDL3Main.cpp",
+    "docs/DEV_BLOG/2026-10-DIARY.md",
+    "docs/HOWTO/ANDROID_BATTLE_PERFORMANCE_CAPTURE.md",
+    "docs/WORKDIR/reports/PRERTT_CPU_2026-10-14.md",
+    "docs/WORKDIR/reports/PRERTT_CPU_HOST_2026-10-14.json",
+    "scripts/README.md",
+    "scripts/qa/test-prertt-regressions.py",
+    "scripts/update/prepare-engine-run.py"
+  ]
+}

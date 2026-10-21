@@ -16,7 +16,8 @@ when the draw window covers both map extents. It never acknowledges
 m_needFullUpdate in that branch. W3DView::update consequently calls updateTerrain
 again each stationary frame. Base refresh marks tree/prop/road work dirty and
 forces bridge preparation. Apply the pending full geometry/lighting update once,
-acknowledge success, retain the request on failure/missing resources, and keep
+consume the old request before refreshing so a new request raised during that
+refresh survives; retain requests on missing resources/reentrancy, and keep
 camera-driven ancillary refreshes. The scrolling-map branch is unchanged.
 
 W3DBridgeBuffer::loadBridgesInVertexAndIndexBuffers opens full-capacity vertex and
@@ -30,7 +31,7 @@ Host differential fixtures execute the actual 3486 and current whole-map branch
 and bridge fill function, with counting/map/buffer adapters:
 
 - 1,000 stationary dirty checks: 1,000 base/bridge refreshes in 3486, one after correction.
-- Later lighting/time-of-day requests each refresh once; missing buffers, reentrancy and failed refresh retain retry.
+- Later lighting/time-of-day requests each refresh once; missing buffers and reentrancy retain retry; requests raised during refresh survive.
 - Explicit camera refresh still performs tree/road/bridge work.
 - 1,000 empty bridge fills avoid 2,000 DISCARD locks.
 - Nonempty bridge vertex/index bytes, empty/nonempty transitions and original DISCARD flags match.
