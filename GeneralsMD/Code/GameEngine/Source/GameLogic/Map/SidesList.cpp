@@ -585,6 +585,7 @@ void SidesList::prepareForMP_or_Skirmish()
 				fprintf(stderr, "[SKIRMISH_DIAG] Parsed SkirmishScripts.scb scriptCount=%d\n", count);
 				fflush(stderr);
 #endif
+				Bool sideHasMatchingScript[MAX_SKIRMISH_SIDES] = {};
 				Int matchedScriptSides = 0;
 				Int unmatchedScriptSides = 0;
 				Int i;
@@ -617,12 +618,26 @@ void SidesList::prepareForMP_or_Skirmish()
 					// decides which scripts each side runs on a skirmish map, so a
 					// wrong list here is a different simulation, not a leak.
 					++matchedScriptSides;
+					sideHasMatchingScript[curSide] = true;
 					ScriptList *pOldScriptList = getSkirmishSideInfo(curSide)->getScriptList();
 					getSkirmishSideInfo(curSide)->setScriptList(scripts[i]);
 					scripts[i] = nullptr;
 					if (pOldScriptList)
 						deleteInstance(pOldScriptList);
 				}
+				Int nonCivilianSidesWithoutScripts = 0;
+				for (Int sideIndex = 0; sideIndex < m_numSkirmishSides; ++sideIndex) {
+					const SideInfo* side = getSkirmishSideInfo(sideIndex);
+					if (side->getDict()->getAsciiString(TheKey_playerFaction) == "FactionCivilian")
+						continue;
+					if (!sideHasMatchingScript[sideIndex]) {
+						++nonCivilianSidesWithoutScripts;
+						fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=side-without-script name=%s faction=%s\n",
+							side->getDict()->getAsciiString(TheKey_playerName).str(),
+							side->getDict()->getAsciiString(TheKey_playerFaction).str());
+					}
+				}
+				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=coverage missingSides=%d\n", nonCivilianSidesWithoutScripts);
 				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=assigned scriptPlayers=%d matched=%d unmatched=%d sides=%d\n", count, matchedScriptSides, unmatchedScriptSides, m_numSkirmishSides);
 				for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
 					static_readPlayerNames[i].clear();
