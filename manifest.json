@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "894c1b842af689675beeb10d5e58a0bc55b942cbbf210d8866a13fc13175d19b",
-        "size": 42301296,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3493/libmain.so.gz"
+        "sha256": "f69b07950e4ce49192ddca041a50ab440869cace09b3a3e562b8eb4c9aa8502f",
+        "size": 42305456,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3507/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "7bf0286a8153fe15dd2f4138cd1ff2be38bf818bb7e78dbc6fea162a5bf1a347",
-        "size": 42305568,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3493/libmain60.so.gz"
+        "sha256": "e90ed333ca43d2a70f46aed83adc2dc885433e78643cde31b9a8dc1e15685af9",
+        "size": 42313824,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3507/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3493,
-    "source_commit": "a126959e0774ff791256ace21923f7d1cea8804d"
+    "seq": 3507,
+    "source_commit": "177d90000c90f6e3d1a9b9f03932210380ae153d"
   },
-  "note": "Engine 3493 candidate: consume whole-map terrain refresh requests once while preserving requests raised during refresh; skip empty bridge buffer locks; separate preRTT view, terrain, drawable modules, particles, thread CPU and producer waits. Normal performance mode suppresses per-event full/net traces with opt-in detail. Host differential and ARM64 CI validation preserve native APK compatibility. Physical-device FPS, P50/P95, mod visuals, installation and replay CRC remain unmeasured.",
-  "published": "2026-10-21",
+  "note": "Native Android resolution startup migration: preserve true screen pixels by default and validated explicit custom resolutions. Preserve SGSR. Host C++ and UBSan regression tests passed. Launcher companion setting requires a newer APK; physical-device visuals, frame rates, SFX and mods remain unverified.",
+  "published": "2026-10-22",
   "schema": 1,
-  "serial": 17
+  "serial": 18
 }
