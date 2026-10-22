@@ -1171,7 +1171,11 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 			}
 		}
 
-		firingWeapon->newProjectileFired( sourceObj, projectile, victimObj, victimPos );//The actual logic weapon needs to know this was created.
+		// A weapon template can also fire from scripted/mod event contexts with
+		// no concrete Weapon instance. Its stream bookkeeping is optional; keep
+		// the projectile launch and effects even if that bookkeeping is absent.
+		if (firingWeapon != nullptr)
+			firingWeapon->newProjectileFired(sourceObj, projectile, victimObj, victimPos);
 
 		ProjectileUpdateInterface* pui = nullptr;
 		for (BehaviorModule** u = projectile->getBehaviorModules(); *u; ++u)
