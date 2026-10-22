@@ -1,6 +1,6 @@
 # One-time, guarded mod AI loose-script resolution OTA. No APK or signing-key changes.
 # Uses the existing cached dual-engine builder and the existing private-key signer.
-name: Publish mod-aware AI script engine OTA (one time)
+name: Recover mod-aware AI script engine OTA (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: dc05f94906590bc233b3f2f48d298be3891c6563
+      BASE_MERGE: aba13786ec3841e9aebc0afb50c60d8d51c33da0
       PRIOR_ENGINE: '3518'
       PRIOR_SERIAL: '19'
       PRIOR_SOURCE: dc05f94906590bc233b3f2f48d298be3891c6563
@@ -37,14 +37,13 @@ jobs:
           test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/27")"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/28")"
           test "$(jq -r .merged <<< "$pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$pr")" = "$GITHUB_SHA"
-          test "$(jq -r .head.ref <<< "$pr")" = fix/mod-ai-skirmish-diagnostics-20261022
+          test "$(jq -r .head.ref <<< "$pr")" = fix/mod-ai-ota-archive-fixture-20261023
           expected="$(printf '%s\n' \
-            Core/GameEngine/Source/Common/System/FileSystem.cpp \
-            GeneralsMD/Code/GameEngine/Source/GameLogic/Map/SidesList.cpp \
-            scripts/qa/test_projectx_ai_regressions.py \
+            scripts/qa/test-mod-archive-loading.py \
+            scripts/qa/mod-archive-fixture.cpp \
             .github/workflows/publish-mod-ai-compat-ota-once.yml | sort)"
           actual="$(git diff --name-only "$BASE_MERGE" HEAD | sort)"
           test "$actual" = "$expected" || { echo 'Unexpected changed source file; refusing release'; exit 1; }
@@ -53,6 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/qa/test_projectx_ai_regressions.py -v
+          python3 scripts/qa/test-mod-archive-loading.py
           python3 scripts/qa/test-vehicle-ai-v1.py
           python3 scripts/qa/test-gles-upload-regressions.py
           python3 scripts/qa/test-engine-security.py
