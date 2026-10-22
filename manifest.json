@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "73f4e62ff0ec128be4308f223ac1037d8cce745a6561d6a6e46772807d7e2d63",
-        "size": 42305456,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3518/libmain.so.gz"
+        "sha256": "f5429c90edab88abe5f7248e22c214b5729d56a225e56760b083700b6d3b933a",
+        "size": 42313632,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3537/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "14e66e251cc79638de6796f0007fe8654ab0d555dd3e433bd2ade90689292382",
-        "size": 42313840,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3518/libmain60.so.gz"
+        "sha256": "0b3738ae38fe32f53030ff912ae08ed243dd05b86ea8fd4d17c479380b49435a",
+        "size": 42317952,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3537/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3518,
-    "source_commit": "dc05f94906590bc233b3f2f48d298be3891c6563"
+    "seq": 3537,
+    "source_commit": "a4a17caa25dc0b643d7d08ecaf073ab6783aace5"
   },
-  "note": "Terrain Buffer Locks optimization: skip unchanged geometry locks while preserving dynamic lighting and synchronized updates. Host regression, UBSan and Android CI required. Physical device FPS and mod visuals remain unverified.",
+  "note": "Mod-aware loose AI script resolution: search selected Mod Manager folder before BIG and root copies for known skirmish script paths. Focused host regressions and Android CI required. Actual Project X and TEOD battle AI behavior remains unverified.",
   "published": "2026-10-22",
   "schema": 1,
-  "serial": 19
+  "serial": 20
 }
