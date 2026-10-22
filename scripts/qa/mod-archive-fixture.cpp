@@ -246,6 +246,15 @@ int main(int argc,char** argv) {
         assert(file->read(value.data(),value.size())==static_cast<int>(value.size()));
         file->close(); return value;
     };
+    // Match PC-style mod layouts: active loose AI script must beat the mod BIG
+    // and retail loose AI; switching back to vanilla must restore retail AI.
+    if(selection=="Mods/Active") {
+        assert(vfs.doesFileExist("Data/Scripts/SkirmishScripts.scb"));
+        assert(payload("Data/Scripts/SkirmishScripts.scb")=="active-mod-loose-ai");
+        assert(payload("Data/Scripts/SkirmishScripts.scb")=="active-mod-loose-ai");
+    } else if(selection=="vanilla") {
+        assert(payload("Data/Scripts/SkirmishScripts.scb")=="vanilla-loose-ai");
+    }
     assert(!vfs.openFile("Art/Textures/ShieldMissing.tga"));
     assert(!vfs.doesFileExist("Art/Textures/ShieldProbeOnly.tga"));
     assert(!vfs.doesFileExist("Art/Textures/ShieldProbeOnly.tga")); // Negative cache hit.
