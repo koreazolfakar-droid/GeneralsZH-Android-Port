@@ -10,7 +10,12 @@
 #include <vector>
 #include "GameLogic/UniversalTacticalDirector.h"
 
-using AsciiString = std::string;
+struct AsciiString : std::string {
+ using std::string::string;
+ void concat(const AsciiString& value) {append(value);}
+};
+using Int = int;
+using Bool = bool;
 using Real = float;
 enum { KINDOF_INFANTRY, KINDOF_VEHICLE, KINDOF_AIRCRAFT, KINDOF_STRUCTURE, KINDOF_DOZER,
  KINDOF_HARVESTER, KINDOF_FS_FACTORY, KINDOF_FS_BARRACKS, KINDOF_FS_WARFACTORY,
@@ -59,11 +64,15 @@ struct TCreateUnitsInfo { AsciiString unitThingName; int minUnits=2,maxUnits=2; 
 struct TeamInfo {
  TCreateUnitsInfo m_unitsInfo[16]; int m_numUnitsInfo=1;
  bool m_attackCommonTarget=true;
+ int m_productionPriority=10;
+ bool m_hasHomeLocation=true;
 };
 class TeamPrototype {
 public:
  TeamInfo info;
+ bool eligible=true;
  const TeamInfo* getTemplateInfo() const {return &info;}
+ AsciiString getName() const {return "fixture-team";}
 };
 class Object;
 template<class T> struct DLINK_ITERATOR {
@@ -75,11 +84,15 @@ template<class T> struct DLINK_ITERATOR {
 class Player {
 public:
  using PlayerTeamList=std::list<TeamPrototype*>;
+ PlayerTeamList teams;
+ struct Money {int amount=5000;int countMoney() const {return amount;}} money;
  int difficulty=DIFFICULTY_HARD; bool skirmish=true; int id=0;
  bool isSkirmishAIPlayer() const {return skirmish;}
  int getPlayerDifficulty() const {return difficulty;}
  int getPlayerIndex() const {return id;}
  int getRelationship(Team* t) const;
+ const PlayerTeamList* getPlayerTeams() const {return &teams;}
+ Money* getMoney() {return &money;}
 };
 struct AIUpdateInterface {
  bool priority=false;
@@ -132,7 +145,33 @@ struct Factory {
 } factory;
 Factory* TheThingFactory=&factory;
 
+struct GlobalData {bool m_debugAI=false;} globals;
+GlobalData* TheGlobalData=&globals;
+struct ScriptEngine {void AppendDebugMessage(const AsciiString&,bool){}} scripts;
+ScriptEngine* TheScriptEngine=&scripts;
+struct AIData {int m_resourcesPoor=100,m_resourcesWealthy=10000,m_teamPoorMod=2,m_teamWealthyMod=2;};
+struct AISystem {AIData data;const AIData* getAiData(){return &data;}} aiSystem;
+AISystem* TheAI=&aiSystem;
+int randomCalls=0,randomLow=0,randomHigh=0,randomChoice=0;
+int GameLogicRandomValue(int lo,int hi){++randomCalls;randomLow=lo;randomHigh=hi;assert(randomChoice>=lo&&randomChoice<=hi);return randomChoice;}
+class AIPlayer {
+public:
+ Player* m_player;
+ TeamPrototype* built=nullptr;
+ bool m_readyToBuildTeam=true,reinforce=false;
+ int m_teamTimer=0,m_teamSeconds=10,reinforcePriority=0;
+ explicit AIPlayer(Player* p):m_player(p){}
+ // Existing virtual production/factory/prerequisite gate is an interface double.
+ bool isAGoodIdeaToBuildTeam(TeamPrototype* p){return p->eligible;}
+ bool selectTeamToReinforce(int priority){reinforcePriority=priority;return reinforce;}
+ bool isSkirmishAI(){return m_player->isSkirmishAIPlayer();}
+ void buildSpecificAITeam(TeamPrototype* p,bool){built=p;}
+ bool selectTeamToBuild();
+};
+
 // PRODUCTION_ADAPTER
+
+// PRODUCTION_SELECTION
 
 using namespace UniversalTacticalDirector;
 struct Scenario {
@@ -167,6 +206,25 @@ struct Scenario {
 };
 
 int main() {
+ {
+  Scenario s;AIPlayer player(&s.us);
+  s.objects[2].team=&s.theirs;s.objects[2].thing=&s.air;s.link(3);
+  s.us.teams={&s.normalTeam,&s.aaTeam};randomCalls=0;randomChoice=0;
+  assert(player.selectTeamToBuild() && player.built==&s.aaTeam);
+  assert(randomCalls==1 && randomLow==0 && randomHigh==1 && !player.m_readyToBuildTeam);
+  s.aaTeam.eligible=false;randomCalls=0;
+  assert(player.selectTeamToBuild() && player.built==&s.normalTeam && randomHigh==0 && randomCalls==1);
+  s.aaTeam.eligible=true;s.aaTeam.info.m_productionPriority=9;
+  assert(player.selectTeamToBuild() && player.built==&s.normalTeam && randomHigh==0);
+  s.aaTeam.info.m_productionPriority=10;player.reinforce=true;randomCalls=0;player.built=nullptr;
+  assert(player.selectTeamToBuild() && !player.built && randomCalls==0 && player.reinforcePriority==10);
+  player.reinforce=false;s.normalTeam.eligible=s.aaTeam.eligible=false;
+  assert(!player.selectTeamToBuild() && !player.built && randomCalls==0);
+  // A destroyed factory/locked tech leaves no eligible team; when the original
+  // gate reports recovery, the exact production selector can build again.
+  s.aaTeam.eligible=true;assert(player.selectTeamToBuild() && player.built==&s.aaTeam);
+  puts("PASS: actual selectTeamToBuild eligibility, priority, reinforcement, recovery and exact RNG call/range");
+ }
  {
   Scenario s;
   assert(enabled(&s.us));game.multi=true;assert(!enabled(&s.us));game.multi=false;

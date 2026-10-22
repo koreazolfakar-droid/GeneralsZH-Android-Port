@@ -47,7 +47,8 @@ General weapon preference/range hints do not infer unsupported abilities.
 ## Verification
 
 `test-universal-tactical-ai.py` compiles the actual adapter extracted unchanged
-from AIPlayer.cpp with interface doubles, plus its actual production policy
+from AIPlayer.cpp, including the actual selectTeamToBuild integration, with
+interface doubles, plus its actual production policy
 header, using ASan/UBSan and optimized builds. Cases cover unknown templates,
 conditional/unsupported weapons, fog/stealth/disguise exclusion, aircraft/vehicle/
 defense responses, friendly counter saturation, lost-unit recovery, protected

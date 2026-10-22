@@ -23,6 +23,13 @@ class UniversalTacticalTests(unittest.TestCase):
         adapter = adapter.split('// END UNIVERSAL TACTICAL ADAPTER', 1)[0]
         fixture = (ROOT / 'scripts/qa/universal-tactical-fixture.cpp').read_text()
         self.assertEqual(fixture.count('// PRODUCTION_ADAPTER'), 1)
+        start = source.index('Bool AIPlayer::selectTeamToBuild()')
+        opening = source.index('{', start)
+        depth, end = 1, opening + 1
+        while depth:
+            depth += (source[end] == '{') - (source[end] == '}')
+            end += 1
+        fixture = fixture.replace('// PRODUCTION_SELECTION', source[start:end])
         with tempfile.TemporaryDirectory(prefix='gx-universal-ai-') as tmp:
             path = Path(tmp) / 'fixture.cpp'
             path.write_text(fixture.replace('// PRODUCTION_ADAPTER', adapter))
