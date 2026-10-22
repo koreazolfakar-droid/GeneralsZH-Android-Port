@@ -44,6 +44,7 @@ jobs:
           expected="$(printf '%s\n' \
             scripts/qa/test-mod-archive-loading.py \
             scripts/qa/mod-archive-fixture.cpp \
+            .github/workflows/projectx-ai-smoke.yml \
             .github/workflows/publish-mod-ai-compat-ota-once.yml | sort)"
           actual="$(git diff --name-only "$BASE_MERGE" HEAD | sort)"
           test "$actual" = "$expected" || { echo 'Unexpected changed source file; refusing release'; exit 1; }
