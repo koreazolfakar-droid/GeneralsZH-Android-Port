@@ -1438,6 +1438,9 @@ public class SetupActivity extends Activity {
         // this setting, leaving unrelated game options untouched.
         int[] full = screenSize();
         prefs.put("Resolution", full[0] + " " + full[1]);
+        // Native resolution is the intended output for every SGSR choice;
+        // the renderer may independently choose a smaller internal render target.
+        prefs.put("GXResolutionPolicy", "native");
         prefs.remove("GXRenderScale");
         prefs.remove("GXUpscaler");
         writeKeyValueFile(file, prefs);
