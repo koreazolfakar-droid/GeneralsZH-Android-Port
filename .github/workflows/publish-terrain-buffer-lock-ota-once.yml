@@ -1,6 +1,6 @@
 # One-time, guarded terrain-buffer-lock engine OTA. No APK or signing-key changes.
 # Uses the existing cached dual-engine builder and the existing private-key signer.
-name: Publish terrain buffer lock engine OTA (one time)
+name: Recover terrain buffer lock engine OTA (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -17,8 +17,8 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 177d90000c90f6e3d1a9b9f03932210380ae153d
-      PR_HEAD_PARENT: d37ca4f0e71a58b01042bee84b4ad10b663b1c92
+      BASE_MERGE: 5a4ed235e43031080200c0ccb7a02cc7e2f2ef7b
+      PR_HEAD_PARENT: d5f2bebc4eb294017d16a03a5a1d87ee76b596f9
       PRIOR_ENGINE: '3507'
       PRIOR_SERIAL: '18'
       PRIOR_SOURCE: 177d90000c90f6e3d1a9b9f03932210380ae153d
@@ -40,15 +40,13 @@ jobs:
           test "$(git show --format= --name-only HEAD^2)" = .github/workflows/publish-terrain-buffer-lock-ota-once.yml
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/25")"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/26")"
           test "$(jq -r .merged <<< "$pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$pr")" = "$GITHUB_SHA"
-          test "$(jq -r .head.ref <<< "$pr")" = fix/terrain-buffer-lock-churn-20261022
+          test "$(jq -r .head.ref <<< "$pr")" = fix/terrain-ota-gles-test-20261022
           expected="$(printf '%s\n' \
-            Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp \
-            Core/Libraries/Include/GXTerrainGeometryDiff.h \
             docs/DEV_BLOG/2026-10-DIARY.md \
-            scripts/qa/test-terrain-geometry-diff.cpp \
+            scripts/qa/test-gles-upload-regressions.py \
             .github/workflows/publish-terrain-buffer-lock-ota-once.yml | sort)"
           actual="$(git diff --name-only "$BASE_MERGE" HEAD | sort)"
           test "$actual" = "$expected" || { echo 'Unexpected changed source file; refusing release'; exit 1; }
@@ -63,6 +61,7 @@ jobs:
             -fsanitize=undefined -fno-sanitize-recover=undefined \
             -I Core/Libraries/Include scripts/qa/test-terrain-geometry-diff.cpp -o "$RUNNER_TEMP/terrain-ubsan"
           "$RUNNER_TEMP/terrain-ubsan"
+          python3 scripts/qa/test-gles-upload-regressions.py
           python3 scripts/qa/test-engine-security.py
       - name: Require successful merged-source Android build
         shell: bash

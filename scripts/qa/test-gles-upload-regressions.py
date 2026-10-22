@@ -43,7 +43,14 @@ def main():
     begin = terrain.index('const Int firstVertex') if narrow_terrain else terrain.index('DX8VertexBufferClass::WriteLockClass lockVtxBuffer')
     end = terrain.index('VERTEX_FORMAT *vBase = data;', begin)
     lock = terrain[begin:end]
-    copy = next(line.strip() for line in terrain.splitlines() if 'memcpy(vbHardware' in line)
+    # GeneralsX @bugfix Codex 22/10/2026: extract a complete memcpy statement,
+    # not the new Android fast path's "else memcpy(...)" branch. The fixture
+    # intentionally runs the non-Android fallback on the host, while the
+    # geometry/diffuse fast path has its own production-header regression.
+    copy = next(
+        line.strip() for line in terrain.splitlines()
+        if re.match(r'^\s*memcpy\(vbHardware\s*\+\s*offset\s*-\s*firstVertex\s*,', line)
+    )
     # Use the actual terrain layout and tile side for byte counts. The old
     # generic 44-byte fixture proved range math, but was not the terrain stride.
     layout = extract(read('Core/Libraries/Source/WWVegas/WW3D2/dx8fvf.h'),
