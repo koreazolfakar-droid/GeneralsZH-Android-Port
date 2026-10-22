@@ -50,6 +50,7 @@
 #include "Common/FileSystem.h"
 
 #include "Common/ArchiveFileSystem.h"
+#include "Common/GlobalData.h"
 #include "Common/ArchiveFile.h"
 #include "Common/GameAudio.h"
 #include "Common/LocalFileSystem.h"
@@ -163,6 +164,26 @@ static FileInstance gxAIOverrideArchiveCount(const char* filename)
 		? TheArchiveFileSystem->getFileCount(filename) : 0;
 }
 
+// GeneralsX @bugfix Android port 22/10/2026: standalone Mod Manager directories
+// may ship PC-style loose AI scripts beside their BIGs. Root loose scripts are
+// not necessarily the active mod's scripts. Resolve ONLY exact known AI paths
+// within the selected mod directory, without remapping arbitrary assets.
+static std::string gxModLooseAIScriptPath(const char* filename)
+{
+	if (!gxIsAIOverrideScriptPath(filename) || TheGlobalData == nullptr ||
+		TheGlobalData->m_modDir.isEmpty())
+		return std::string();
+	std::string root(TheGlobalData->m_modDir.str());
+	std::string relative(filename);
+	std::replace(root.begin(), root.end(), '\\', '/');
+	std::replace(relative.begin(), relative.end(), '\\', '/');
+	while (!root.empty() && root.back() == '/')
+		root.pop_back();
+	if (root.empty())
+		return std::string();
+	return root + "/" + relative;
+}
+
 // GeneralsX @feature Codex 10/10/2026 Opt-in, filtered asset provenance without release-log flooding.
 // GX_ASSET_TRACE or gx_asset_trace.txt in the game root: '*' (or empty marker)
 // traces every read; otherwise a case/slash-insensitive virtual-path substring.
@@ -201,6 +222,17 @@ static Bool gxTraceAssetProbe(const char* filename, FileInstance instance, Bool 
 {
 	if (gxShouldTraceAsset(filename))
 	{
+		const std::string modLoosePath = gxModLooseAIScriptPath(filename);
+		const Bool modLoose = !modLoosePath.empty() && TheLocalFileSystem != nullptr
+			&& TheLocalFileSystem->doesFileExist(modLoosePath.c_str());
+		if (modLoose && instance == 0)
+		{
+			fprintf(stderr, "[gxasset] probe=%s instance=%u source=<active-mod-loose> result=%s\\n",
+				filename, (unsigned)instance, exists ? "FOUND" : "UNRESOLVED");
+			return exists;
+		}
+		if (modLoose)
+			--instance;
 		const Bool loose = TheLocalFileSystem != nullptr && TheLocalFileSystem->doesFileExist(filename);
 		const FileInstance scriptCopies = gxAIOverrideArchiveCount(filename);
 		ArchiveFile* archive = scriptCopies > 0
@@ -280,6 +312,24 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 	const Bool traceAsset = (access & File::WRITE) == 0 && gxShouldTraceAsset(filename);
 	const FileInstance requestedInstance = instance;
 	ArchiveFile* sourceArchive = nullptr;
+	// A selected mod's loose AI script precedes archived and root copies,
+	// matching a PC install with its mod files installed in the game root.
+	// This is strictly read-only and only for the exact AI script allowlist.
+	const std::string modLoosePath = (access & File::WRITE) == 0
+		? gxModLooseAIScriptPath(filename) : std::string();
+	if (!modLoosePath.empty() && TheLocalFileSystem != nullptr &&
+		TheLocalFileSystem->doesFileExist(modLoosePath.c_str()))
+	{
+		if (instance == 0)
+		{
+			file = TheLocalFileSystem->openFile(modLoosePath.c_str(), access, bufferSize);
+			fprintf(stderr, "[GX-AI-SCRIPT] path=%s instance=%u source=<active-mod-loose> result=%s\\n",
+				filename, (unsigned)requestedInstance, file != nullptr ? "OPEN" : "READ_FAILED");
+			// A corrupt/unreadable active mod script must not silently load vanilla AI.
+			return file;
+		}
+		--instance;
+	}
 	const FileInstance scriptCopies = (access & File::WRITE) == 0 ? gxAIOverrideArchiveCount(filename) : 0;
 	if (scriptCopies > 0 && instance < scriptCopies)
 	{
@@ -378,6 +428,15 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 	}
 #endif
 
+	const std::string modLoosePath = gxModLooseAIScriptPath(filename);
+	if (!modLoosePath.empty() && TheLocalFileSystem != nullptr &&
+		TheLocalFileSystem->doesFileExist(modLoosePath.c_str()))
+	{
+		if (instance == 0)
+			return gxTraceAssetProbe(filename, requestedInstance, TRUE);
+		--instance;
+	}
+
 	const FileInstance scriptCopies = gxAIOverrideArchiveCount(filename);
 	if (scriptCopies > 0 && instance < scriptCopies)
 	{
@@ -457,6 +516,15 @@ Bool FileSystem::getFileInfo(const AsciiString& filename, FileInfo *fileInfo, Fi
 	memset(fileInfo, 0, sizeof(*fileInfo));
 
 	// Keep metadata FileInstance ordering consistent with openFile().
+	const std::string modLoosePath = gxModLooseAIScriptPath(filename.str());
+	if (!modLoosePath.empty() && TheLocalFileSystem != nullptr &&
+		TheLocalFileSystem->doesFileExist(modLoosePath.c_str()))
+	{
+		if (instance == 0)
+			return TheLocalFileSystem->getFileInfo(AsciiString(modLoosePath.c_str()), fileInfo);
+		--instance;
+	}
+
 	const FileInstance scriptCopies = gxAIOverrideArchiveCount(filename.str());
 	if (scriptCopies > 0 && instance < scriptCopies)
 		return TheArchiveFileSystem->getFileInfo(filename, fileInfo, instance);
