@@ -1,0 +1,32 @@
+name: Universal tactical AI QA
+on:
+  pull_request:
+    branches: [dev/mobile-v4]
+    paths:
+      - 'GeneralsMD/Code/GameEngine/**'
+      - 'scripts/qa/**'
+      - '.github/engine-baseline/build.py'
+      - '.github/workflows/universal-tactical-ai.yml'
+      - '.github/workflows/publish-universal-tactical-ai.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tactical-and-mod-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Production tactical adapter with ASan and UBSan
+        run: python3 scripts/qa/test-universal-tactical-ai.py -v
+      - name: Preserve script loading, archive precedence and vehicle behavior
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test_projectx_ai_regressions.py -v
+          python3 scripts/qa/test-mod-archive-loading.py
+          python3 scripts/qa/test-vehicle-ai-v1.py
+          python3 scripts/qa/test-standalone-mod-overlay.py
+          python3 scripts/qa/test-save-map-safety.py
+          python3 scripts/qa/test-engine-security.py

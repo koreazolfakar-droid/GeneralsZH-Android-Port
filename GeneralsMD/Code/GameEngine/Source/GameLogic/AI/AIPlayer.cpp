@@ -61,6 +61,238 @@
 #include "GameLogic/Module/SupplyTruckAIUpdate.h"
 #include "GameLogic/Module/SupplyWarehouseDockUpdate.h"
 #include "GameLogic/PartitionManager.h"
+#include "GameLogic/UniversalTacticalDirector.h"
+#include "GameLogic/Weapon.h"
+
+// GeneralsX @feature Codex 22/10/2026 Mod-aware, state-free tactical adapter.
+// BEGIN UNIVERSAL TACTICAL ADAPTER (also compiled by the host integration fixture)
+namespace UniversalTacticalDirector
+{
+static bool replayMode = false;
+
+void setReplayMode(bool v1)
+{
+	replayMode = v1;
+}
+
+bool enabled(Player* player)
+{
+	return TheGameLogic && !TheGameLogic->isInMultiplayerGame() &&
+		(TheGameLogic->isInSkirmishGame() || (TheGameLogic->isInReplayGame() && replayMode)) &&
+		player && player->isSkirmishAIPlayer() &&
+		player->getPlayerDifficulty() != DIFFICULTY_EASY;
+}
+
+static Capabilities discover(const ThingTemplate* thing)
+{
+	Capabilities c;
+	if (!thing) return c;
+	if (thing->isKindOf(KINDOF_INFANTRY)) c.roles |= INFANTRY;
+	if (thing->isKindOf(KINDOF_VEHICLE)) c.roles |= VEHICLE;
+	if (thing->isKindOf(KINDOF_AIRCRAFT)) c.roles |= AIRCRAFT;
+	if (thing->isKindOf(KINDOF_STRUCTURE)) c.roles |= STRUCTURE;
+	if (thing->isKindOf(KINDOF_DOZER)) c.roles |= BUILDER;
+	if (thing->isKindOf(KINDOF_HARVESTER)) c.roles |= HARVESTER;
+	if (thing->isKindOf(KINDOF_FS_FACTORY) || thing->isKindOf(KINDOF_FS_BARRACKS) ||
+		thing->isKindOf(KINDOF_FS_WARFACTORY) || thing->isKindOf(KINDOF_FS_AIRFIELD)) c.roles |= PRODUCTION;
+	if (thing->isKindOf(KINDOF_FS_SUPPLY_CENTER) || thing->isKindOf(KINDOF_CASH_GENERATOR) ||
+		thing->isKindOf(KINDOF_FS_BLACK_MARKET) || thing->isKindOf(KINDOF_MONEY_HACKER)) c.roles |= RESOURCE;
+	if (thing->isKindOf(KINDOF_FS_TECHNOLOGY) || thing->isKindOf(KINDOF_FS_ADVANCED_TECH)) c.roles |= TECHNOLOGY;
+	if (thing->isKindOf(KINDOF_FS_SUPERWEAPON)) c.roles |= SUPERWEAPON;
+	if (thing->isKindOf(KINDOF_FS_BASE_DEFENSE)) c.roles |= DEFENSE;
+	if (thing->isKindOf(KINDOF_HEAL_PAD) || thing->isKindOf(KINDOF_REPAIR_PAD)) c.roles |= HEALER;
+
+	const ModuleInfo& modules = thing->getBehaviorModuleInfo();
+	for (int i = 0; i < modules.getCount() && i < MAX_MODULES; ++i)
+	{
+		// These are engine module interfaces, never faction or unit names.
+		const AsciiString name = modules.getNthName(i);
+		if (name == "StealthDetectorUpdate") c.roles |= DETECTOR;
+		if (name == "StealthUpdate") c.roles |= STEALTH;
+	}
+
+	// Only the unconditional weapon set is safe to credit before an object
+	// exists. Upgrade/stance/spawn/ability-only weapons remain script-owned.
+	WeaponSetFlags flags;
+	const WeaponTemplateSet* weapons = thing->findWeaponTemplateSet(flags);
+	if (weapons && weapons->friend_getWeaponSetFlags() == flags)
+	{
+		for (int i = 0; i < WEAPONSLOT_COUNT; ++i)
+		{
+			const WeaponSlotType slot = static_cast<WeaponSlotType>(i);
+			const WeaponTemplate* weapon = weapons->getNth(slot);
+			if (!weapon || !(weapons->getNthCommandSourceMask(slot) & (1 << CMD_FROM_AI))) continue;
+			if (weapon->getAntiMask() & WEAPON_ANTI_GROUND)
+			{
+				c.roles |= GROUND_WEAPON;
+				// Respect the mod author's explicit target preference; do not
+				// infer armor effectiveness from a unit name or projectile art.
+				if (weapons->getNthPreferredAgainstMask(slot).test(KINDOF_VEHICLE)) c.roles |= VEHICLE_COUNTER;
+				if (weapon->getUnmodifiedAttackRange() >= 300.0f) c.roles |= LONG_RANGE;
+			}
+			if (weapon->getAntiMask() & WEAPON_ANTI_AIRBORNE_VEHICLE) c.roles |= AIR_WEAPON;
+		}
+	}
+	return c;
+}
+
+struct CapabilityCache
+{
+	const ThingTemplate* templates[MAX_TEMPLATES];
+	Capabilities values[MAX_TEMPLATES];
+	int count;
+	bool complete;
+	CapabilityCache() : count(0), complete(true) {}
+	Capabilities get(const ThingTemplate* thing)
+	{
+		for (int i = 0; i < count; ++i) if (templates[i] == thing) return values[i];
+		if (count == MAX_TEMPLATES) { complete = false; return Capabilities(); }
+		templates[count] = thing;
+		values[count] = discover(thing);
+		return values[count++];
+	}
+};
+
+static bool visibleEnemy(Player* player, Object* obj)
+{
+	// Fogged structures are not read at their current hidden position. Disguises
+	// are conservatively excluded even when the engine knows their real owner.
+	return obj && !obj->isEffectivelyDead() && !obj->getContainedBy() &&
+		obj->getShroudedStatus(player->getPlayerIndex()) == OBJECTSHROUD_CLEAR &&
+		!obj->testStatus(OBJECT_STATUS_DISGUISED) &&
+		(!obj->testStatus(OBJECT_STATUS_STEALTHED) || obj->testStatus(OBJECT_STATUS_DETECTED)) &&
+		player->getRelationship(obj->getTeam()) == ENEMIES;
+}
+
+static bool observe(Player* player, CapabilityCache& cache, Situation& s)
+{
+	int scanned = 0;
+	Object* obj = TheGameLogic->getFirstObject();
+	for (; obj && scanned < MAX_OBJECTS; obj = obj->getNextObject(), ++scanned)
+	{
+		const bool friendly = obj->getControllingPlayer() == player;
+		if (obj->isEffectivelyDead() || obj->getContainedBy()) continue;
+		if (!friendly && !visibleEnemy(player, obj)) continue;
+		const Capabilities c = cache.get(obj->getTemplate());
+		if (friendly)
+		{
+			if (obj->testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION)) continue;
+			if (c.has(AIR_WEAPON)) ++s.friendlyAA;
+			if (c.has(VEHICLE_COUNTER)) ++s.friendlyCounters;
+			if (c.has(LONG_RANGE)) ++s.friendlyRange;
+			if (c.has(DETECTOR)) ++s.friendlyDetectors;
+		}
+		else
+		{
+			if (c.has(AIRCRAFT)) ++s.air;
+			else if (c.has(VEHICLE) && !c.has(HARVESTER | BUILDER)) ++s.vehicles;
+			if (c.has(DEFENSE)) ++s.defenses;
+			if (c.has(STEALTH)) ++s.stealth;
+		}
+	}
+	// An incomplete snapshot never drives a global production decision.
+	return obj == nullptr && cache.complete;
+}
+
+static TeamPrototype* chooseProduction(Player* player, const Player::PlayerTeamList& candidates,
+	TeamPrototype* original)
+{
+	if (!enabled(player) || candidates.size() < 2 || candidates.size() > MAX_TEAMS) return original;
+	CapabilityCache cache;
+	Situation situation;
+	if (!observe(player, cache, situation)) return original;
+	const bool hard = player->getPlayerDifficulty() == DIFFICULTY_HARD;
+	TeamPrototype* best = original;
+	int bestScore = 0;
+	int originalScore = 0;
+	for (Player::PlayerTeamList::const_iterator t = candidates.begin(); t != candidates.end(); ++t)
+	{
+		const TCreateUnitsInfo* units = (*t)->getTemplateInfo()->m_unitsInfo;
+		const int types = (*t)->getTemplateInfo()->m_numUnitsInfo;
+		if (types <= 0 || types > MAX_TEAM_TYPES) return original;
+		int score = 0, count = 0;
+		bool combat = false;
+		for (int i = 0; i < types; ++i)
+		{
+			if (units[i].minUnits < 0 || units[i].maxUnits < units[i].minUnits) return original;
+			if (units[i].maxUnits == 0) continue;
+			const ThingTemplate* thing = TheThingFactory->findTemplate(units[i].unitThingName);
+			if (!thing) return original;
+			const Capabilities c = cache.get(thing);
+			// Never displace an economy/construction team at the same priority.
+			if (c.has(BUILDER | HARVESTER)) return original;
+			combat = combat || c.has(GROUND_WEAPON | AIR_WEAPON);
+			const int n = units[i].minUnits > 0 ? units[i].minUnits : 1;
+			const int bounded = n > MAX_MEMBERS ? MAX_MEMBERS : n;
+			score += productionUtility(c, situation, hard) * bounded;
+			count += bounded;
+		}
+		if (!combat || !count || !cache.complete) return original;
+		score /= count;
+		if (*t == original) originalScore = score;
+		if (score > bestScore) { bestScore = score; best = *t; }
+	}
+	// Preserve the already drawn team on utility ties (including no evidence).
+	return originalScore >= bestScore ? original : best;
+}
+
+void prepareTeamHunt(Team* team)
+{
+	if (!team || !enabled(team->getControllingPlayer()) ||
+		!team->getPrototype()->getTemplateInfo()->m_attackCommonTarget || team->getTeamTargetObject()) return;
+	Player* player = team->getControllingPlayer();
+	Object* members[MAX_MEMBERS];
+	int count = 0;
+	Coord3D center;
+	center.zero();
+	for (DLINK_ITERATOR<Object> it = team->iterate_TeamMemberList(); !it.done(); it.advance())
+	{
+		Object* member = it.cur();
+		if (count == MAX_MEMBERS) return;
+		if (member->isEffectivelyDead() || member->getContainedBy()) continue;
+		AIUpdateInterface* ai = member->getAIUpdateInterface();
+		// Aircraft, special-purpose teams and explicit attack priorities keep
+		// their original hunt, ammo/recovery, target and locomotor logic.
+		if (!ai || ai->getAttackInfo() || member->isKindOf(KINDOF_AIRCRAFT) ||
+			member->isKindOf(KINDOF_DOZER) || member->isKindOf(KINDOF_HARVESTER)) return;
+		if (!member->isAbleToAttack() || member->isOutOfAmmo()) continue;
+		members[count++] = member;
+		center.x += member->getPosition()->x;
+		center.y += member->getPosition()->y;
+	}
+	if (count < 2) return;
+	center.x /= count;
+	center.y /= count;
+	CapabilityCache cache;
+	Object* best = nullptr;
+	int bestScore = 0, scanned = 0, objectives = 0;
+	for (Object* obj = TheGameLogic->getFirstObject(); obj && scanned < MAX_OBJECTS;
+		obj = obj->getNextObject(), ++scanned)
+	{
+		// Shared objectives must stay at their legitimately observed position.
+		// Mobile targets retain the engine's individual acquisition behavior.
+		if (!visibleEnemy(player, obj) || !obj->isKindOf(KINDOF_STRUCTURE) ||
+			!obj->isKindOf(KINDOF_IMMOBILE)) continue;
+		if (++objectives > MAX_OBJECTIVES) break;
+		bool attackable = true;
+		for (int i = 0; i < count; ++i)
+			if (members[i]->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, obj, CMD_FROM_AI) != ATTACKRESULT_POSSIBLE)
+			{ attackable = false; break; }
+		if (!attackable) continue;
+		const Real dx = obj->getPosition()->x - center.x;
+		const Real dy = obj->getPosition()->y - center.y;
+		const Real distanceSqr = dx * dx + dy * dy;
+		// Keep existing hunt/path behavior for distant or non-finite positions.
+		if (!(distanceSqr >= 0.0f && distanceSqr <= 1500.0f * 1500.0f)) continue;
+		const Capabilities c = cache.get(obj->getTemplate());
+		const int score = objectiveUtility(c, static_cast<int>(distanceSqr / 10000.0f),
+			player->getPlayerDifficulty() == DIFFICULTY_HARD);
+		if (score > bestScore) { best = obj; bestScore = score; }
+	}
+	if (best && cache.complete) team->setTeamTargetObject(best);
+}
+} // namespace UniversalTacticalDirector
+// END UNIVERSAL TACTICAL ADAPTER
 
 
 #define SUPPLY_CENTER_CLOSE_DIST (20*PATHFIND_CELL_SIZE_F)
@@ -1729,6 +1961,9 @@ Bool AIPlayer::selectTeamToBuild()
 
 		i++;
 	}
+	// GeneralsX @feature Codex 22/10/2026 Keep the exact original RNG call/range,
+	// then rank only already eligible teams within the winning script priority.
+	teamProto = UniversalTacticalDirector::chooseProduction(m_player, candidateList, teamProto);
 	if (teamProto) {
 		if (!teamProto->getTemplateInfo()->m_hasHomeLocation && !isSkirmishAI()) {
 			AsciiString teamStr = "Error : team '";
