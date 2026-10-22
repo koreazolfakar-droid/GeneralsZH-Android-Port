@@ -1430,14 +1430,15 @@ public class SetupActivity extends Activity {
             prefs = new java.util.LinkedHashMap<>(readKeyValueFile(file));
         }
         prefs.put("GXUpscale", UPSCALE_MODES[Math.max(0, Math.min(UPSCALE_MODES.length - 1, index))]);
-        // The previous slider's keys. It lowered Resolution itself; that goes back to the screen's
-        // size (from the screen's full size, not the window's: Android hands the game a window
-        // without the display cutout first, logs-44), so the game runs at the screen's resolution
-        // again and only the upscaler renders below it.
-        if (prefs.remove("GXRenderScale") != null) {
-            int[] full = screenSize();
-            prefs.put("Resolution", full[0] + " " + full[1]);
-        }
+        // The upscaler operates on the native-size output. An older user-selected
+        // Resolution (including one left by the legacy GXRenderScale slider) must
+        // not silently keep the game at low resolution after changing upscale mode.
+        // In particular, "Off" promises 1:1 rendering; a stale Options.ini entry
+        // previously prevented it. Re-sync only when the user explicitly changes
+        // this setting, leaving unrelated game options untouched.
+        int[] full = screenSize();
+        prefs.put("Resolution", full[0] + " " + full[1]);
+        prefs.remove("GXRenderScale");
         prefs.remove("GXUpscaler");
         writeKeyValueFile(file, prefs);
     }
