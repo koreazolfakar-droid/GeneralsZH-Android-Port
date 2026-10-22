@@ -1,0 +1,60 @@
+# Small source-only gate for the Android resolution change. No NDK, Gradle, signing or cache writes.
+name: Android native-resolution regression
+on:
+  push:
+    branches:
+      - dev/mobile-v4
+      - fix/mobile-resolution-policy-20261022
+    paths:
+      - GeneralsMD/Code/Main/MobileResolutionPolicy.h
+      - GeneralsMD/Code/Main/SDL3Main.cpp
+      - GeneralsMD/Code/GameEngine/Source/GameClient/GUI/GUICallbacks/Menus/OptionsMenu.cpp
+      - android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java
+      - scripts/qa/test-mobile-resolution-policy.cpp
+      - .github/workflows/qa-mobile-resolution-policy.yml
+  pull_request:
+    paths:
+      - GeneralsMD/Code/Main/MobileResolutionPolicy.h
+      - GeneralsMD/Code/Main/SDL3Main.cpp
+      - GeneralsMD/Code/GameEngine/Source/GameClient/GUI/GUICallbacks/Menus/OptionsMenu.cpp
+      - android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java
+      - scripts/qa/test-mobile-resolution-policy.cpp
+permissions:
+  contents: read
+jobs:
+  policy-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Compile and execute host resolution assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror -pedantic \
+            scripts/qa/test-mobile-resolution-policy.cpp -o "$RUNNER_TEMP/resolution-test"
+          "$RUNNER_TEMP/resolution-test"
+      - name: Sanitizer regression pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror -pedantic -fsanitize=undefined -fno-sanitize-recover=undefined \
+            scripts/qa/test-mobile-resolution-policy.cpp -o "$RUNNER_TEMP/resolution-ubsan"
+          "$RUNNER_TEMP/resolution-ubsan"
+      - name: Check intent markers reach both UI paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('GeneralsMD/Code')
+          main=(root/'Main/SDL3Main.cpp').read_text()
+          options=(root/'GameEngine/Source/GameClient/GUI/GUICallbacks/Menus/OptionsMenu.cpp').read_text()
+          setup=Path('android/app/src/main/java/com/generalsx/zerohour/SetupActivity.java').read_text()
+          assert 'MobileResolutionPolicy::choose(' in main
+          assert 'GXResolutionPolicy' in main
+          assert '(*pref)["GXResolutionPolicy"] = "custom"' in options
+          assert 'prefs.put("GXResolutionPolicy", "native")' in setup
+          assert 'SDL_GetWindowSizeInPixels' in main
+          print('PASS: native/custom UI intent paths')
+          PY
