@@ -49,7 +49,7 @@ def main():
     # geometry/diffuse fast path has its own production-header regression.
     copy = next(
         line.strip() for line in terrain.splitlines()
-        if re.match(r'^\\s*memcpy\\(vbHardware\\s*\\+\\s*offset\\s*-\\s*firstVertex\\s*,', line)
+        if re.match(r'^\s*memcpy\(vbHardware\s*\+\s*offset\s*-\s*firstVertex\s*,', line)
     )
     # Use the actual terrain layout and tile side for byte counts. The old
     # generic 44-byte fixture proved range math, but was not the terrain stride.
