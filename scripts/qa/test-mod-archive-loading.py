@@ -56,6 +56,7 @@ def main():
         "big": ["static bool isStandaloneModArchiveBelowRoot(", "ArchiveFile * StdBIGFileSystem::openArchiveFile(",
                 "Bool StdBIGFileSystem::loadBigFilesFromDirectory("],
         "filesystem": ["static bool gxIsAIOverrideScriptPath(", "static FileInstance gxAIOverrideArchiveCount(",
+                       "static std::string gxModLooseAIScriptPath(",
                        "static bool gxShouldTraceAsset(", "static Bool gxTraceAssetProbe(",
                        "File*\t\tFileSystem::openFile(", "Bool FileSystem::doesFileExist("],
     }
@@ -90,7 +91,7 @@ def main():
             big(root / "TexturesZH.big", retail)
             big(root / "INIZH.big", {"Data/INI/OldOnly.ini": "must-be-masked"})
         for root in (game / "Mods/Active", manual):
-            big(root / "!A.BIG", mod)
+            big(root / "!A.BIG", {**mod, "Data/Scripts/SkirmishScripts.scb": "archived-mod-ai"})
             big(root / "!z.big", {name: "wrong-last" for name in paths})
             big(root / "INIZH.big", {"Data/INI/NewOnly.ini": "replacement"})
         big(game / "Mods/Inactive/!!first.big", {**{name: "inactive-leak" for name in paths},
@@ -98,6 +99,14 @@ def main():
         big(game / "Mods/Nested/Assets/Models.BIG", {"Art/W3D/Nested.w3d": "nested-model"})
         big(game / "Mods/Nested/Patches/Data/INI/INIZH.big", {"Data/INI/Nested.ini": "nested-ini"})
         big(game / "Mods/Single.big", {"Art/W3D/Vehicle.w3d": "single-big"})
+        # Confirm the active mod's loose scripts override both its BIG and retail
+        # loose AI scripts, without modifying the original retail base.
+        retail_ai = game / "Data/Scripts/SkirmishScripts.scb"
+        retail_ai.parent.mkdir(parents=True, exist_ok=True)
+        retail_ai.write_text("vanilla-loose-ai")
+        active_ai = game / "Mods/Active/Data/Scripts/SkirmishScripts.scb"
+        active_ai.parent.mkdir(parents=True, exist_ok=True)
+        active_ai.write_text("active-mod-loose-ai")
         # Synthetic TEOD archive layout: exercise the real Android overlay,
         # without requiring or altering original mod assets.
         teod = game / "Mods/TEOD"
