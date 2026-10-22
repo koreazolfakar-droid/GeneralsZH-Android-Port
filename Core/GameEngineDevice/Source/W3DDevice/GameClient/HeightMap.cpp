@@ -100,6 +100,8 @@
 extern void GeneralsX_Report_Glyph_Pool(const char *why);
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
 #include "GXTerrainLightColors.h"
+#include "GXTerrainGeometryDiff.h"
+#include <vector>
 #include <map>
 #include <optional>
 #include <new>
@@ -136,6 +138,7 @@ static GxTerrainLightPool *gxTerrainLightPool() {
 	return pool;
 }
 static size_t gxLightUpdates=0,gxLightUnchanged=0,gxLightFallback=0,gxLightChecked=0,gxLightChanged=0,gxLightLockVertices=0;
+static size_t gxGeomChecked=0,gxGeomSkipped=0,gxGeomLocks=0,gxGeomWritten=0;
 static bool gxCompleteTerrainTile(Int index,Int tilesX,Int tilesY,Int lastColumns,Int lastRows) {
 	return (index%tilesX!=tilesX-1 || lastColumns==0) && (index/tilesX!=tilesY-1 || lastRows==0);
 }
@@ -205,9 +208,10 @@ struct GxTerrainCpuScope {
 			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(), seconds,
 			us[0]/1000.0,calls[0],us[1]/1000.0,calls[1],us[2]/1000.0,calls[2]);
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
-		fprintf(stderr,"[GX-PERF-TERRAIN-DIRTY] t=%.0fus updates=%zu unchanged=%zu fallback=%zu colorChecks=%zu colorChanges=%zu lockVertices=%zu cacheKB=%.1f (interval totals)\n",
+		fprintf(stderr,"[GX-PERF-TERRAIN-DIRTY] t=%.0fus updates=%zu unchanged=%zu fallback=%zu colorChecks=%zu colorChanges=%zu lockVertices=%zu cacheKB=%.1f geomChecked=%zu geomSkipped=%zu geomLocks=%zu geomWritten=%zu (interval totals)\n",
 			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(),gxLightUpdates,gxLightUnchanged,gxLightFallback,gxLightChecked,gxLightChanged,gxLightLockVertices,
-			gxTerrainLightPool()?gxTerrainLightPool()->bytes/1024.0:0.0);
+			gxTerrainLightPool()?gxTerrainLightPool()->bytes/1024.0:0.0,gxGeomChecked,gxGeomSkipped,gxGeomLocks,gxGeomWritten);
+		gxGeomChecked=gxGeomSkipped=gxGeomLocks=gxGeomWritten=0;
 		gxLightUpdates=gxLightUnchanged=gxLightFallback=gxLightChecked=gxLightChanged=gxLightLockVertices=0;
 #endif
 		for (int i=0;i<3;++i) { us[i]=0; calls[i]=0; }
@@ -467,12 +471,23 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		// the ordinary synchronized lock and all vertex/lighting calculations.
 		const Int firstVertex = (y0-originY)*vertsPerRow + (x0-originX)*4;
 		const Int endVertex = (y1-originY-1)*vertsPerRow + (x1-originX)*4;
-		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB, firstVertex, endVertex-firstVertex);
-		VERTEX_FORMAT *vbHardware = (VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
-		VERTEX_FORMAT *vBase = data;
+		// GeneralsX @performance Codex 22/10/2026 On a fully initialized tile,
+		// defer the D3D lock until after comparing regenerated quads against
+		// the CPU staging mirror AND the dynamic-light diffuse version.
+		// A tile with no changes must not signal a dirty VB to GLES.
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
 		GXTerrainLightColors *litColors=gxTerrainLightPool()?gxTerrainLightPool()->find(pVB):nullptr;
+		const bool compareGeometry=litColors && litColors->initialized && !litColors->disabled;
+		std::optional<DX8VertexBufferClass::AppendLockClass> eagerLock;
+		if (!compareGeometry) eagerLock.emplace(pVB,firstVertex,endVertex-firstVertex);
+		VERTEX_FORMAT *vbHardware=eagerLock?(VERTEX_FORMAT*)eagerLock->Get_Vertex_Array():nullptr;
+		std::vector<Int> changedQuads;
+		const bool perfGeometry=GXTrace::isPerfEnabled();
+#else
+		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB,firstVertex,endVertex-firstVertex);
+		VERTEX_FORMAT *vbHardware=(VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
 #endif
+		VERTEX_FORMAT *vBase = data;
 		// Note that we are building the vertex buffer data in the memory buffer, data.
 		// At the bottom, we will copy the final vertex data for one cell into the
 		// hardware vertex buffer.
@@ -503,6 +518,11 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 					up1=pMap->getXExtent()-pMap->getDrawOrgX()-1;
 				xCoord = mapX+pMap->getDrawOrgX();
 
+				// Only read the old staging quad on a completely initialized tile.
+#if defined(__ANDROID__) && !defined(USE_NORMALS)
+				VERTEX_FORMAT previousQuad[4];
+				if(compareGeometry) memcpy(previousQuad,vb,sizeof(previousQuad));
+#endif
 				//update the 4 vertices in this block
 				float U[4], V[4];
 				UnsignedByte alpha[4];
@@ -683,13 +703,29 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				// We don't copy the whole vertex buffer because we often update only
 				// a couple of rows and its a lot faster to just copy the ones that change.
 				Int offset = pCurVertices - vBase;
-				memcpy(vbHardware+offset-firstVertex, pCurVertices, 4*sizeof(VERTEX_FORMAT));
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
-				if(litColors) litColors->remember(offset,pCurVertices,4);
+				const bool needsUpload=!compareGeometry || GXTerrainQuadNeedsUpload(previousQuad,pCurVertices,litColors->colors.data()+offset);
+				if(compareGeometry && perfGeometry) { ++gxGeomChecked; if(!needsUpload) ++gxGeomSkipped; }
+				if(needsUpload) {
+					if(compareGeometry) changedQuads.push_back(offset);
+					else memcpy(vbHardware+offset-firstVertex,pCurVertices,4*sizeof(VERTEX_FORMAT));
+					// Only committed geometry refreshes may advance the color version.
+					if(litColors) litColors->remember(offset,pCurVertices,4);
+				}
+#else
+				memcpy(vbHardware+offset-firstVertex,pCurVertices,4*sizeof(VERTEX_FORMAT));
 #endif
 			}
 		}
 #if defined(__ANDROID__) && !defined(USE_NORMALS)
+		if(compareGeometry && !changedQuads.empty()) {
+			const Int first=*std::min_element(changedQuads.begin(),changedQuads.end());
+			const Int end=*std::max_element(changedQuads.begin(),changedQuads.end())+4;
+			DX8VertexBufferClass::AppendLockClass changedLock(pVB,first,end-first);
+			VERTEX_FORMAT *hardware=(VERTEX_FORMAT*)changedLock.Get_Vertex_Array();
+			for(Int offset:changedQuads) memcpy(hardware+offset-first,vBase+offset,4*sizeof(VERTEX_FORMAT));
+			if(perfGeometry) { ++gxGeomLocks; gxGeomWritten+=changedQuads.size(); }
+		}
 		if(litColors && x0==originX && y0==originY && x1==originX+VERTEX_BUFFER_TILE_LENGTH && y1==originY+VERTEX_BUFFER_TILE_LENGTH)
 			litColors->initialized=true;
 #endif
