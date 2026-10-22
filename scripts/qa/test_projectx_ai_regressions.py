@@ -100,6 +100,9 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
         self.assertIn('stage=skirmish action=assigned', self.sides)
         self.assertIn('++unmatchedScriptSides;', self.sides)
         self.assertIn('++matchedScriptSides;', self.sides)
+        self.assertIn('action=side-without-script', self.sides)
+        self.assertIn('sideHasMatchingScript[curSide] = true;', self.sides)
+        self.assertIn('action=coverage missingSides=', self.sides)
 
     def test_mod_sides_are_bounded_and_validated(self):
         self.assertIn("SidesList::MAX_SKIRMISH_SIDES", self.sides)
