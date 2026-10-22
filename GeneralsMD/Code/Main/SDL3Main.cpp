@@ -1377,7 +1377,7 @@ int main(int argc, char* argv[])
 				const int xres = resolution.width;
 				const int yres = resolution.height;
 				fprintf(stderr,
-				        "[GX-RES] windowPixels=%dx%d saved='%s' policy='%s' effective=%dx%d reason=%s upscale=%s\\n",
+				        "[GX-RES] windowPixels=%dx%d saved='%s' policy='%s' effective=%dx%d reason=%s upscale=%s\n",
 				        winW, winH, savedResolution.c_str(), resolutionPolicy.c_str(),
 				        xres, yres, resolution.reason,
 				        getenv("GX_UPSCALE") ? getenv("GX_UPSCALE") : "off");
