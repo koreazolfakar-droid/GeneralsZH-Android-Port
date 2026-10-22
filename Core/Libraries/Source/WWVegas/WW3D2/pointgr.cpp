@@ -1772,6 +1772,22 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 	// Keep the original source for every layer; never transform a previous layer.
 	Vector3 *const source_loc = current_loc;
 
+
+	// GeneralsX @performance Codex 23/10/2026: the camera and source positions
+	// stay fixed across layers. Cache the expensive direction normalization once.
+	// This does not change layer count, density, alpha, blending or particle sizes.
+	const bool billboard_transform = Get_Flag(TRANSFORM) && Billboard;
+	static VectorClass<Vector3> volume_directions;
+	if (billboard_transform) {
+		if (volume_directions.Length() < PointCount)
+			volume_directions.Resize(PointCount * 2);
+		const Vector3 camera_position = rinfo.Camera.Get_Position();
+		for (int i = 0; i < PointCount; ++i) {
+			Vector3::Subtract(camera_position, source_loc[i], &volume_directions[i]);
+			volume_directions[i].Normalize();
+		}
+	}
+
 	//// VOLUME_PARTICLE LOOP ///////////////
 	for ( unsigned int t = 0; t < depth; ++t )
 	{
@@ -1788,7 +1804,7 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 
 		// need to interrupt this processing. If we are not billboarding, then we need the actual position
 		// of the vertice to lay it down flat.
-		if (Get_Flag(TRANSFORM) && Billboard) {
+		if (billboard_transform) {
 			// Resize transformed location array if needed (2x guardband to prevent
 			// frequent reallocations):
 			if (transformed_loc.Length() < PointCount) {
@@ -1802,14 +1818,10 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 			float shiftInc = ( t *  *current_size * recipDepth );
 
 			Vector3 volumeLayerShift;
-			Vector3 cameraPosition = rinfo.Camera.Get_Position();
-
 			for (int i=0; i<PointCount; i++)
 			{
 				/// @todo lorenzen sez: use pointer arithmetic here and a fast while loop
-				Vector3 cameraToPointDelta;
-				Vector3::Subtract( cameraPosition, current_loc[i], &cameraToPointDelta );
-				cameraToPointDelta.Normalize();
+				Vector3 cameraToPointDelta = volume_directions[i];
 				cameraToPointDelta.X *= shiftInc;
 				cameraToPointDelta.Y *= shiftInc;
 				cameraToPointDelta.Z *= shiftInc;
