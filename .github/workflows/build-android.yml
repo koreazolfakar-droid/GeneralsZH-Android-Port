@@ -227,6 +227,8 @@ jobs:
           set -euo pipefail
           git diff --check HEAD^ HEAD
           python3 -m compileall -q scripts/qa
+          # GeneralsX @performance Codex 23/10/2026 Keep volume-layer equivalence mandatory.
+          python3 scripts/qa/test-volume-particle-equivalence.py
           python3 scripts/qa/test-engine-security.py
           python3 scripts/qa/test-engine-build-number.py
           python3 scripts/qa/test-engine-native-version.py
@@ -444,6 +446,7 @@ jobs:
           python3 scripts/qa/test-engine-3277-hotfix.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-mod-localization.py
+          python3 scripts/qa/test-volume-particle-equivalence.py
 
       - name: Configure CMake (Android)
         run: |
