@@ -18,6 +18,8 @@ end = text.index('\n//----------------------------------------------------------
 production_method = text[start:end]
 assert 'if (pst == nullptr)' in production_method
 assert 'missingStreamWarnings < 8' in production_method
+assert 'if (ownerTeam == nullptr)' in text
+assert text.index('if (ownerTeam == nullptr)') < text.index('TheThingFactory->newObject(getProjectileTemplate(), ownerTeam)')
 
 fixture = r'''
 #include <cstdio>
@@ -63,6 +65,7 @@ struct ThingTemplate{};
 struct WeaponTemplate {
     AsciiString name;
     AsciiString getProjectileStreamName() const {return name;}
+    AsciiString getName() const {return AsciiString("FixtureWeapon");}
 };
 struct GameLogic {
     Object* registered=nullptr;
@@ -164,5 +167,5 @@ with tempfile.TemporaryDirectory(prefix='gx-weapon-teod-') as temp:
     run=subprocess.run([str(executable)],text=True,capture_output=True)
     print(run.stdout)
     assert run.returncode==0,(run.returncode,run.stderr)
-    assert run.stderr.count('[GX-WEAPON-STREAM] missing')==8,run.stderr
+    assert run.stderr.count('[GX-WEAPON-STREAM] weapon=')==8,run.stderr
     print('PASS: missing-stream diagnostics capped at eight messages')
