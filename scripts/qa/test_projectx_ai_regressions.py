@@ -64,6 +64,9 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
             "using FileInstance = unsigned int;\n"
             "struct ArchiveFileSystem { unsigned count=2; FileInstance getFileCount(const char*) const { return count; } };\n"
             "ArchiveFileSystem* TheArchiveFileSystem = nullptr;\n"
+            "struct FakePath { std::string value; bool isEmpty() const { return value.empty(); } const char* str() const { return value.c_str(); } };\n"
+            "struct FakeGlobalData { FakePath m_modDir; };\n"
+            "FakeGlobalData* TheGlobalData = nullptr;\n"
             + excerpt +
             "\nint main() {\n"
             " ArchiveFileSystem a; TheArchiveFileSystem=&a;\n"
@@ -74,6 +77,12 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
             ' if(gxAIOverrideArchiveCount("Data/INI/AIData.ini") != 0) return 5;\n'
             ' a.count=0; if(gxAIOverrideArchiveCount("Data/Scripts/SkirmishScripts.scb") != 0) return 6;\n'
             " TheArchiveFileSystem=nullptr;\n"
+            " FakeGlobalData globals; globals.m_modDir.value = \"/mod-root/TEOD/\"; TheGlobalData = &globals;\n"
+            ' if(gxModLooseAIScriptPath("Data\\\\Scripts\\\\SkirmishScripts.scb") != "/mod-root/TEOD/Data/Scripts/SkirmishScripts.scb") return 8;\n'
+            ' if(!gxModLooseAIScriptPath("Data/Scripts/MultiplayerScripts.scb").size()) return 9;\n'
+            ' if(!gxModLooseAIScriptPath("Data/INI/AIData.ini").empty()) return 10;\n'
+            ' if(!gxModLooseAIScriptPath("../Data/Scripts/SkirmishScripts.scb").empty()) return 11;\n'
+            ' TheGlobalData = nullptr; if(!gxModLooseAIScriptPath("Data/Scripts/SkirmishScripts.scb").empty()) return 12;\n'
             ' if(gxAIOverrideArchiveCount("Data/Scripts/SkirmishScripts.scb") != 0) return 7;\n'
             " return 0;\n}\n"
         )
@@ -85,12 +94,31 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
                            check=True, capture_output=True, text=True)
             subprocess.run([str(executable)], check=True, capture_output=True, text=True)
 
+    def test_active_mod_loose_precedes_archived_script_instances(self):
+        self.assertIn('gxModLooseAIScriptPath(filename)', self.source)
+        self.assertIn('source=<active-mod-loose>', self.source)
+        self.assertIn('TheLocalFileSystem->openFile(modLoosePath.c_str()', self.source)
+        self.assertIn('TheLocalFileSystem->getFileInfo(AsciiString(modLoosePath.c_str())', self.source)
+        self.assertGreaterEqual(self.source.count('TheLocalFileSystem->doesFileExist(modLoosePath.c_str())'), 3)
+
     def test_read_metadata_and_existence_share_script_priority(self):
         self.assertIn("instance < scriptCopies", self.source)
         self.assertIn("TheArchiveFileSystem->getFileInfo(filename, fileInfo, instance)", self.source)
         self.assertIn("scriptCopies == 0 && TheArchiveFileSystem->doesFileExist", self.source)
         self.assertIn("(access & File::WRITE) == 0 ? gxAIOverrideArchiveCount", self.source)
         self.assertIn("m_files.count(result.lastToken)", self.archive)
+
+    def test_skirmish_script_assignment_diagnostics_present(self):
+        # Detect vanilla fallbacks and mod-side mismatches without changing
+        # AI choices, RNG, tick order, or multiplayer synchronization.
+        self.assertIn('stage=skirmish mode=default action=load', self.sides)
+        self.assertIn('stage=skirmish action=unmatched-player', self.sides)
+        self.assertIn('stage=skirmish action=assigned', self.sides)
+        self.assertIn('++unmatchedScriptSides;', self.sides)
+        self.assertIn('++matchedScriptSides;', self.sides)
+        self.assertIn('action=side-without-script', self.sides)
+        self.assertIn('sideHasMatchingScript[curSide] = true;', self.sides)
+        self.assertIn('action=coverage missingSides=', self.sides)
 
     def test_mod_sides_are_bounded_and_validated(self):
         self.assertIn("SidesList::MAX_SKIRMISH_SIDES", self.sides)

@@ -538,6 +538,9 @@ void SidesList::prepareForMP_or_Skirmish()
 		}
 	}
 	if (!gotScripts) {
+		// Record script fallback even in release logs. A skirmish can load vanilla
+		// scripts successfully while mod factions still have no matching AI.
+		fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish mode=default action=load path=Data\\Scripts\\SkirmishScripts.scb sides=%d\n", m_numSkirmishSides);
 		// GeneralsX @bugfix Copilot 22/03/2026 Load default skirmish scripts relative to the configured asset root.
 		AsciiString path = "Data\\Scripts\\SkirmishScripts.scb";
 #ifdef ALLOW_DEBUG_UTILS
@@ -582,6 +585,9 @@ void SidesList::prepareForMP_or_Skirmish()
 				fprintf(stderr, "[SKIRMISH_DIAG] Parsed SkirmishScripts.scb scriptCount=%d\n", count);
 				fflush(stderr);
 #endif
+				Bool sideHasMatchingScript[MAX_SKIRMISH_SIDES] = {};
+				Int matchedScriptSides = 0;
+				Int unmatchedScriptSides = 0;
 				Int i;
 				for (i=0; i<count; i++) {
 					Int curSide = -1;
@@ -595,6 +601,9 @@ void SidesList::prepareForMP_or_Skirmish()
 					}
 					if (curSide == -1)
 					{
+						++unmatchedScriptSides;
+						// Bounded by MAX_PLAYER_COUNT; expose mismatched mod owner labels.
+						fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=unmatched-player name=%s\n", static_readPlayerNames[i].str());
 						deleteInstance(scripts[i]);
 						scripts[i] = nullptr;
 						continue;
@@ -608,12 +617,28 @@ void SidesList::prepareForMP_or_Skirmish()
 					// deleteInstance on a side that had no list yet. This function
 					// decides which scripts each side runs on a skirmish map, so a
 					// wrong list here is a different simulation, not a leak.
+					++matchedScriptSides;
+					sideHasMatchingScript[curSide] = true;
 					ScriptList *pOldScriptList = getSkirmishSideInfo(curSide)->getScriptList();
 					getSkirmishSideInfo(curSide)->setScriptList(scripts[i]);
 					scripts[i] = nullptr;
 					if (pOldScriptList)
 						deleteInstance(pOldScriptList);
 				}
+				Int nonCivilianSidesWithoutScripts = 0;
+				for (Int sideIndex = 0; sideIndex < m_numSkirmishSides; ++sideIndex) {
+					SidesInfo* side = getSkirmishSideInfo(sideIndex);
+					if (side->getDict()->getAsciiString(TheKey_playerFaction) == "FactionCivilian")
+						continue;
+					if (!sideHasMatchingScript[sideIndex]) {
+						++nonCivilianSidesWithoutScripts;
+						fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=side-without-script name=%s faction=%s\n",
+							side->getDict()->getAsciiString(TheKey_playerName).str(),
+							side->getDict()->getAsciiString(TheKey_playerFaction).str());
+					}
+				}
+				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=coverage missingSides=%d\n", nonCivilianSidesWithoutScripts);
+				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=assigned scriptPlayers=%d matched=%d unmatched=%d sides=%d\n", count, matchedScriptSides, unmatchedScriptSides, m_numSkirmishSides);
 				for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
 					static_readPlayerNames[i].clear();
 				}
