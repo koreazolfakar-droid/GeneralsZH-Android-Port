@@ -62,7 +62,7 @@ struct ThingTemplate {
 };
 struct TCreateUnitsInfo { AsciiString unitThingName; int minUnits=2,maxUnits=2; };
 struct TeamInfo {
- TCreateUnitsInfo m_unitsInfo[16]; int m_numUnitsInfo=1;
+ TCreateUnitsInfo m_unitsInfo[7]; int m_numUnitsInfo=1;
  bool m_attackCommonTarget=true;
  int m_productionPriority=10;
  bool m_hasHomeLocation=true;
@@ -301,6 +301,8 @@ int main() {
   assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&detection);
   s.objects[0].thing=&s.detector;assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
   s.objects[0].thing=&s.armor;detection.info.m_numUnitsInfo=MAX_TEAM_TYPES+1;
+  assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
+  detection.info.m_numUnitsInfo=8;
   assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
   detection.info.m_numUnitsInfo=1;detection.info.m_unitsInfo[0].minUnits=-1;
   assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);

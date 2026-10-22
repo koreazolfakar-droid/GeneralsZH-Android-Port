@@ -210,7 +210,8 @@ static TeamPrototype* chooseProduction(Player* player, const Player::PlayerTeamL
 	{
 		const TCreateUnitsInfo* units = (*t)->getTemplateInfo()->m_unitsInfo;
 		const int types = (*t)->getTemplateInfo()->m_numUnitsInfo;
-		if (types <= 0 || types > MAX_TEAM_TYPES) return original;
+		const int capacity = sizeof((*t)->getTemplateInfo()->m_unitsInfo) / sizeof(TCreateUnitsInfo);
+		if (types <= 0 || types > capacity || types > MAX_TEAM_TYPES) return original;
 		int score = 0, count = 0;
 		bool combat = false;
 		for (int i = 0; i < types; ++i)
