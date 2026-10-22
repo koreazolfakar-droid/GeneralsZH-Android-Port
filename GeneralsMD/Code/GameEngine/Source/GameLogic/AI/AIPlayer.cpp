@@ -184,7 +184,8 @@ static bool observe(Player* player, CapabilityCache& cache, Situation& s)
 		}
 		else
 		{
-			if (c.has(AIRCRAFT)) ++s.air;
+			// Custom flyers may expose only their live airborne target interface.
+			if (c.has(AIRCRAFT) || obj->isAirborneTarget()) ++s.air;
 			else if (c.has(VEHICLE) && !c.has(HARVESTER | BUILDER)) ++s.vehicles;
 			if (c.has(DEFENSE)) ++s.defenses;
 			if (c.has(STEALTH)) ++s.stealth;
@@ -253,7 +254,7 @@ void prepareTeamHunt(Team* team)
 		AIUpdateInterface* ai = member->getAIUpdateInterface();
 		// Aircraft, special-purpose teams and explicit attack priorities keep
 		// their original hunt, ammo/recovery, target and locomotor logic.
-		if (!ai || ai->getAttackInfo() || member->isKindOf(KINDOF_AIRCRAFT) ||
+		if (!ai || ai->getAttackInfo() || member->isKindOf(KINDOF_AIRCRAFT) || member->isAirborneTarget() ||
 			member->isKindOf(KINDOF_DOZER) || member->isKindOf(KINDOF_HARVESTER)) return;
 		if (!member->isAbleToAttack() || member->isOutOfAmmo()) continue;
 		members[count++] = member;
@@ -284,7 +285,9 @@ void prepareTeamHunt(Team* team)
 		const Real distanceSqr = dx * dx + dy * dy;
 		// Keep existing hunt/path behavior for distant or non-finite positions.
 		if (!(distanceSqr >= 0.0f && distanceSqr <= 1500.0f * 1500.0f)) continue;
-		const Capabilities c = cache.get(obj->getTemplate());
+		Capabilities c = cache.get(obj->getTemplate());
+		// A custom production facility need not carry retail FS_* category bits.
+		if (obj->getProductionUpdateInterface()) c.roles |= PRODUCTION;
 		const int score = objectiveUtility(c, static_cast<int>(distanceSqr / 10000.0f),
 			player->getPlayerDifficulty() == DIFFICULTY_HARD);
 		if (score > bestScore) { best = obj; bestScore = score; }

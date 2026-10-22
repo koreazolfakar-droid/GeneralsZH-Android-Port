@@ -114,6 +114,7 @@ public:
  ThingTemplate* thing=nullptr; Team* team=nullptr; Object* next=nullptr;
  std::bitset<8> status; Coord3D pos;
  bool dead=false,contained=false,able=true,ammo=true,attackable=true;
+ bool airborne=false,production=false;
  int shroud=OBJECTSHROUD_CLEAR;
  AIUpdateInterface ai;
  bool isEffectivelyDead() const {return dead;}
@@ -128,6 +129,8 @@ public:
  bool isKindOf(int k) const {return thing->isKindOf(k);}
  bool isAbleToAttack() const {return able;}
  bool isOutOfAmmo() const {return !ammo;}
+ bool isAirborneTarget() const {return airborne;}
+ const void* getProductionUpdateInterface() const {return production?this:nullptr;}
  const Coord3D* getPosition() const {return &pos;}
  int getAbleToAttackSpecificObject(int,Object* p,int) {return p->attackable?ATTACKRESULT_POSSIBLE:ATTACKRESULT_CANNOT_ATTACK;}
 };
@@ -266,6 +269,17 @@ int main() {
   assert(s.choose({&s.normalTeam,&s.aaTeam},&s.normalTeam)==&s.aaTeam);
   factory.templates.erase("custom-aa");assert(s.choose({&s.normalTeam,&s.aaTeam},&s.normalTeam)==&s.normalTeam);
   puts("PASS: observed aircraft counters, hidden-data exclusion, composition saturation, loss recovery, missing template fallback");
+ }
+ {
+  Scenario s;
+  s.objects[2].team=&s.theirs;s.objects[2].airborne=true;s.link(3);
+  assert(s.choose({&s.normalTeam,&s.aaTeam},&s.normalTeam)==&s.aaTeam);
+  s.objects[2].airborne=false;
+  s.objects[2].thing=&s.supply;s.objects[3].team=&s.theirs;
+  s.objects[3].thing=&s.unknown;s.unknown.kinds.set(KINDOF_STRUCTURE);s.unknown.kinds.set(KINDOF_IMMOBILE);
+  s.objects[3].production=true;s.link(4);
+  prepareTeamHunt(&s.ours);assert(s.ours.target==&s.objects[3]);
+  puts("PASS: custom airborne and production interfaces without retail faction/category names");
  }
  {
   Scenario s;s.objects[2].team=&s.theirs;s.link(3);

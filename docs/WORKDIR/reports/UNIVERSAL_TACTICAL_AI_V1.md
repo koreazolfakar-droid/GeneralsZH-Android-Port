@@ -12,6 +12,8 @@ Recovery baseline: signed Engine 3537 / serial 20, source
 - Loaded KindOf, unconditional auto-selected weapons, anti-air masks, explicit
   vehicle target preferences, attack range and engine detector/stealth modules.
   No faction/unit name lists, new units, INI edits, script replacement or cheats.
+  Live airborne-target and production interfaces cover custom flyers/facilities
+  that omit the retail category flags.
 - Medium aircraft counters; Hard adds vehicle-preference counters, long-range
   support against observed static defense and detectors when identified.
   Counts existing friendly counters to avoid unlimited specialization. A weapon's
