@@ -53,7 +53,7 @@ inline int counterNeed(int threats, int counters)
 inline int productionUtility(const Capabilities& c, const Situation& s, bool hard)
 {
 	// Economy/construction/support-only teams keep their script-defined choice.
-	if (!c.has(GROUND_WEAPON | AIR_WEAPON) || c.has(BUILDER | HARVESTER)) return 0;
+	if (!c.has(GROUND_WEAPON | AIR_WEAPON) || c.has(BUILDER | HARVESTER | RESOURCE)) return 0;
 	int score = c.has(AIR_WEAPON) ? counterNeed(s.air, s.friendlyAA) * 4 : 0;
 	if (hard)
 	{

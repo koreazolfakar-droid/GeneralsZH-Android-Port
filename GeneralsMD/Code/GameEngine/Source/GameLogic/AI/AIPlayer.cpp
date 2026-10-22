@@ -221,7 +221,7 @@ static TeamPrototype* chooseProduction(Player* player, const Player::PlayerTeamL
 			if (!thing) return original;
 			const Capabilities c = cache.get(thing);
 			// Never displace an economy/construction team at the same priority.
-			if (c.has(BUILDER | HARVESTER)) return original;
+			if (c.has(BUILDER | HARVESTER | RESOURCE)) return original;
 			combat = combat || c.has(GROUND_WEAPON | AIR_WEAPON);
 			const int n = units[i].minUnits > 0 ? units[i].minUnits : 1;
 			const int bounded = n > MAX_MEMBERS ? MAX_MEMBERS : n;
@@ -243,13 +243,13 @@ void prepareTeamHunt(Team* team)
 		!team->getPrototype()->getTemplateInfo()->m_attackCommonTarget || team->getTeamTargetObject()) return;
 	Player* player = team->getControllingPlayer();
 	Object* members[MAX_MEMBERS];
-	int count = 0;
+	int count = 0, scannedMembers = 0;
 	Coord3D center;
 	center.zero();
 	for (DLINK_ITERATOR<Object> it = team->iterate_TeamMemberList(); !it.done(); it.advance())
 	{
 		Object* member = it.cur();
-		if (count == MAX_MEMBERS) return;
+		if (++scannedMembers > MAX_MEMBERS) return;
 		if (member->isEffectivelyDead() || member->getContainedBy()) continue;
 		AIUpdateInterface* ai = member->getAIUpdateInterface();
 		// Aircraft, special-purpose teams and explicit attack priorities keep

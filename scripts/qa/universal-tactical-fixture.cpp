@@ -288,6 +288,8 @@ int main() {
   s.us.difficulty=DIFFICULTY_HARD;s.objects[2].thing=&s.supply;s.supply.kinds.set(KINDOF_FS_BASE_DEFENSE);
   assert(s.choose({&s.normalTeam,&s.siegeTeam},&s.normalTeam)==&s.siegeTeam);
   s.armor.kinds.set(KINDOF_HARVESTER);assert(s.choose({&s.normalTeam,&s.siegeTeam},&s.normalTeam)==&s.normalTeam);
+  s.armor.kinds.reset(KINDOF_HARVESTER);s.armor.kinds.set(KINDOF_CASH_GENERATOR);
+  assert(s.choose({&s.normalTeam,&s.siegeTeam},&s.normalTeam)==&s.normalTeam);
   puts("PASS: hard vehicle preference, long range against defenses, economy team protection");
  }
  {
@@ -317,6 +319,16 @@ int main() {
   s.objects[0].thing=&s.armor;s.ours.members.resize(1);prepareTeamHunt(&s.ours);assert(!s.ours.target);
   s.ours.members.push_back(&s.objects[1]);s.objects[2].pos.x=std::numeric_limits<float>::infinity();prepareTeamHunt(&s.ours);assert(!s.ours.target);
   puts("PASS: useful shared objective, minimum force, valid attacks, mod priorities, aircraft and finite distance fallback");
+ }
+ {
+  Scenario s;s.objects.resize(MAX_MEMBERS+2);s.ours.members.clear();
+  for(size_t i=0;i<s.objects.size();++i){
+   auto& o=s.objects[i];o.thing=&s.armor;o.team=&s.ours;o.able=i<2;
+   if(i<MAX_MEMBERS+1)s.ours.members.push_back(&o);
+  }
+  s.objects.back().thing=&s.supply;s.objects.back().team=&s.theirs;s.link(s.objects.size());
+  prepareTeamHunt(&s.ours);assert(!s.ours.target);
+  puts("PASS: member scan budget includes unarmed/dead/support members");
  }
  {
   Scenario s;s.objects.resize(MAX_OBJECTS+1);for(auto& o:s.objects){o.thing=&s.armor;o.team=&s.ours;}s.link(s.objects.size());
