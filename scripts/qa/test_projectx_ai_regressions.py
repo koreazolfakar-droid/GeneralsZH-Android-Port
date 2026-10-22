@@ -77,8 +77,8 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
             ' if(gxAIOverrideArchiveCount("Data/INI/AIData.ini") != 0) return 5;\n'
             ' a.count=0; if(gxAIOverrideArchiveCount("Data/Scripts/SkirmishScripts.scb") != 0) return 6;\n'
             " TheArchiveFileSystem=nullptr;\n"
-            " FakeGlobalData globals; globals.m_modDir.value = \"/mod-root/TEOD\\\\\"; TheGlobalData = &globals;\n"
-            ' if(gxModLooseAIScriptPath("Data\\\\\\\\Scripts\\\\\\\\SkirmishScripts.scb") != "/mod-root/TEOD/Data/Scripts/SkirmishScripts.scb") return 8;\n'
+            " FakeGlobalData globals; globals.m_modDir.value = \"/mod-root/TEOD/\"; TheGlobalData = &globals;\n"
+            ' if(gxModLooseAIScriptPath("Data\\\\Scripts\\\\SkirmishScripts.scb") != "/mod-root/TEOD/Data/Scripts/SkirmishScripts.scb") return 8;\n'
             ' if(!gxModLooseAIScriptPath("Data/Scripts/MultiplayerScripts.scb").size()) return 9;\n'
             ' if(!gxModLooseAIScriptPath("Data/INI/AIData.ini").empty()) return 10;\n'
             ' if(!gxModLooseAIScriptPath("../Data/Scripts/SkirmishScripts.scb").empty()) return 11;\n'
