@@ -540,7 +540,7 @@ void SidesList::prepareForMP_or_Skirmish()
 	if (!gotScripts) {
 		// Record script fallback even in release logs. A skirmish can load vanilla
 		// scripts successfully while mod factions still have no matching AI.
-		fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish mode=default action=load path=Data\\\\Scripts\\\\SkirmishScripts.scb sides=%d\\n", m_numSkirmishSides);
+		fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish mode=default action=load path=Data\\Scripts\\SkirmishScripts.scb sides=%d\n", m_numSkirmishSides);
 		// GeneralsX @bugfix Copilot 22/03/2026 Load default skirmish scripts relative to the configured asset root.
 		AsciiString path = "Data\\Scripts\\SkirmishScripts.scb";
 #ifdef ALLOW_DEBUG_UTILS
@@ -602,7 +602,7 @@ void SidesList::prepareForMP_or_Skirmish()
 					{
 						++unmatchedScriptSides;
 						// Bounded by MAX_PLAYER_COUNT; expose mismatched mod owner labels.
-						fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=unmatched-player name=%s\\n", static_readPlayerNames[i].str());
+						fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=unmatched-player name=%s\n", static_readPlayerNames[i].str());
 						deleteInstance(scripts[i]);
 						scripts[i] = nullptr;
 						continue;
@@ -623,7 +623,7 @@ void SidesList::prepareForMP_or_Skirmish()
 					if (pOldScriptList)
 						deleteInstance(pOldScriptList);
 				}
-				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=assigned scriptPlayers=%d matched=%d unmatched=%d sides=%d\\n", count, matchedScriptSides, unmatchedScriptSides, m_numSkirmishSides);
+				fprintf(stderr, "[GX-AI-SCRIPT] stage=skirmish action=assigned scriptPlayers=%d matched=%d unmatched=%d sides=%d\n", count, matchedScriptSides, unmatchedScriptSides, m_numSkirmishSides);
 				for (i=0; i<MAX_SKIRMISH_SIDES; i++) {
 					static_readPlayerNames[i].clear();
 				}
