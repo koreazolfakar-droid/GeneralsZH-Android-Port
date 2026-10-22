@@ -18,6 +18,7 @@ end = text.index('\n//----------------------------------------------------------
 production_method = text[start:end]
 assert 'if (pst == nullptr)' in production_method
 assert 'missingStreamWarnings < 8' in production_method
+assert 'getDefaultTeamIfSet()' in production_method
 assert 'if (ownerTeam == nullptr)' in text
 assert text.index('if (ownerTeam == nullptr)') < text.index('TheThingFactory->newObject(getProjectileTemplate(), ownerTeam)')
 
@@ -43,6 +44,7 @@ struct Team {};
 struct Player {
     Team* team=nullptr;
     Team* getDefaultTeam() const {return team;}
+    Team* getDefaultTeamIfSet() const {return team;}
 };
 struct ProjectileStreamUpdate {
     int positions=0, projectiles=0, lastSource=-1, lastProjectile=-1, lastVictim=-1;
