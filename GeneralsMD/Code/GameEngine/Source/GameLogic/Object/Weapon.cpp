@@ -29,6 +29,7 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include <cstdio>
 
 #define DEFINE_DEATH_NAMES
 #define DEFINE_WEAPONBONUSCONDITION_NAMES
@@ -1117,7 +1118,24 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 	else	// must be a projectile
 	{
 		Player *owningPlayer = sourceObj->getControllingPlayer(); //Need to know so missiles don't collide with firer
-		Object *projectile = TheThingFactory->newObject( getProjectileTemplate(), owningPlayer->getDefaultTeam() );
+		// A custom mod can fire from an ownerless object during AI startup.
+		// Never dereference its absent team while creating a projectile.
+		// Valid owners retain the exact original projectile and bonus path.
+		Team *ownerTeam = owningPlayer ? owningPlayer->getDefaultTeam() : nullptr;
+		if (ownerTeam == nullptr)
+		{
+			static unsigned missingProjectileOwnerWarnings = 0;
+			if (missingProjectileOwnerWarnings < 8)
+			{
+				fprintf(stderr, "[GX-WEAPON-PROJECTILE] no owner team; shooter=%d projectile=%s; shot safely cancelled\n",
+					(int)sourceObj->getID(), m_projectileName.str());
+				++missingProjectileOwnerWarnings;
+			}
+			return TheGameLogic->getFrame();
+		}
+		Object *projectile = TheThingFactory->newObject(getProjectileTemplate(), ownerTeam);
+		if (projectile == nullptr)
+			return TheGameLogic->getFrame();
 		projectile->setProducer(sourceObj);
 
 		//If the player has battle plans (America Strategy Center), then apply those bonuses
@@ -2640,7 +2658,9 @@ void Weapon::newProjectileFired(const Object *sourceObj, const Object *projectil
 			static unsigned missingStreamWarnings = 0;
 			if (missingStreamWarnings < 8)
 			{
-				fprintf(stderr, "[GX-WEAPON-STREAM] missing ProjectileStreamName=%s; preserving projectile and skipping optional trail\n", streamName.str());
+				const AsciiString weaponName = m_template->getName();
+				fprintf(stderr, "[GX-WEAPON-STREAM] weapon=%s source=%d missing ProjectileStreamName=%s; keeping projectile, skipping optional trail\n",
+					weaponName.str(), (int)sourceObj->getID(), streamName.str());
 				++missingStreamWarnings;
 			}
 			return;
