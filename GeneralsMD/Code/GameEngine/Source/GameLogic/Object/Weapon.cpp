@@ -2619,17 +2619,40 @@ Real Weapon::estimateWeaponDamage(const Object *sourceObj, const Object *victimO
 //-------------------------------------------------------------------------------------------------
 void Weapon::newProjectileFired(const Object *sourceObj, const Object *projectile, const Object *victimObj, const Coord3D *victimPos )
 {
-	// If I have a stream, I need to tell it about this new guy
-	if( m_template->getProjectileStreamName().isEmpty() )
-		return; // nope, no streak logic to do
+	// Some standalone mod INIs name a projectile stream object that is not
+	// present in the active archive set. The projectile itself has already
+	// been created; an invalid optional trail must not terminate the battle.
+	// Healthy stream definitions keep exactly the original update sequence.
+	if (m_template == nullptr || sourceObj == nullptr || projectile == nullptr || victimPos == nullptr)
+		return;
+	const AsciiString streamName = m_template->getProjectileStreamName();
+	if (streamName.isEmpty())
+		return;
 
 	Object* projectileStream = TheGameLogic->findObjectByID(m_projectileStreamID);
-	if( projectileStream == nullptr )
+	if (projectileStream == nullptr)
 	{
-		m_projectileStreamID = INVALID_ID;	// reset, since it might have been "valid" but deleted out from under us
-		const ThingTemplate* pst = TheThingFactory->findTemplate(m_template->getProjectileStreamName());
-		projectileStream = TheThingFactory->newObject( pst, sourceObj->getControllingPlayer()->getDefaultTeam() );
-		if( projectileStream == nullptr )
+		m_projectileStreamID = INVALID_ID;
+		const ThingTemplate* pst = TheThingFactory->findTemplate(streamName);
+		if (pst == nullptr)
+		{
+			// Diagnostic is capped: one broken mod weapon can fire thousands of times.
+			static unsigned missingStreamWarnings = 0;
+			if (missingStreamWarnings < 8)
+			{
+				fprintf(stderr, "[GX-WEAPON-STREAM] missing ProjectileStreamName=%s; preserving projectile and skipping optional trail\n", streamName.str());
+				++missingStreamWarnings;
+			}
+			return;
+		}
+		Player* owningPlayer = sourceObj->getControllingPlayer();
+		if (owningPlayer == nullptr || owningPlayer->getDefaultTeam() == nullptr)
+		{
+			// The stream belongs to the shooter; do not invent ownership or RNG.
+			return;
+		}
+		projectileStream = TheThingFactory->newObject(pst, owningPlayer->getDefaultTeam());
+		if (projectileStream == nullptr)
 			return;
 		m_projectileStreamID = projectileStream->getID();
 	}
