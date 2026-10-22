@@ -92,6 +92,15 @@ class ScriptPrecedenceCodeTests(unittest.TestCase):
         self.assertIn("(access & File::WRITE) == 0 ? gxAIOverrideArchiveCount", self.source)
         self.assertIn("m_files.count(result.lastToken)", self.archive)
 
+    def test_skirmish_script_assignment_diagnostics_present(self):
+        # Detect vanilla fallbacks and mod-side mismatches without changing
+        # AI choices, RNG, tick order, or multiplayer synchronization.
+        self.assertIn('stage=skirmish mode=default action=load', self.sides)
+        self.assertIn('stage=skirmish action=unmatched-player', self.sides)
+        self.assertIn('stage=skirmish action=assigned', self.sides)
+        self.assertIn('++unmatchedScriptSides;', self.sides)
+        self.assertIn('++matchedScriptSides;', self.sides)
+
     def test_mod_sides_are_bounded_and_validated(self):
         self.assertIn("SidesList::MAX_SKIRMISH_SIDES", self.sides)
         self.assertIn("dictName != playerName", self.sides)
