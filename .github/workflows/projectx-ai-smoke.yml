@@ -15,6 +15,9 @@ on:
       - 'GeneralsMD/Code/GameEngine/Source/GameLogic/Map/SidesList.cpp'
       - 'scripts/qa/check_projectx_ai_logs.py'
       - 'scripts/qa/test_projectx_ai_regressions.py'
+      - 'scripts/qa/test-mod-archive-loading.py'
+      - 'scripts/qa/mod-archive-fixture.cpp'
+      - '.github/workflows/publish-mod-ai-compat-ota-once.yml'
       - '.github/workflows/projectx-ai-smoke.yml'
   workflow_dispatch:
 
@@ -30,4 +33,6 @@ jobs:
       - name: Check Python syntax
         run: python3 -m py_compile scripts/qa/check_projectx_ai_logs.py scripts/qa/test_projectx_ai_regressions.py
       - name: Run focused C++ and ZIP log regressions
-        run: python3 scripts/qa/test_projectx_ai_regressions.py -v
+        run: |
+          python3 scripts/qa/test_projectx_ai_regressions.py -v
+          python3 scripts/qa/test-mod-archive-loading.py
