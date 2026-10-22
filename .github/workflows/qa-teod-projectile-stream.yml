@@ -1,0 +1,28 @@
+name: TEOD projectile stream crash regressions
+on:
+  push:
+    branches:
+      - perf/teod-projectile-startup-20261023
+      - dev/mobile-v4
+    paths:
+      - GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Weapon.cpp
+      - scripts/qa/test-teod-projectile-stream.py
+      - .github/workflows/qa-teod-projectile-stream.yml
+  pull_request:
+    paths:
+      - GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Weapon.cpp
+      - scripts/qa/test-teod-projectile-stream.py
+permissions:
+  contents: read
+jobs:
+  production-weapon-path:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test extracted production Weapon::newProjectileFired with UBSan
+        run: python3 scripts/qa/test-teod-projectile-stream.py
+      - name: Verify saved-game and projectile regression paths
+        run: |
+          python3 scripts/qa/test-projectile-impact-shroud.py
+          python3 scripts/qa/test-save-map-safety.py
