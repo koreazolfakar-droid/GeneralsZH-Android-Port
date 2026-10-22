@@ -627,7 +627,7 @@ void SidesList::prepareForMP_or_Skirmish()
 				}
 				Int nonCivilianSidesWithoutScripts = 0;
 				for (Int sideIndex = 0; sideIndex < m_numSkirmishSides; ++sideIndex) {
-					SideInfo* side = getSkirmishSideInfo(sideIndex);
+					SidesInfo* side = getSkirmishSideInfo(sideIndex);
 					if (side->getDict()->getAsciiString(TheKey_playerFaction) == "FactionCivilian")
 						continue;
 					if (!sideHasMatchingScript[sideIndex]) {
