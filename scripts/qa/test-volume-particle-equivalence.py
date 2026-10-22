@@ -29,6 +29,7 @@ def check_production_source(source):
     assert 'SortingRendererClass::Insert_Triangles' in during
     assert 'DX8Wrapper::Draw_Triangles' in during
     assert re.search(r'depth\s*>\s*MAX_VOLUME_PARTICLE_DEPTH', before)
+    assert re.search(r'depth\s*<=\s*1', before), 'single-layer Render fallback changed'
 
 
 HARNESS = r'''
@@ -58,20 +59,20 @@ static std::vector<Pt> compact(const std::vector<Pt>& data,const std::vector<int
     return result;
 }
 static std::vector<std::vector<Out>> render(const std::vector<Pt>& input,
-    const std::vector<int>& apt, bool optimized, bool billboard, unsigned depth){
+    const std::vector<int>& apt, bool optimized, bool billboard, bool useAPT, unsigned depth){
     const P cam{11.0f, 31.0f, -9.0f};
     std::vector<std::vector<Out>> layers;
     std::vector<Pt> once;
     std::vector<P> directions;
     if(optimized){
-        once = compact(input,apt);
+        once = useAPT ? compact(input,apt) : input;
         if(billboard){
             directions.reserve(once.size());
             for(const auto& p:once)directions.push_back(normalize(sub(cam,p.pos)));
         }
     }
     for(unsigned t=0;t<depth;++t){
-        std::vector<Pt> points = optimized ? once : compact(input,apt);
+        std::vector<Pt> points = optimized ? once : (useAPT ? compact(input,apt) : input);
         std::vector<Out> output;
         const float recipDepth = 0.1f / float(depth);
         const float shiftInc = float(t) * points[0].size * recipDepth;
@@ -93,6 +94,7 @@ static std::vector<std::vector<Out>> render(const std::vector<Pt>& input,
 int main(){
     for(bool billboard:{false,true}){
         for(bool reordered:{false,true}){
+          for(bool useAPT:{false,true}){
             for(unsigned depth:{2u,3u,8u,16u}){
                 for(int n:{1,2,5,32,128}){
                     std::vector<Pt> data;
@@ -106,11 +108,11 @@ int main(){
                     std::vector<int> apt;
                     for(int i=0;i<n;++i)apt.push_back(reordered?n-1-i:i);
                     compactions=normalizations=0;
-                    auto original=render(data,apt,false,billboard,depth);
+                    auto original=render(data,apt,false,billboard,useAPT,depth);
                     const int oldCopies=compactions,oldNorms=normalizations;
                     compactions=normalizations=0;
-                    auto candidate=render(data,apt,true,billboard,depth);
-                    assert(compactions==1 && oldCopies==(int)depth);
+                    auto candidate=render(data,apt,true,billboard,useAPT,depth);
+                    assert(compactions==(useAPT?1:0) && oldCopies==(useAPT?(int)depth:0));
                     assert(normalizations==(billboard?n:0));
                     assert(oldNorms==(billboard?int(n*depth):0));
                     assert(original.size()==candidate.size());
@@ -127,9 +129,10 @@ int main(){
                     }
                 }
             }
+          }
         }
     }
-    std::puts("PASS: 80 cases with identical per-layer bytes and fewer repeated operations");
+    std::puts("PASS: 160 cases with identical per-layer bytes and fewer repeated operations");
 }
 '''
 
