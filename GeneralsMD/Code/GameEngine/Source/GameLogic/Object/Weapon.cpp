@@ -1121,7 +1121,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 		// A custom mod can fire from an ownerless object during AI startup.
 		// Never dereference its absent team while creating a projectile.
 		// Valid owners retain the exact original projectile and bonus path.
-		Team *ownerTeam = owningPlayer ? owningPlayer->getDefaultTeam() : nullptr;
+		Team *ownerTeam = owningPlayer ? owningPlayer->getDefaultTeamIfSet() : nullptr;
 		if (ownerTeam == nullptr)
 		{
 			static unsigned missingProjectileOwnerWarnings = 0;
@@ -2666,12 +2666,12 @@ void Weapon::newProjectileFired(const Object *sourceObj, const Object *projectil
 			return;
 		}
 		Player* owningPlayer = sourceObj->getControllingPlayer();
-		if (owningPlayer == nullptr || owningPlayer->getDefaultTeam() == nullptr)
+		if (owningPlayer == nullptr || owningPlayer->getDefaultTeamIfSet() == nullptr)
 		{
 			// The stream belongs to the shooter; do not invent ownership or RNG.
 			return;
 		}
-		projectileStream = TheThingFactory->newObject(pst, owningPlayer->getDefaultTeam());
+		projectileStream = TheThingFactory->newObject(pst, owningPlayer->getDefaultTeamIfSet());
 		if (projectileStream == nullptr)
 			return;
 		m_projectileStreamID = projectileStream->getID();
