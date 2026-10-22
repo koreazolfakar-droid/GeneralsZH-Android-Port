@@ -84,6 +84,9 @@
 #include "Common/version.h"  // GeneralsX @bugfix BenderAI 14/02/2026 Version class + TheVersion extern
 #include "SDL3GameEngine.h"
 #include "GeneratedVersion.h"  // GeneralsX @feature Android port 12/07/2026 ANDROID_CI_BUILD_NUMBER
+#if defined(SAGE_MOBILE_PLATFORM)
+#include "MobileResolutionPolicy.h"
+#endif
 
 // DXVK WSI
 #define DXVK_WSI_SDL3 1
@@ -1322,27 +1325,14 @@ int main(int argc, char* argv[])
 				// plain native-resolution rendering; only "Menu Text Size"
 				// (ResolutionFontAdjustment, in the Settings app) actually changes
 				// anything on screen.
-				int yres = winH;
-				int xres = winW;
-				xres &= ~1;  // keep it even
-
-				// GeneralsX @bugfix Android port 09/04/2026 This block injects
-				// -xres/-yres as if the user passed them on the command line, and
-				// CommandLine::parseCommandLineForEngineInit() (which runs AFTER
-				// GameData.ini has already applied any saved Options.ini
-				// "Resolution" preference into TheGlobalData) unconditionally
-				// overwrites m_xResolution/m_yResolution with whatever -xres/-yres
-				// say -- confirmed via real-device logs (Poco F8 Pro) that a
-				// resolution picked in Options, confirmed written to Options.ini
-				// with no I/O error, was silently discarded on the very next
-				// launch because THIS code always re-injects the current window
-				// size regardless. Options.ini itself is a plain "key = value"
-				// per line format (UserPreferences::write()), so read it directly
-				// here (the engine's own preference-loading machinery isn't up
-				// yet at this point in startup) and prefer its saved Resolution
-				// over the window-derived one when present and parseable --
-				// falling back to the window size exactly as before otherwise
-				// (first launch, or a corrupt/missing file).
+				// Native uses the SDL drawable's physical pixels. A historical bare
+				// 'Resolution' value could have been saved by the removed scaling slider,
+				// so it is NOT proof that the user explicitly requested fewer pixels.
+				// OptionsMenu now marks manual choices as GXResolutionPolicy=custom.
+				// Legacy/unmarked configurations migrate to native without rewriting
+				// game data; explicit custom choices are validated and preserved.
+				std::string savedResolution;
+				std::string resolutionPolicy;
 				{
 					const char *userDataDir = getenv("GENERALSX_USERDATA_DIR");
 					if (userDataDir) {
@@ -1351,34 +1341,46 @@ int main(int argc, char* argv[])
 						FILE *fp = fopen(optionsPath, "r");
 						if (fp) {
 							char line[256];
-							bool savedResolution = false;
 							while (fgets(line, sizeof(line), fp)) {
-								int savedX = 0, savedY = 0;
-								if (!savedResolution && sscanf(line, " Resolution = %d %d", &savedX, &savedY) == 2 &&
-								    savedX > 0 && savedY > 0) {
-									xres = savedX & ~1;
-									yres = savedY;
-									savedResolution = true;
-									fprintf(stderr, "INFO: using saved Resolution %dx%d from Options.ini instead of window size %dx%d\n",
-									        xres, yres, winW, winH);
-								}
-								char upscaler[32] = {};
-								if (sscanf(line, " GXUpscaler = %31s", upscaler) == 1)
-									setenv("GX_UPSCALER", upscaler, 1);
-								char upscale[32] = {};
-								if (sscanf(line, " GXUpscale = %31s", upscale) == 1)
-									setenv("GX_UPSCALE", upscale, 1);
-								int uiScale = 0;
-								if (sscanf(line, " GXUiScale = %d", &uiScale) == 1 && uiScale > 0) {
-									char uiScaleVal[16];
-									snprintf(uiScaleVal, sizeof(uiScaleVal), "%d", uiScale);
-									setenv("GX_UI_SCALE", uiScaleVal, 1);
+								std::string key, value;
+								if (!MobileResolutionPolicy::parseOptionLine(line, key, value))
+									continue;
+								// Last occurrence wins, as it does when the engine loads
+								// key/value preferences into a map.
+								if (key == "Resolution")
+									savedResolution = value;
+								else if (key == "GXResolutionPolicy")
+									resolutionPolicy = value;
+								else if (key == "GXUpscaler") {
+									char upscaler[32] = {};
+									if (sscanf(value.c_str(), "%31s", upscaler) == 1)
+										setenv("GX_UPSCALER", upscaler, 1);
+								} else if (key == "GXUpscale") {
+									char upscale[32] = {};
+									if (sscanf(value.c_str(), "%31s", upscale) == 1)
+										setenv("GX_UPSCALE", upscale, 1);
+								} else if (key == "GXUiScale") {
+									int uiScale = 0;
+									if (sscanf(value.c_str(), "%d", &uiScale) == 1 && uiScale > 0) {
+										char uiScaleVal[16];
+										snprintf(uiScaleVal, sizeof(uiScaleVal), "%d", uiScale);
+										setenv("GX_UI_SCALE", uiScaleVal, 1);
+									}
 								}
 							}
 							fclose(fp);
 						}
 					}
 				}
+				const MobileResolutionPolicy::Choice resolution = MobileResolutionPolicy::choose(
+					winW, winH, resolutionPolicy.c_str(), savedResolution.c_str());
+				const int xres = resolution.width;
+				const int yres = resolution.height;
+				fprintf(stderr,
+				        "[GX-RES] windowPixels=%dx%d saved='%s' policy='%s' effective=%dx%d reason=%s upscale=%s\n",
+				        winW, winH, savedResolution.c_str(), resolutionPolicy.c_str(),
+				        xres, yres, resolution.reason,
+				        getenv("GX_UPSCALE") ? getenv("GX_UPSCALE") : "off");
 
 				snprintf(xresVal, sizeof(xresVal), "%d", xres);
 				snprintf(yresVal, sizeof(yresVal), "%d", yres);

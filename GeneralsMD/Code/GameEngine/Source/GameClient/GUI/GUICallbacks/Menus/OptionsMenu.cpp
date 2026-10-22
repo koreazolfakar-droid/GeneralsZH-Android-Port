@@ -897,6 +897,10 @@ static void saveOptions()
 				AsciiString prefString;
 				prefString.format("%d %d", xres, yres );
 				(*pref)["Resolution"] = prefString;
+#if defined(__ANDROID__)
+				// Persist explicit user intent separately from legacy scaling-slider Resolution values.
+				(*pref)["GXResolutionPolicy"] = "custom";
+#endif
 				// GeneralsX @bugfix Android port 08/31/2026 Write immediately
 				// instead of relying on OptionsMenuShutdown()'s pref->write()
 				// running later: TheShell->recreateWindowLayouts() just below
