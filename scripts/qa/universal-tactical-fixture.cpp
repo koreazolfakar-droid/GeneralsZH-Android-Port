@@ -219,6 +219,20 @@ int main() {
   puts("PASS: hard vehicle preference, long range against defenses, economy team protection");
  }
  {
+  Scenario s;TeamPrototype detection;
+  detection.info.m_unitsInfo[0].unitThingName="custom-detector";
+  factory.templates["custom-detector"]=&s.detector;
+  s.objects[2].team=&s.theirs;s.objects[2].thing=&s.counter;
+  s.counter.modules.modules={"StealthUpdate"};s.link(3);
+  assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&detection);
+  s.objects[0].thing=&s.detector;assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
+  s.objects[0].thing=&s.armor;detection.info.m_numUnitsInfo=MAX_TEAM_TYPES+1;
+  assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
+  detection.info.m_numUnitsInfo=1;detection.info.m_unitsInfo[0].minUnits=-1;
+  assert(s.choose({&s.normalTeam,&detection},&s.normalTeam)==&s.normalTeam);
+  puts("PASS: observed stealth detector deficit, saturation, malformed team fallback");
+ }
+ {
   Scenario s;s.objects[2].team=s.objects[3].team=&s.theirs;
   s.objects[2].thing=&s.supply;s.objects[3].thing=&s.superweapon;s.link(4);
   prepareTeamHunt(&s.ours);assert(s.ours.target==&s.objects[3]);
@@ -236,10 +250,16 @@ int main() {
   Scenario s;s.objects.resize(MAX_OBJECTS+1);for(auto& o:s.objects){o.thing=&s.armor;o.team=&s.ours;}s.link(s.objects.size());
   CapabilityCache cache;Situation sit;assert(!observe(&s.us,cache,sit));
   assert(s.choose({&s.normalTeam,&s.aaTeam},&s.normalTeam)==&s.normalTeam);
-  const auto start=std::chrono::steady_clock::now();
-  for(int i=0;i<2000;++i)assert(s.choose({&s.normalTeam,&s.aaTeam},&s.normalTeam)==&s.normalTeam);
-  const auto us=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
-  printf("PASS: 1024-object budget; synthetic production fallback mean %.2f us (host fixture, not device FPS)\n",us/2000.0);
+  const Player::PlayerTeamList candidates={&s.normalTeam,&s.aaTeam};
+  for(bool enabledMode:{false,true}) {
+   game.multi=!enabledMode;
+   const auto start=std::chrono::steady_clock::now();
+   for(int i=0;i<2000;++i)assert(chooseProduction(&s.us,candidates,&s.normalTeam)==&s.normalTeam);
+   const auto us=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
+   printf("PASS: synthetic 1024-object budget mean %.2f us (%s; host fixture, not engine/device FPS)\n",us/2000.0,enabledMode?"V1 bounded snapshot":"original-choice bypass");
+  }
+  game.multi=false;
+  printf("PASS: bounded local capability cache size %zu bytes; no director path requests\n",sizeof(CapabilityCache));
  }
  {
   Scenario first;first.objects[2].team=&first.theirs;first.objects[2].thing=&first.air;first.link(3);
