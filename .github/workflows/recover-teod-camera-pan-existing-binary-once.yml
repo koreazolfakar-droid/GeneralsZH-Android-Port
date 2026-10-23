@@ -1,0 +1,191 @@
+# One-time native-only signed OTA. Reuse a successfully compiled existing APK
+# solely to extract its previously built libmain.so and libmain60.so. NO APK build.
+# Independent exact-source verification, native dependency fingerprint and signed update.
+name: Recover TEOD camera pan OTA from existing verified binaries
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/recover-teod-camera-pan-existing-binary-once.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: 189ed3a0e55dba283482982d1d480ae3251f0fb9
+      MERGED_PR: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
+      APK_RUN: '39952153764'
+      APK_NAME: GeneralsXZH-android-run111.apk
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Pin one-time request and existing signed channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$GITHUB_EVENT_NAME" = push
+          test "$(git rev-parse --is-shallow-repository)" = false
+          test "$(git rev-parse HEAD^)" = "$MERGED_PR"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): publish TEOD camera pan OTA from existing verified binaries'
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-camera-pan-existing-binary-once.yml
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          # Source engine C++ is byte-identical to the already validated archive.
+          # Only the three CI files (plus this new publisher) changed since SOURCE.
+          expected="$(printf '%s\n' \
+            .github/workflows/build-android.yml \
+            .github/workflows/publish-teod-camera-pan-ota-once.yml \
+            .github/workflows/qa-teod-camera-scroll.yml \
+            .github/workflows/recover-teod-camera-pan-existing-binary-once.yml | sort)"
+          actual="$(git diff --name-only "$SOURCE" HEAD | sort)"
+          test "$actual" = "$expected" || { echo 'Engine or game sources differ from verified native artifact; refuse OTA'; exit 1; }
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/32")"
+          test "$(jq -r .merged <<< "$pr")" = true
+          test "$(jq -r .merge_commit_sha <<< "$pr")" = "$MERGED_PR"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 -d > "$RUNNER_TEMP/old.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old.json').read_text())
+          assert m['serial']==22 and m['engine']['seq']==3547
+          assert m['engine']['source_commit']=='c558f3556cdc31dbe9640d740fe3d4e9450b2a9e'
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          PY
+      - name: Require completed same-source native build and host regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APK_RUN" | python3 -c '
+          import json,os,sys
+          r=json.load(sys.stdin)
+          assert r["id"]==int(os.environ["APK_RUN"])
+          assert r["status"]=="completed" and r["conclusion"]=="success"
+          assert r["head_sha"]==os.environ["SOURCE"]
+          assert r["event"]=="push" and r["path"]==".github/workflows/build-android.yml"
+          assert r["head_repository"]["full_name"]==os.environ["GITHUB_REPOSITORY"]
+          print("PASS: full Android build verified")
+          '
+          python3 scripts/qa/test-teod-camera-scroll.py
+          python3 scripts/qa/test-shader-cache-async.py
+          python3 scripts/qa/test-shroud-dirty-rect.py
+          python3 scripts/qa/test-volume-particle-equivalence.py
+          python3 scripts/qa/test-engine-security.py
+      - uses: actions/download-artifact@v5
+        with:
+          name: GeneralsXZH-android-run111.apk
+          run-id: 39952153764
+          github-token: ${{ github.token }}
+          path: native-artifact
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: baseline-artifact
+      - name: Verify signed bootstrap ABI and exact new native source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,zipfile,importlib.util
+          spec=importlib.util.spec_from_file_location('ua','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          new=pathlib.Path('native-artifact')/os.environ['APK_NAME']
+          old=pathlib.Path('baseline-artifact/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk')
+          seq,source,native=a.apk_payload(new)
+          oldseq,_,bootstrap=a.apk_payload(old)
+          assert source==os.environ['SOURCE']
+          assert seq>3547 and seq>oldseq
+          assert set(native)==set(bootstrap)
+          engines={'libmain.so','libmain60.so'}
+          assert engines<=set(native)
+          pinned=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
+          assert set(pinned)-engines==set(bootstrap)-engines
+          for name in sorted(set(bootstrap)-engines):
+              assert a.digest(native[name])==a.digest(bootstrap[name])==pinned[name]['sha256'], 'NEW APK REQUIRED: '+name
+          pub=pathlib.Path('android/app/src/main/assets/update-public.pem').read_bytes()
+          with zipfile.ZipFile(new) as n,zipfile.ZipFile(old) as b:
+              assert n.read('assets/update-public.pem')==b.read('assets/update-public.pem')==pub
+          assert a.digest(native['libmain.so'])!=a.digest(native['libmain60.so'])
+          pathlib.Path('native-seq.txt').write_text(str(seq))
+          print('PASS: native 30/60 engines',seq,'with byte-identical installed dependencies')
+          PY
+      - name: Prepare OTA from native pair in same-source verified APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/publish-update.py \
+            --apk "native-artifact/$APK_NAME" \
+            --out prepared-update --serial 22 \
+            --note 'TEOD camera pan: reduce redundant shroud/fog uploads, correct terrain scroll Y-axis, make GL wait notifications efficient and cache new shader binaries asynchronously. Native binaries extracted from an existing passing same-source Android build, not rebuilt as an APK; on-device FPS improvement remains to verify.'
+          python3 - <<'PY'
+          import json,os,pathlib
+          m=json.loads(pathlib.Path('prepared-update/manifest.json').read_text())
+          assert m['serial']==22 and m['engine']['source_commit']==os.environ['SOURCE']
+          assert m['engine']['seq']==int(pathlib.Path('native-seq.txt').read_text())
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: signed-channel candidate passes version and source guard')
+          PY
+      - name: Reject concurrent update before signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 -d > "$RUNNER_TEMP/rechecked.json"
+          cmp "$RUNNER_TEMP/old.json" "$RUNNER_TEMP/rechecked.json"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+      - name: Sign and verify manifest with original ECDSA secret
+        shell: bash
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish signed engine-only update
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify public OTA signature and downloaded 30/60 binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir published
+          for item in manifest.json manifest.json.sig; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/$item?ref=updates" --jq .content | base64 -d > "published/$item"
+          done
+          python3 - <<'PY'
+          import gzip,hashlib,importlib.util,json,os,pathlib,time,urllib.request,zipfile
+          spec=importlib.util.spec_from_file_location('ua','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          m=a.verify_manifest('published','android/app/src/main/assets/update-public.pem')
+          seq=int(pathlib.Path('native-seq.txt').read_text())
+          assert m['serial']==22 and m['engine']['seq']==seq and m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          with zipfile.ZipFile(pathlib.Path('native-artifact')/os.environ['APK_NAME']) as apk:
+              for name,row in m['engine']['files'].items():
+                  assert row['url']==a.BASE_URL+f'engine/{seq}/{name}.gz'
+                  for attempt in range(5):
+                      try:
+                          with urllib.request.urlopen(row['url'],timeout=90) as stream:
+                              data=gzip.decompress(stream.read())
+                          break
+                      except Exception:
+                          if attempt==4: raise
+                          time.sleep(6)
+                  assert len(data)==row['size'] and hashlib.sha256(data).hexdigest()==row['sha256']
+                  assert data==apk.read('lib/arm64-v8a/'+name)
+                  a.native_stamp(data,os.environ['SOURCE'],seq)
+          print('PASS: SIGNED ENGINE OTA PUBLISHED; engine',seq,'serial',m['serial'])
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write(f"### Verified signed engine OTA published\nEngine {seq}, serial {m['serial']}, source {os.environ['SOURCE']}\n")
+          PY
