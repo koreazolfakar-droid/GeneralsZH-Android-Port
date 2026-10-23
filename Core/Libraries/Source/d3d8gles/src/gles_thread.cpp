@@ -114,8 +114,11 @@ void waitMain(P pred, double *accumUs)
 	}
 	std::unique_lock<std::mutex> lock(s_doneMutex);
 	s_mainWaiting.store(true, std::memory_order_seq_cst);
-	while (!pred())
-		s_doneCv.wait_for(lock, std::chrono::milliseconds(2));
+	// The producer and worker both synchronize through s_doneMutex when
+	// sleeping/notifying. Predicate waiting eliminates 2ms polling wakeups
+	// (and needless CPU/thermal pressure) without delaying a completed swap,
+	// synchronous GL query, or command-ring space notification.
+	s_doneCv.wait(lock, pred);
 	s_mainWaiting.store(false, std::memory_order_seq_cst);
 	const double waited=usSince(t0);
 	*accumUs += waited; s_producerWaitUsTotal+=waited;

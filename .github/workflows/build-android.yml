@@ -173,7 +173,7 @@ jobs:
 
   build-android:
     # GeneralsX @build Codex 08/10/2026 Engine operations never enter APK/dependency build steps.
-    if: ${{ (!inputs.engine_incremental_mode || inputs.engine_incremental_mode == 'off') && !inputs.restore_protected_history && !inputs.verify_apk_run }}
+    if: ${{ (!inputs.engine_incremental_mode || inputs.engine_incremental_mode == 'off') && !inputs.restore_protected_history && !inputs.verify_apk_run && !(github.event_name == 'push' && github.ref == 'refs/heads/dev/mobile-v4' && contains(github.event.head_commit.message, '[engine-ota-only]')) }}
     name: apk@${{ inputs.preset || 'android-vulkan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
