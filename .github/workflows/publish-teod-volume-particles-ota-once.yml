@@ -1,0 +1,212 @@
+# One-time, guarded TEOD volume-particle performance OTA. No APK or signing-key changes.
+# Uses the existing cached dual-engine builder and the existing private-key signer.
+name: Publish TEOD volume-particle engine OTA (one time)
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-teod-volume-particles-ota-once.yml]
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  checked-dual-engine-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BASE_MERGE: a4a17caa25dc0b643d7d08ecaf073ab6783aace5
+      PRIOR_ENGINE: '3537'
+      PRIOR_SERIAL: '20'
+      PRIOR_SOURCE: a4a17caa25dc0b643d7d08ecaf073ab6783aace5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify pinned merged PR and immutable change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = push
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse --is-shallow-repository)" = false
+          test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/31")"
+          test "$(jq -r .merged <<< "$pr")" = true
+          test "$(jq -r .merge_commit_sha <<< "$pr")" = "$GITHUB_SHA"
+          test "$(jq -r .head.ref <<< "$pr")" = fix/teod-volume-particle-copies-20261023
+          test "$(jq -r .head.sha <<< "$pr")" = "$(git rev-parse HEAD^2)"
+          expected="$(printf '%s\n' \
+            Core/Libraries/Source/WWVegas/WW3D2/pointgr.cpp \
+            docs/DEV_BLOG/2026-10-DIARY.md \
+            scripts/qa/test-volume-particle-equivalence.py \
+            .github/workflows/build-android.yml \
+            .github/workflows/publish-teod-volume-particles-ota-once.yml | sort)"
+          actual="$(git diff --name-only "$BASE_MERGE" HEAD | sort)"
+          test "$actual" = "$expected" || { echo 'Unexpected changed source file; refusing release'; exit 1; }
+      - name: Run volume-particle, GLES and engine security regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-volume-particle-equivalence.py
+          python3 scripts/qa/test-gles-upload-regressions.py
+          python3 scripts/qa/test-engine-security.py
+      - name: Require successful merged-source Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ((attempt=1;attempt<=120;attempt++)); do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?event=push&branch=dev/mobile-v4&per_page=50" \
+              --jq ".workflow_runs | map(select(.head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$run" =~ ^[0-9]+$ ]]; then
+              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending"),.head_sha,.event,.path] | join("|")')"
+              echo "merged-source Android CI $run: $status"
+              if [[ "$status" == "completed|success|$GITHUB_SHA|push|.github/workflows/build-android.yml" ]]; then
+                echo "VERIFIED_APK_RUN=$run" >> "$GITHUB_ENV"
+                break
+              fi
+              if [[ "$status" == completed\|* ]]; then echo 'Merged build failed; refusing OTA'; exit 1; fi
+            fi
+            if [ "$attempt" -eq 120 ]; then echo 'Merged Android build not verified; no OTA'; exit 1; fi
+            sleep 30
+          done
+      - name: Confirm previous signed OTA is intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior-manifest.json"
+          python3 - <<'PY'
+          import os,json
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/prior-manifest.json'))
+          assert p['engine']['seq']==int(os.environ['PRIOR_ENGINE'])
+          assert p['serial']==int(os.environ['PRIOR_SERIAL'])
+          assert p['engine']['source_commit']==os.environ['PRIOR_SOURCE']
+          assert set(p['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: unmodified signed OTA baseline',p['engine']['seq'])
+          PY
+      - name: Dispatch cache-backed 30Hz and 60Hz engine build
+        shell: bash
+        run: |
+          set -euo pipefail
+          prev="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&event=workflow_dispatch" --jq '[.workflow_runs[].id] | max // 0')"
+          echo "PREVIOUS_NATIVE_RUN=$prev" >> "$GITHUB_ENV"
+          gh workflow run build-android.yml --ref dev/mobile-v4 \
+            -f engine_incremental_mode=build \
+            -f source_ref="$GITHUB_SHA" \
+            -f require_existing_caches=true
+      - name: Verify completed immutable dual-engine build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ((attempt=1;attempt<=250;attempt++)); do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?per_page=50&event=workflow_dispatch" \
+              --jq ".workflow_runs | map(select(.id > $PREVIOUS_NATIVE_RUN and .head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
+            if [[ "$run" =~ ^[0-9]+$ ]]; then
+              result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending"),.head_sha,.event,.path] | join("|")')"
+              echo "native build $run: $result"
+              if [[ "$result" == "completed|success|$GITHUB_SHA|workflow_dispatch|.github/workflows/build-android.yml" ]]; then
+                echo "NATIVE_RUN=$run" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              if [[ "$result" == completed\|* ]]; then echo 'Native build failed; no OTA published'; exit 1; fi
+            fi
+            sleep 20
+          done
+          echo 'Native build timed out; no OTA published'
+          exit 1
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: ${{ env.NATIVE_RUN }}
+          github-token: ${{ github.token }}
+          path: engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+      - name: Prepare and verify signed-channel compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$GITHUB_SHA" \
+            --out prepared-update \
+            --serial 21 \
+            --note 'TEOD combat volume particles: avoid repeated APT compaction and per-layer camera vector normalization while preserving all volume layers, shaders, blend order, particle sizes and gameplay. 160 synthetic host scenarios and both Android engine builds required. Device FPS and exact mod visual acceptance not independently verified.'
+          python3 - <<'PY'
+          import json,os
+          m=json.load(open('prepared-update/manifest.json'))
+          r=json.load(open('engine-build/result.json'))
+          assert r['build']=='PASS' and r['new_apk_required'] is False
+          assert m['engine']['source_commit']==os.environ['GITHUB_SHA']
+          assert m['engine']['seq']>int(os.environ['PRIOR_ENGINE'])
+          assert m['serial']==int(os.environ['PRIOR_SERIAL'])+1
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: candidate native OTA engine',m['engine']['seq'],'serial',m['serial'])
+          PY
+      - name: Prevent concurrent OTA manifest overwrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/pre-sign-manifest.json"
+          cmp "$RUNNER_TEMP/prior-manifest.json" "$RUNNER_TEMP/pre-sign-manifest.json"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+      - name: Sign with existing secret and verify local payload
+        shell: bash
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish to existing signed updates branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+      - name: Verify public manifest signature and immutable dual-engine downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published-check
+          for file in manifest.json manifest.json.sig; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/$file?ref=updates" --jq .content | base64 --decode > "published-check/$file"
+          done
+          python3 - <<'PY'
+          import hashlib,importlib.util,gzip,json,os,pathlib,urllib.request,time
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(a)
+          m=a.verify_manifest('published-check','android/app/src/main/assets/update-public.pem')
+          assert m['engine']['source_commit']==os.environ['GITHUB_SHA']
+          assert m['engine']['seq']>int(os.environ['PRIOR_ENGINE'])
+          assert m['serial']==int(os.environ['PRIOR_SERIAL'])+1
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          for name,row in m['engine']['files'].items():
+            url=row['url']
+            assert url==a.BASE_URL+f"engine/{m['engine']['seq']}/{name}.gz"
+            for attempt in range(5):
+              try:
+                with urllib.request.urlopen(url,timeout=90) as response:
+                  content=gzip.decompress(response.read())
+                break
+              except Exception:
+                if attempt==4: raise
+                time.sleep(6)
+            assert len(content)==row['size']
+            assert hashlib.sha256(content).hexdigest()==row['sha256']
+            a.native_stamp(content,os.environ['GITHUB_SHA'],m['engine']['seq'])
+          print('PASS: published verified signed engine',m['engine']['seq'],'serial',m['serial'])
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+            f.write(f"### VERIFIED SIGNED ENGINE OTA PUBLISHED\\nSequence {m['engine']['seq']}, serial {m['serial']}, source {os.environ['GITHUB_SHA']}\\n")
+          PY
