@@ -1,0 +1,35 @@
+name: TEOD camera pan perf QA
+on:
+  push:
+    branches:
+      - perf/teod-camera-scroll-20261023
+      - dev/mobile-v4
+    paths:
+      - GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DShroud.cpp
+      - GeneralsMD/Code/GameEngineDevice/Include/W3DDevice/GameClient/W3DShroud.h
+      - Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp
+      - Core/Libraries/Source/d3d8gles/src/gles_thread.cpp
+      - scripts/qa/test-teod-camera-scroll.py
+      - .github/workflows/qa-teod-camera-scroll.yml
+  pull_request:
+    paths:
+      - GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DShroud.cpp
+      - GeneralsMD/Code/GameEngineDevice/Include/W3DDevice/GameClient/W3DShroud.h
+      - Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp
+      - Core/Libraries/Source/d3d8gles/src/gles_thread.cpp
+      - scripts/qa/test-teod-camera-scroll.py
+permissions:
+  contents: read
+jobs:
+  scroll-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test camera-pan changes and production GLES wait races with UBSan
+        run: python3 scripts/qa/test-teod-camera-scroll.py
+      - name: Run existing GLES and terrain regressions
+        run: |
+          python3 scripts/qa/test-gles-upload-regressions.py
+          python3 scripts/qa/test-battle-perf-window.py
+          python3 scripts/qa/test-volume-particle-equivalence.py
