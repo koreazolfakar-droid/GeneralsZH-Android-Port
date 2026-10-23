@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "e76fa095697fe0b1b59f38175dccec87c51a5c85f1edfc1a4f6c8f162a8c40d7",
-        "size": 42313912,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3547/libmain.so.gz"
+        "sha256": "84cc28f1496a44824e2f0cde7a711b1dfbbb4da4bf025f0c58b2a387e89b78cb",
+        "size": 42326360,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3564/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "22bbbadf72c1e4fca6d25f8acd31257d06ee7aa2a12f9136b18df5e5dad53e26",
-        "size": 42318232,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3547/libmain60.so.gz"
+        "sha256": "1bc0b489db1485779e4aed38048489df78d3bf7590ada023bdcc846e9bb16096",
+        "size": 42326552,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3564/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3547,
-    "source_commit": "c558f3556cdc31dbe9640d740fe3d4e9450b2a9e"
+    "seq": 3564,
+    "source_commit": "818e3b9ea279ea0c9036f08d300d59b9c4871c84"
   },
-  "note": "TEOD combat: remove redundant volume-particle compaction and vector normalization without reducing particle counts, visual layers, shader blend states or gameplay. Source tests and Android build passed; device FPS remains unverified.",
+  "note": "TEOD camera pan: reduce redundant shroud/fog uploads, correct terrain scroll Y-axis, make GL wait notifications efficient and cache new shader binaries asynchronously. Native binaries extracted from an existing passing same-source Android build, not rebuilt as an APK; on-device FPS improvement remains to verify.",
   "published": "2026-10-23",
   "schema": 1,
-  "serial": 21
+  "serial": 22
 }
