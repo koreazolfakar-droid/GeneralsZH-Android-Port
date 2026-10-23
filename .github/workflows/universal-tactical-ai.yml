@@ -30,6 +30,7 @@ jobs:
           python3 scripts/qa/test-standalone-mod-overlay.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-engine-security.py
+          python3 scripts/qa/test-engine-incremental-state.py
           python3 scripts/qa/test-teod-camera-scroll.py
           python3 scripts/qa/test-shader-cache-async.py
           python3 scripts/qa/test-shroud-dirty-rect.py
