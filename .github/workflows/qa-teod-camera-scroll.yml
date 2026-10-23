@@ -13,6 +13,7 @@ on:
       - Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp
       - Core/Libraries/Include/GXProgramCacheWriter.h
       - scripts/qa/test-shader-cache-async.py
+      - scripts/qa/test-shroud-dirty-rect.py
       - .github/workflows/qa-teod-camera-scroll.yml
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp
       - Core/Libraries/Include/GXProgramCacheWriter.h
       - scripts/qa/test-shader-cache-async.py
+      - scripts/qa/test-shroud-dirty-rect.py
 permissions:
   contents: read
 jobs:
