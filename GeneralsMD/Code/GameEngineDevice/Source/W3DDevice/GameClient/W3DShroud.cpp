@@ -80,6 +80,7 @@ W3DShroud::W3DShroud()
 	m_dstTextureHeight=m_numMaxVisibleCellsY=0;
 	m_boderShroudLevel = (W3DShroudLevel)TheGlobalData->m_shroudAlpha;	//assume border is black
 	m_clearDstTexture = TRUE;	//force clearing of destination texture;
+	m_srcTextureDirty = TRUE;	//first render must populate the GPU texture
 
 	m_cellWidth=DEFAULT_SHROUD_CELL_SIZE;
 	m_cellHeight=DEFAULT_SHROUD_CELL_SIZE;
@@ -178,6 +179,7 @@ void W3DShroud::init(WorldHeightMap *pMap, Real worldCellSizeX, Real worldCellSi
 
 	//clear entire texture to black
 	memset(m_srcTextureData,0,m_srcTexturePitch*srcHeight);
+	m_srcTextureDirty = TRUE;
 
 #if defined(RTS_DEBUG)
 	if (TheGlobalData && TheGlobalData->m_fogOfWarOn)
@@ -216,6 +218,7 @@ void W3DShroud::reset()
 	m_currentFogData=nullptr;
 
 	m_clearDstTexture = TRUE;	//always refill the destination texture after a reset
+	m_srcTextureDirty = TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -223,6 +226,7 @@ void W3DShroud::reset()
 void W3DShroud::ReleaseResources()
 {
 	REF_PTR_RELEASE (m_pDstTexture);
+	m_srcTextureDirty = TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -255,6 +259,7 @@ Bool W3DShroud::ReAcquireResources()
 		m_pDstTexture->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 		m_pDstTexture->Get_Filter().Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_NONE);
 		m_clearDstTexture = TRUE;	//force clearing of destination texture first time it's used.
+		m_srcTextureDirty = TRUE;
 
 		return TRUE;
 }
@@ -309,7 +314,12 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 			Int alphaVal = 255 - level;
 
 			UnsignedShort pixel=((blueVal>>4)&0xf) | (((greenVal>>4)&0xf)<<4) | (((redVal>>4)&0xf)<<8) | (((alphaVal>>4)&0xf)<<12);
-			*(UnsignedShort *)((Byte *)m_srcTextureData + x*2 + y*m_srcTexturePitch)=pixel;
+			UnsignedShort *texel = (UnsignedShort *)((Byte *)m_srcTextureData + x*2 + y*m_srcTexturePitch);
+			if (*texel != pixel)
+			{
+				*texel = pixel;
+				m_srcTextureDirty = TRUE;
+			}
 		}
 		else
 #endif
@@ -344,7 +354,12 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 //				bluepixel -= redpixel;
 //			}
 
-			*texel = ( ((bluepixel&0xf8) >> 3) | ((greenpixel&0xfc)<<3) | ((redpixel&0xf8)<<8));
+			const UnsignedShort pixel = ( ((bluepixel&0xf8) >> 3) | ((greenpixel&0xfc)<<3) | ((redpixel&0xf8)<<8));
+			if (*texel != pixel)
+			{
+				*texel = pixel;
+				m_srcTextureDirty = TRUE;
+			}
 		}
 		return;
 	}
@@ -354,6 +369,7 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 ///Quickly sets the shroud level of entire map to a single value
 void W3DShroud::fillShroudData(W3DShroudLevel level)
 {
+	m_srcTextureDirty = TRUE;
 
 	Int x,y;
 	UnsignedShort pixel;
@@ -704,6 +720,7 @@ void W3DShroud::render(CameraClass *cam)
 	interpolateFogLevels(&srcRect);
 #endif
 
+	const Bool uploadRequired = m_srcTextureDirty || m_clearDstTexture;
 	if (m_clearDstTexture)
 	{	//we need to clear unused parts of the destination texture to a known
 		//color in order to keep map border in the state we want.
@@ -712,14 +729,17 @@ void W3DShroud::render(CameraClass *cam)
 		fillBorderShroudData(m_boderShroudLevel, pDestSurface);
 	}
 
+	if (uploadRequired)
 	{
-		//USE_PERF_TIMER(shroudCopy)
+		// No shroud texels or border changed: retain existing GPU texture.
+		// This avoids a full-map copy while panning an already-visible area.
 		DX8Wrapper::_Copy_DX8_Rects(
 				m_pSrcTexture,
 				&srcRect,
 				1,
 				pDestSurface->Peek_D3D_Surface(),
 				&dstPoint);
+		m_srcTextureDirty = FALSE;
 	}
 
 	REF_PTR_RELEASE (pDestSurface);
