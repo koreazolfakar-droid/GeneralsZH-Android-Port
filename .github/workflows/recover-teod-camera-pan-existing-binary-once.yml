@@ -21,6 +21,7 @@ jobs:
       SOURCE: 818e3b9ea279ea0c9036f08d300d59b9c4871c84
       MERGED_PR: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
       APK_RUN: '39952153764'
+      APK_RUN_HEAD: 189ed3a0e55dba283482982d1d480ae3251f0fb9
       APK_NAME: GeneralsXZH-android-run111.apk
     steps:
       - uses: actions/checkout@v6
@@ -35,7 +36,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$GITHUB_EVENT_NAME" = push
           test "$(git rev-parse --is-shallow-repository)" = false
-          test "$(git rev-parse HEAD^)" = "f30ae9b503d0efbfe8b03b675095a759b43ed159"
+          test "$(git rev-parse HEAD^)" = "fb97b165e6a8a4175158a62cebb0cd514aa454d2"
           test "$(git show -s --format=%s HEAD)" = 'ci(update): publish TEOD camera pan OTA from existing verified binaries'
           test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-camera-pan-existing-binary-once.yml
           git merge-base --is-ancestor "$SOURCE" HEAD
@@ -68,7 +69,9 @@ jobs:
           r=json.load(sys.stdin)
           assert r["id"]==int(os.environ["APK_RUN"])
           assert r["status"]=="completed" and r["conclusion"]=="success"
-          assert r["head_sha"]==os.environ["SOURCE"]
+          assert r["head_sha"]==os.environ["APK_RUN_HEAD"]
+          # The original push run checked out its branch at the newer SHA.
+          # Verify the *embedded* SOURCE separately from the downloaded binary.
           assert r["event"]=="push" and r["path"]==".github/workflows/build-android.yml"
           assert r["head_repository"]["full_name"]==os.environ["GITHUB_REPOSITORY"]
           print("PASS: full Android build verified")
