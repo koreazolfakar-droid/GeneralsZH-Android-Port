@@ -3761,7 +3761,7 @@ void WebGLPipeline::drawIndexed(WebGLDevice *dev, unsigned primType, unsigned mi
 	if (!gxIndexWindowFits(ib->m_bits.size(), startIndex, indexCount, isz)) {
 		static unsigned badIndexWindowReports = 0;
 		if (badIndexWindowReports++ < 8)
-			fprintf(stderr, "[d3d8gles] invalid index window: first=%u count=%zu bytes=%zu category=%d\\n",
+			fprintf(stderr, "[d3d8gles] invalid index window: first=%u count=%zu bytes=%zu category=%d\n",
 				startIndex, indexCount, ib->m_bits.size(), s_gxDrawCategory);
 		return;
 	}
@@ -3781,7 +3781,7 @@ void WebGLPipeline::drawIndexed(WebGLDevice *dev, unsigned primType, unsigned mi
 			indexCount, isz, dev->getBaseVertexIndex(), effectiveStride, vb->m_bits.size())) {
 			static unsigned badTerrainVertexReports = 0;
 			if (badTerrainVertexReports++ < 8)
-				fprintf(stderr, "[d3d8gles] invalid terrain vertices: first=%u count=%zu base=%u stride=%zu vbBytes=%zu\\n",
+				fprintf(stderr, "[d3d8gles] invalid terrain vertices: first=%u count=%zu base=%u stride=%zu vbBytes=%zu\n",
 					startIndex, indexCount, dev->getBaseVertexIndex(), effectiveStride, vb->m_bits.size());
 			return;
 		}
