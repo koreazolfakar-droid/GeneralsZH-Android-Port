@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "f5429c90edab88abe5f7248e22c214b5729d56a225e56760b083700b6d3b933a",
-        "size": 42313632,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3537/libmain.so.gz"
+        "sha256": "e76fa095697fe0b1b59f38175dccec87c51a5c85f1edfc1a4f6c8f162a8c40d7",
+        "size": 42313912,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3547/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "0b3738ae38fe32f53030ff912ae08ed243dd05b86ea8fd4d17c479380b49435a",
-        "size": 42317952,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3537/libmain60.so.gz"
+        "sha256": "22bbbadf72c1e4fca6d25f8acd31257d06ee7aa2a12f9136b18df5e5dad53e26",
+        "size": 42318232,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3547/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3537,
-    "source_commit": "a4a17caa25dc0b643d7d08ecaf073ab6783aace5"
+    "seq": 3547,
+    "source_commit": "c558f3556cdc31dbe9640d740fe3d4e9450b2a9e"
   },
-  "note": "Mod-aware loose AI script resolution: search selected Mod Manager folder before BIG and root copies for known skirmish script paths. Focused host regressions and Android CI required. Actual Project X and TEOD battle AI behavior remains unverified.",
-  "published": "2026-10-22",
+  "note": "TEOD combat: remove redundant volume-particle compaction and vector normalization without reducing particle counts, visual layers, shader blend states or gameplay. Source tests and Android build passed; device FPS remains unverified.",
+  "published": "2026-10-23",
   "schema": 1,
-  "serial": 20
+  "serial": 21
 }
