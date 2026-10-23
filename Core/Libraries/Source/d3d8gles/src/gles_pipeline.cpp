@@ -27,6 +27,7 @@
 // NOTE: this file is #included at the bottom of d3d8gles.cpp (single TU) so
 // it can access the device/resource class internals defined there.
 #include "gles_pipeline.h"
+#include "gles_draw_validation.h"
 #include "gles_dispatch.h"
 #include "gles_thread.h"
 #include "../../../Include/GXProgramCacheWriter.h"
@@ -3752,14 +3753,47 @@ void WebGLPipeline::drawIndexed(WebGLDevice *dev, unsigned primType, unsigned mi
 	WebGLIndexBuffer *ib = dev->getIndices();
 	if (!vb || !ib) return;
 
+	// GeneralsX @bugfix Codex 23/10/2026 A corrupted or stale index window must never
+	// reach glDrawElements. Check with division/subtraction to avoid size_t overflow.
+	// This also protects the dynamic index stream's source memcpy below.
+	const size_t isz = (ib->m_format == D3DFMT_INDEX32) ? 4 : 2;
+	const size_t indexCount = (size_t)primVertexCount(primType, primCount);
+	if (!gxIndexWindowFits(ib->m_bits.size(), startIndex, indexCount, isz)) {
+		static unsigned badIndexWindowReports = 0;
+		if (badIndexWindowReports++ < 8)
+			fprintf(stderr, "[d3d8gles] invalid index window: first=%u count=%zu bytes=%zu category=%d\n",
+				startIndex, indexCount, ib->m_bits.size(), s_gxDrawCategory);
+		return;
+	}
+
+	// GeneralsX @bugfix Codex 23/10/2026 Terrain-only sanity check: index data
+	// that references outside the shadow vertex buffer would otherwise produce
+	// undefined triangles on GLES. Restrict the linear scan to the terrain pass;
+	// ordinary models/particles keep their existing fast submission path.
+	if (s_gxDrawCategory == GX_DRAWCAT_TERRAIN && indexCount != 0) {
+		const unsigned fvf = dev->getFVF() ? dev->getFVF() : vb->m_fvf;
+		const unsigned streamStride = dev->getStream0Stride();
+		FVFLayout layout;
+		const size_t effectiveStride = streamStride != 0 ? streamStride :
+			(parseFVF(fvf, &layout) ? layout.stride : 0);
+		if (effectiveStride != 0 &&
+		    !gxTerrainIndicesFitVertices(ib->m_bits.data() + (size_t)startIndex * isz,
+			indexCount, isz, dev->getBaseVertexIndex(), effectiveStride, vb->m_bits.size())) {
+			static unsigned badTerrainVertexReports = 0;
+			if (badTerrainVertexReports++ < 8)
+				fprintf(stderr, "[d3d8gles] invalid terrain vertices: first=%u count=%zu base=%u stride=%zu vbBytes=%zu\n",
+					startIndex, indexCount, dev->getBaseVertexIndex(), effectiveStride, vb->m_bits.size());
+			return;
+		}
+	}
+
 	s_gxDrawAfterWrite = vb->m_gl.dirty || ib->m_gl.dirty;
 	ensureVBUploaded(vb);
 
 	// Dynamic index buffers go through the index stream (streamIndices) when it is available;
 	// their own GL storage is then never uploaded, and stays fully dirty in case the stream
 	// ever falls back.
-	const size_t isz = (ib->m_format == D3DFMT_INDEX32) ? 4 : 2;
-	const size_t indexBytes = (size_t)primVertexCount(primType, primCount) * isz;
+	const size_t indexBytes = indexCount * isz;
 	GLuint iboName = 0;
 	unsigned drawStartIndex = startIndex;
 	bool streamed = false;
