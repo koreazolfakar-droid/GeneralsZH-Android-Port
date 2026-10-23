@@ -29,6 +29,7 @@
 #include "gles_pipeline.h"
 #include "gles_dispatch.h"
 #include "gles_thread.h"
+#include "../../../Include/GXProgramCacheWriter.h"
 
 // Set by d3d8gles_SetTwoSidedStencil() (defined further down, with the rest of the exported
 // engine hooks) and read by applyFixedState().
@@ -1146,6 +1147,12 @@ GLuint WebGLPipeline::loadCachedProgram(uint64_t sourceHash)
 	return p;
 }
 
+static GXProgramCacheWriter& gxProgramCacheWriter()
+{
+	static GXProgramCacheWriter writer;
+	return writer;
+}
+
 void WebGLPipeline::saveCachedProgram(uint64_t sourceHash, GLuint program)
 {
 	GLint length = 0;
@@ -1159,10 +1166,16 @@ void WebGLPipeline::saveCachedProgram(uint64_t sourceHash, GLuint program)
 		PFN_GetProgramBinary getProgramBinary = m_glGetProgramBinary;
 		gxrt::sync([&] { getProgramBinary(program, length, &written, &format, data.data()); });
 	}
-	if (written <= 0)
+	if (written <= 0 || written > length)
 		return;
+	data.resize((size_t)written);
 	char path[1024], temp[1040];
 	snprintf(path, sizeof(path), "%s/%016llx.bin", m_programCacheDir.c_str(), (unsigned long long)sourceHash);
+	// Copying a program binary to disk is storage I/O, not a GL task.
+	// The bounded worker saves it without blocking first-time camera traversal.
+	// On unavailable/full worker, retain the exact original synchronous fallback.
+	if (gxProgramCacheWriter().enqueue(path, (uint32_t)format, std::move(data)))
+		return;
 	snprintf(temp, sizeof(temp), "%s.tmp", path);
 	FILE *f = fopen(temp, "wb");
 	if (!f)
@@ -4391,6 +4404,8 @@ void WebGLPipeline::present()
 			// did in this window: base-vertex draws (each one a pointer refresh saved), *UP draws
 			// through the ring, program binaries loaded from and saved to disk, render-target
 			// readbacks and their total stall, DXT1 levels uploaded at 16 bpp.
+			// Count completed async disk writes, not submissions; no worker data race.
+			m_perfProgramCacheSaves += gxProgramCacheWriter().takeCompleted();
 			const double frames = m_perfFrameCount > 0 ? (double)m_perfFrameCount : 1.0;
 			fprintf(stderr, "[d3d8gles] perf-opt: basevertex=%.1f/frame upring=%.1f/frame (%.0f KB/frame, %d wraps) "
 				"progcache load=%d save=%d rt-readback=%d (%.1f ms) dxt16 levels=%d (%.1f MB saved) "

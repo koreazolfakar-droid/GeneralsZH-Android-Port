@@ -1699,6 +1699,95 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 
 
 
+	// GeneralsX @performance Codex 23/10/2026: APT/point data does not change across
+	// volume layers. Compact once per render instead of repeating N indexed copies.
+	// If there is an active point table, use it to compress the point
+	// locations/colors/alphas/sizes/orientations/frames.
+	if (APT) {
+		// Resize compressed result arrays if needed (2x guardband to prevent
+		// frequent reallocations):
+
+		/// @todo lorenzen sez: precompute pointers to indexed array elements, below
+
+		if (compressed_loc.Length() < PointCount) {
+			compressed_loc.Resize(PointCount * 2);
+		}
+		VectorProcessorClass::CopyIndexed(&compressed_loc[0],
+			PointLoc->Get_Array(), APT->Get_Array(), PointCount);
+		current_loc = &compressed_loc[0];
+		if (PointDiffuse) {
+			if (compressed_diffuse.Length() < PointCount) {
+				compressed_diffuse.Resize(PointCount * 2);
+			}
+			VectorProcessorClass::CopyIndexed(&compressed_diffuse[0],
+				PointDiffuse->Get_Array(), APT->Get_Array(), PointCount);
+			current_diffuse = &compressed_diffuse[0];
+		}
+		if (PointSize) {
+			if (compressed_size.Length() < PointCount) {
+				compressed_size.Resize(PointCount * 2);
+			}
+			VectorProcessorClass::CopyIndexed(&compressed_size[0],
+				PointSize->Get_Array(), APT->Get_Array(), PointCount);
+			current_size = &compressed_size[0];
+		}
+		if (PointOrientation) {
+			if (compressed_orient.Length() < PointCount) {
+				compressed_orient.Resize(PointCount * 2);
+			}
+			VectorProcessorClass::CopyIndexed(&compressed_orient[0],
+				PointOrientation->Get_Array(), APT->Get_Array(), PointCount);
+			current_orient = &compressed_orient[0];
+		}
+		if (PointFrame) {
+			if (compressed_frame.Length() < PointCount) {
+				compressed_frame.Resize(PointCount * 2);
+			}
+			VectorProcessorClass::CopyIndexed(&compressed_frame[0],
+				PointFrame->Get_Array(), APT->Get_Array(), PointCount);
+			current_frame = &compressed_frame[0];
+		}
+	} else {
+		current_loc = PointLoc->Get_Array();
+		if (PointDiffuse) {
+			current_diffuse = PointDiffuse->Get_Array();
+		}
+		if (PointSize) {
+			current_size = PointSize->Get_Array();
+		}
+		if (PointOrientation) {
+			current_orient = PointOrientation->Get_Array();
+		}
+		if (PointFrame) {
+			current_frame = PointFrame->Get_Array();
+		}
+	}
+
+
+
+
+
+
+	// The layer transform replaces current_loc with a temporary camera-space buffer.
+	// Keep the original source for every layer; never transform a previous layer.
+	Vector3 *const source_loc = current_loc;
+
+
+	// GeneralsX @performance Codex 23/10/2026: the camera and source positions
+	// stay fixed across layers. Cache the expensive direction normalization once.
+	// This does not change layer count, density, alpha, blending or particle sizes.
+	const bool billboard_transform = Get_Flag(TRANSFORM) && Billboard;
+	static VectorClass<Vector3> volume_directions;
+	if (billboard_transform) {
+		if (volume_directions.Length() < PointCount)
+			volume_directions.Resize(PointCount * 2);
+		const Vector3 camera_position = rinfo.Camera.Get_Position();
+		for (int i = 0; i < PointCount; ++i) {
+			Vector3::Subtract(camera_position, source_loc[i], &volume_directions[i]);
+			volume_directions[i].Normalize();
+		}
+	}
+
 	//// VOLUME_PARTICLE LOOP ///////////////
 	for ( unsigned int t = 0; t < depth; ++t )
 	{
@@ -1707,78 +1796,15 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 
 
 
-		// If there is an active point table, use it to compress the point
-		// locations/colors/alphas/sizes/orientations/frames.
-		if (APT) {
-			// Resize compressed result arrays if needed (2x guardband to prevent
-			// frequent reallocations):
-
-			/// @todo lorenzen sez: precompute pointers to indexed array elements, below
-
-			if (compressed_loc.Length() < PointCount) {
-				compressed_loc.Resize(PointCount * 2);
-			}
-			VectorProcessorClass::CopyIndexed(&compressed_loc[0],
-				PointLoc->Get_Array(), APT->Get_Array(), PointCount);
-			current_loc = &compressed_loc[0];
-			if (PointDiffuse) {
-				if (compressed_diffuse.Length() < PointCount) {
-					compressed_diffuse.Resize(PointCount * 2);
-				}
-				VectorProcessorClass::CopyIndexed(&compressed_diffuse[0],
-					PointDiffuse->Get_Array(), APT->Get_Array(), PointCount);
-				current_diffuse = &compressed_diffuse[0];
-			}
-			if (PointSize) {
-				if (compressed_size.Length() < PointCount) {
-					compressed_size.Resize(PointCount * 2);
-				}
-				VectorProcessorClass::CopyIndexed(&compressed_size[0],
-					PointSize->Get_Array(), APT->Get_Array(), PointCount);
-				current_size = &compressed_size[0];
-			}
-			if (PointOrientation) {
-				if (compressed_orient.Length() < PointCount) {
-					compressed_orient.Resize(PointCount * 2);
-				}
-				VectorProcessorClass::CopyIndexed(&compressed_orient[0],
-					PointOrientation->Get_Array(), APT->Get_Array(), PointCount);
-				current_orient = &compressed_orient[0];
-			}
-			if (PointFrame) {
-				if (compressed_frame.Length() < PointCount) {
-					compressed_frame.Resize(PointCount * 2);
-				}
-				VectorProcessorClass::CopyIndexed(&compressed_frame[0],
-					PointFrame->Get_Array(), APT->Get_Array(), PointCount);
-				current_frame = &compressed_frame[0];
-			}
-		} else {
-			current_loc = PointLoc->Get_Array();
-			if (PointDiffuse) {
-				current_diffuse = PointDiffuse->Get_Array();
-			}
-			if (PointSize) {
-				current_size = PointSize->Get_Array();
-			}
-			if (PointOrientation) {
-				current_orient = PointOrientation->Get_Array();
-			}
-			if (PointFrame) {
-				current_frame = PointFrame->Get_Array();
-			}
-		}
-
-
-
-
+		// Reset input: the previous layer may have changed current_loc.
+		current_loc = source_loc;
 
 		// Transform the point locations from worldspace to camera space if needed
 		// (i.e. if they are not already in camera space):
 
 		// need to interrupt this processing. If we are not billboarding, then we need the actual position
 		// of the vertice to lay it down flat.
-		if (Get_Flag(TRANSFORM) && Billboard) {
+		if (billboard_transform) {
 			// Resize transformed location array if needed (2x guardband to prevent
 			// frequent reallocations):
 			if (transformed_loc.Length() < PointCount) {
@@ -1792,14 +1818,10 @@ void PointGroupClass::RenderVolumeParticle(RenderInfoClass &rinfo, unsigned int 
 			float shiftInc = ( t *  *current_size * recipDepth );
 
 			Vector3 volumeLayerShift;
-			Vector3 cameraPosition = rinfo.Camera.Get_Position();
-
 			for (int i=0; i<PointCount; i++)
 			{
 				/// @todo lorenzen sez: use pointer arithmetic here and a fast while loop
-				Vector3 cameraToPointDelta;
-				Vector3::Subtract( cameraPosition, current_loc[i], &cameraToPointDelta );
-				cameraToPointDelta.Normalize();
+				Vector3 cameraToPointDelta = volume_directions[i];
 				cameraToPointDelta.X *= shiftInc;
 				cameraToPointDelta.Y *= shiftInc;
 				cameraToPointDelta.Z *= shiftInc;

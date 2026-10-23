@@ -2044,7 +2044,10 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 		const Int deltaX = newDrawArea.originX - m_map->getDrawOrgX();
 		const Int deltaY = newDrawArea.originY - m_map->getDrawOrgY();
 
-		if (IABS(deltaX) > m_x/2 || IABS(deltaY)>m_x/2) {
+		// Each camera-scroll axis must use its own draw-window extent.
+		// The old Y-versus-X test could rebuild too little or the whole map
+		// unnecessarily on rectangular / cinematic terrain windows.
+		if (IABS(deltaX) > m_x/2 || IABS(deltaY) > m_y/2) {
 			if (m_map->setDrawArea(newDrawArea)) {
 				m_originY = 0;
 				m_originX = 0;

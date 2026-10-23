@@ -173,7 +173,7 @@ jobs:
 
   build-android:
     # GeneralsX @build Codex 08/10/2026 Engine operations never enter APK/dependency build steps.
-    if: ${{ (!inputs.engine_incremental_mode || inputs.engine_incremental_mode == 'off') && !inputs.restore_protected_history && !inputs.verify_apk_run }}
+    if: ${{ (!inputs.engine_incremental_mode || inputs.engine_incremental_mode == 'off') && !inputs.restore_protected_history && !inputs.verify_apk_run && !(github.event_name == 'push' && github.ref == 'refs/heads/dev/mobile-v4' && contains(github.event.head_commit.message, '[engine-ota-only]')) }}
     name: apk@${{ inputs.preset || 'android-vulkan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -227,6 +227,8 @@ jobs:
           set -euo pipefail
           git diff --check HEAD^ HEAD
           python3 -m compileall -q scripts/qa
+          # GeneralsX @performance Codex 23/10/2026 Keep volume-layer equivalence mandatory.
+          python3 scripts/qa/test-volume-particle-equivalence.py
           python3 scripts/qa/test-engine-security.py
           python3 scripts/qa/test-engine-build-number.py
           python3 scripts/qa/test-engine-native-version.py
@@ -444,6 +446,7 @@ jobs:
           python3 scripts/qa/test-engine-3277-hotfix.py
           python3 scripts/qa/test-save-map-safety.py
           python3 scripts/qa/test-mod-localization.py
+          python3 scripts/qa/test-volume-particle-equivalence.py
 
       - name: Configure CMake (Android)
         run: |
@@ -1023,6 +1026,12 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Resolved engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
           echo "key=engine-state-v3-${{ hashFiles('CMakePresets.json', 'cmake/**', 'vcpkg.json', 'vcpkg-lock.json', '.github/engine-baseline/config.json') }}" >> "$GITHUB_OUTPUT"
+      # This check is deliberately before any expensive cache/artifact restore.
+      - name: Check volume-particle regression for incremental engine builds
+        if: inputs.engine_incremental_mode == 'build'
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-volume-particle-equivalence.py
       # Look up all components first. Never mix a half-restored cache with an
       # artifact fallback that would overwrite populated build directories.
       - uses: actions/cache/restore@v5
