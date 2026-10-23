@@ -17,10 +17,10 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: a4a17caa25dc0b643d7d08ecaf073ab6783aace5
-      PRIOR_ENGINE: '3537'
-      PRIOR_SERIAL: '20'
-      PRIOR_SOURCE: a4a17caa25dc0b643d7d08ecaf073ab6783aace5
+      BASE_MERGE: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
+      PRIOR_ENGINE: '3567'
+      PRIOR_SERIAL: '22'
+      PRIOR_SOURCE: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,11 +36,13 @@ jobs:
           test "$(git rev-parse --is-shallow-repository)" = false
           test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] feat(ai): merge universal tactical AI V1 (#29)'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
           pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/29")"
           test "$(jq -r .merged <<< "$pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$pr")" = "$GITHUB_SHA"
           test "$(jq -r .head.ref <<< "$pr")" = feat/universal-tactical-ai-v1
+          test "$(jq -r .head.sha <<< "$pr")" = "$(git rev-parse HEAD^2)"
           expected="$(printf '%s\n' \
             .github/engine-baseline/build.py \
             .github/workflows/universal-tactical-ai.yml \
@@ -61,30 +63,15 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/qa/test-universal-tactical-ai.py -v
+          python3 scripts/qa/test-teod-camera-scroll.py
+          python3 scripts/qa/test-shader-cache-async.py
+          python3 scripts/qa/test-shroud-dirty-rect.py
+          python3 scripts/qa/test-volume-particle-equivalence.py
           python3 scripts/qa/test_projectx_ai_regressions.py -v
           python3 scripts/qa/test-mod-archive-loading.py
           python3 scripts/qa/test-vehicle-ai-v1.py
           python3 scripts/qa/test-gles-upload-regressions.py
           python3 scripts/qa/test-engine-security.py
-      - name: Require successful merged-source Android build
-        shell: bash
-        run: |
-          set -euo pipefail
-          for ((attempt=1;attempt<=120;attempt++)); do
-            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?event=push&branch=dev/mobile-v4&per_page=50" \
-              --jq ".workflow_runs | map(select(.head_sha == \"$GITHUB_SHA\")) | max_by(.id).id // empty")"
-            if [[ "$run" =~ ^[0-9]+$ ]]; then
-              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending"),.head_sha,.event,.path] | join("|")')"
-              echo "merged-source Android CI $run: $status"
-              if [[ "$status" == "completed|success|$GITHUB_SHA|push|.github/workflows/build-android.yml" ]]; then
-                echo "VERIFIED_APK_RUN=$run" >> "$GITHUB_ENV"
-                break
-              fi
-              if [[ "$status" == completed\|* ]]; then echo 'Merged build failed; refusing OTA'; exit 1; fi
-            fi
-            if [ "$attempt" -eq 120 ]; then echo 'Merged Android build not verified; no OTA'; exit 1; fi
-            sleep 30
-          done
       - name: Confirm previous signed OTA is intact
         shell: bash
         run: |
@@ -126,6 +113,9 @@ jobs:
               result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '[.status,(.conclusion // "pending"),.head_sha,.event,.path] | join("|")')"
               echo "native build $run: $result"
               if [[ "$result" == "completed|success|$GITHUB_SHA|workflow_dispatch|.github/workflows/build-android.yml" ]]; then
+                jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100")"
+                test "$(jq -r '[.jobs[] | select(.name == "engine-incremental" and .conclusion == "success")] | length' <<< "$jobs")" = 1
+                test "$(jq -r '[.jobs[] | select((.name | startswith("apk@")) and .conclusion != "skipped")] | length' <<< "$jobs")" = 0
                 echo "NATIVE_RUN=$run" >> "$GITHUB_ENV"
                 exit 0
               fi
@@ -156,7 +146,7 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$GITHUB_SHA" \
             --out prepared-update \
-            --serial 21 \
+            --serial 23 \
             --note 'Universal Tactical AI V1: bounded offline skirmish counters within eligible scripted teams and visible shared structure objectives. Preserves Engine 3537 mod AI scripts and original multiplayer/legacy replay AI. New offline recordings version tactical rules in existing metadata. Autonomous retreat/flanking and real-device/mod battle validation remain outstanding.'
           python3 - <<'PY'
           import json,os
@@ -164,7 +154,8 @@ jobs:
           r=json.load(open('engine-build/result.json'))
           assert r['build']=='PASS' and r['new_apk_required'] is False
           tests={x['test']:x for x in r['source_tests']}
-          assert tests['test-universal-tactical-ai.py']['passed'] is True
+          for name in ('test-universal-tactical-ai.py','test-teod-camera-scroll.py','test-shader-cache-async.py','test-shroud-dirty-rect.py','test-volume-particle-equivalence.py'):
+            assert tests[name]['passed'] is True
           assert m['engine']['source_commit']==os.environ['GITHUB_SHA']
           assert m['engine']['seq']>int(os.environ['PRIOR_ENGINE'])
           assert m['serial']==int(os.environ['PRIOR_SERIAL'])+1

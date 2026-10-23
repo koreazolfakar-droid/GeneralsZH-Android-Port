@@ -90,6 +90,8 @@ if build_requested:
                  'test-terrain-snapshot-safety.py',
                  'test-terrain-light-dirty.py', 'test-prertt-regressions.py',
                  'test-vehicle-ai-v1.py','test_projectx_ai_regressions.py','test-universal-tactical-ai.py',
+                 'test-teod-camera-scroll.py','test-shader-cache-async.py',
+                 'test-shroud-dirty-rect.py','test-volume-particle-equivalence.py',
                  'test-verified-ndk-pch-cache.py',
                  'test-own-update-channel.py','test-android-validation-staging.py',
                  'test-engine-security.py','test-online-tls.py',
