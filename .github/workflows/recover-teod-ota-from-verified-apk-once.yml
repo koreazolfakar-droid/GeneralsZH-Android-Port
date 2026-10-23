@@ -33,8 +33,8 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$GITHUB_EVENT_NAME" = push
           test "$(git rev-parse --is-shallow-repository)" = false
-          test "$(git rev-parse HEAD^)" = "1932d01f417ade4a2b581aade8265aa5e4d46aed"
-          test "$(git show -s --format=%s HEAD)" = 'ci(update): recover TEOD engine from verified APK'
+          test "$(git rev-parse HEAD^)" = "98885eb26a4f07eaadd49a3364cbbf9d0bbc4a01"
+          test "$(git show -s --format=%s HEAD)" = 'ci(update): resume TEOD signed OTA from verified APK'
           test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-ota-from-verified-apk-once.yml
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
           pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/31")"
