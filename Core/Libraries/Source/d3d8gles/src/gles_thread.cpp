@@ -3,6 +3,7 @@
 // context back to the engine's thread around Android's pause/resume (SDL backs the context up and
 // restores it on the thread that pumps events, see android_egl_context_backup/restore).
 #include "gles_thread.h"
+#include "gles_swap_interval_cache.h"
 
 #include <SDL3/SDL.h>
 
@@ -65,6 +66,7 @@ bool s_watchInstalled = false;
 std::atomic<uint64_t> s_workerBusyNs{0};
 std::atomic<uint64_t> s_workNs[kWorkKinds];
 Stats s_stats; // engine-thread fields only
+SwapIntervalCache s_swapInterval;
 // GeneralsX @feature Codex 14/10/2026 Monotonic producer waits for preRTT
 // attribution. takeStats() must not reset this counter between phase snapshots.
 double s_producerWaitUsTotal=0;
@@ -80,6 +82,14 @@ PFN_ClientWaitSync s_clientWaitSync = nullptr;
 PFN_DeleteSync s_deleteSync = nullptr;
 std::mutex s_fenceMutex;
 std::vector<FenceProxy *> s_pendingFences; // issued, not yet seen signaled
+
+void applySwapInterval(int requested)
+{
+    // The SDL/EGL call is a driver operation, not a cheap setter. Cached only
+    // after success, and invalidated on every context handoff or recreation.
+    if (s_swapInterval.needsApply(requested) && SDL_GL_SetSwapInterval(requested))
+        s_swapInterval.applied(requested);
+}
 
 void wakeMain()
 {
@@ -249,6 +259,7 @@ void releaseToMain()
 		s_hasContext.store(false);
 	});
 	g_active = false;
+	s_swapInterval.invalidate();
 	SDL_GL_MakeCurrent(s_window, s_context);
 }
 
@@ -260,6 +271,7 @@ void takeFromMain()
 	if (current != nullptr)
 		s_context = current;
 	SDL_GL_MakeCurrent(s_window, nullptr);
+	s_swapInterval.invalidate();
 	g_active = true;
 	bool ok = false;
 	sync([&ok] {
@@ -398,6 +410,7 @@ bool start(SDL_Window *window)
 		return g_active;
 	s_window = window;
 	s_context = SDL_GL_GetCurrentContext();
+	s_swapInterval.invalidate();
 	s_mainThread = SDL_GetCurrentThreadID();
 	if (s_context == nullptr) {
 		fprintf(stderr, "[d3d8gles] render thread: no current context to hand over\n");
@@ -441,6 +454,7 @@ void stop()
 		s_workCv.notify_one();
 	}
 	s_thread.join();
+	s_swapInterval.invalidate();
 	if (s_window && s_context && SDL_GL_GetCurrentContext() == nullptr)
 		SDL_GL_MakeCurrent(s_window, s_context);
 }
@@ -448,15 +462,13 @@ void stop()
 void present(SDL_Window *window, int swapInterval)
 {
 	if (!g_active) {
-		if (swapInterval >= 0)
-			SDL_GL_SetSwapInterval(swapInterval);
+		applySwapInterval(swapInterval);
 		WorkTimer swapTimer(kWorkSwap);
 		SDL_GL_SwapWindow(window);
 		return;
 	}
 	post([window, swapInterval] {
-		if (swapInterval >= 0)
-			SDL_GL_SetSwapInterval(swapInterval);
+		applySwapInterval(swapInterval);
 		{
 			WorkTimer swapTimer(kWorkSwap);
 			SDL_GL_SwapWindow(window);
