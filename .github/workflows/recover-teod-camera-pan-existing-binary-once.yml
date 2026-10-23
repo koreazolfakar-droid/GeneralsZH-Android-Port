@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 65
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE: 189ed3a0e55dba283482982d1d480ae3251f0fb9
+      SOURCE: 818e3b9ea279ea0c9036f08d300d59b9c4871c84
       MERGED_PR: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
       APK_RUN: '39952153764'
       APK_NAME: GeneralsXZH-android-run111.apk
@@ -35,16 +35,15 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$GITHUB_EVENT_NAME" = push
           test "$(git rev-parse --is-shallow-repository)" = false
-          test "$(git rev-parse HEAD^)" = "29321c5c7927f9138cfdd9bcfa37a932dea9df86"
+          test "$(git rev-parse HEAD^)" = "f30ae9b503d0efbfe8b03b675095a759b43ed159"
           test "$(git show -s --format=%s HEAD)" = 'ci(update): publish TEOD camera pan OTA from existing verified binaries'
           test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-camera-pan-existing-binary-once.yml
           git merge-base --is-ancestor "$SOURCE" HEAD
           # Source engine C++ is byte-identical to the already validated archive.
-          # Only the three CI files (plus this new publisher) changed since SOURCE.
+          # Only the two CI files (plus this new publisher) changed since SOURCE.
           expected="$(printf '%s\n' \
             .github/workflows/build-android.yml \
             .github/workflows/publish-teod-camera-pan-ota-once.yml \
-            .github/workflows/qa-teod-camera-scroll.yml \
             .github/workflows/recover-teod-camera-pan-existing-binary-once.yml | sort)"
           actual="$(git diff --name-only "$SOURCE" HEAD | sort)"
           test "$actual" = "$expected" || { echo 'Engine or game sources differ from verified native artifact; refuse OTA'; exit 1; }
