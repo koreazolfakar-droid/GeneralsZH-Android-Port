@@ -2,6 +2,12 @@
 
 This folder is organized by function for easier maintenance and discovery.
 
+`python3 scripts/qa/test-universal-tactical-ai.py -v` compiles the exact production
+tactical adapter with engine-interface doubles under ASan/UBSan and optimized
+30/60-Hz fixtures. It checks capability discovery, visible threats, eligible-team
+ranking, coordinated objectives, deterministic fallback and replay mode guards.
+Its synthetic timings do not measure real battles or device FPS.
+
 ## Directory Structure
 
 ### `build/` - Build & Deployment Scripts per Platform

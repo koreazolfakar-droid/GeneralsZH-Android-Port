@@ -65,6 +65,7 @@
 
 #include "GameLogic/AI.h"
 #include "GameLogic/AISkirmishPlayer.h"
+#include "GameLogic/UniversalTacticalDirector.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/CaveContain.h"
@@ -2065,6 +2066,9 @@ void ScriptActions::doTeamHunt(const AsciiString& teamName)
 #else
 	theTeam->getTeamAsAIGroup(theGroup.Peek());
 #endif
+	// GeneralsX @feature Codex 22/10/2026 Preserve hunt commands and mod attack
+	// priorities; eligible offline teams may share a visible strategic objective.
+	UniversalTacticalDirector::prepareTeamHunt(theTeam);
 	theGroup->groupHunt( CMD_FROM_SCRIPT );
 }
 //-------------------------------------------------------------------------------------------------

@@ -69,6 +69,7 @@ extern NGMPGame* TheNGMPGame;
 #include "Common/CRCDebug.h"
 #include "Common/OptionPreferences.h"
 #include "Common/version.h"
+#include "GameLogic/UniversalTacticalDirector.h"
 
 // TheSuperHackers @build fighter19 11/02/2026 POSIX CopyFile implementation for Linux
 #ifndef _WIN32
@@ -424,6 +425,8 @@ void RecorderClass::init() {
  * Reset the recorder to the "initialized state."
  */
 void RecorderClass::reset() {
+	// GeneralsX @feature Codex 22/10/2026 A previous replay must not opt a new recording in.
+	UniversalTacticalDirector::setReplayMode(false);
 	if (m_file != nullptr) {
 		m_file->close();
 		m_file = nullptr;
@@ -616,6 +619,9 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	// write out version info
 	UnicodeString versionString = TheVersion->getUnicodeVersion();
 	UnicodeString versionTimeString = TheVersion->getUnicodeBuildTime();
+	// GeneralsX @feature Codex 22/10/2026 Version the offline tactical rules in
+	// existing metadata, leaving the binary replay layout and PC/online headers intact.
+	if (originalGameMode == GAME_SKIRMISH) versionTimeString.concat(L" [UTD1]");
 	UnsignedInt versionNumber = TheVersion->getVersionNumber();
 	gxWriteReplayUnicodeString(m_file, versionString.str());
 	gxWriteReplayUnicodeString(m_file, versionTimeString.str());
@@ -1439,6 +1445,8 @@ Bool RecorderClass::replayMatchesGameVersion(const ReplayHeader& header)
  */
 Bool RecorderClass::playbackFile(AsciiString filename)
 {
+	// GeneralsX @bugfix Codex 22/10/2026 Failed/unmarked playback cannot inherit V1.
+	UniversalTacticalDirector::setReplayMode(false);
 	if (!m_doingAnalysis)
 	{
 		if (TheGameLogic->isInGame())
@@ -1482,7 +1490,11 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 
 #ifdef DEBUG_CRASHING
 	Bool versionStringDiff = header.versionString != TheVersion->getUnicodeVersion();
-	Bool versionTimeStringDiff = header.versionTimeString != TheVersion->getUnicodeBuildTime();
+	// GeneralsX @bugfix Codex 22/10/2026 The supported rules tag is metadata,
+	// not a different compiler build timestamp (also valid in debug playback).
+	UnicodeString expectedBuildTime = TheVersion->getUnicodeBuildTime();
+	if (wcsstr(header.versionTimeString.str(), L" [UTD1]") != nullptr) expectedBuildTime.concat(L" [UTD1]");
+	Bool versionTimeStringDiff = header.versionTimeString != expectedBuildTime;
 	Bool versionNumberDiff = header.versionNumber != TheVersion->getVersionNumber();
 	Bool exeCRCDiff = header.exeCRC != TheGlobalData->m_exeCRC;
 	Bool exeDifferent = versionStringDiff || versionTimeStringDiff || versionNumberDiff || exeCRCDiff;
@@ -1544,6 +1556,10 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 	m_file->read(&difficulty, sizeof(difficulty));
 
 	m_file->read(&m_originalGameMode, sizeof(m_originalGameMode));
+	// GeneralsX @feature Codex 22/10/2026 Only explicitly marked offline recordings
+	// use V1. Original/PC/multiplayer replays retain the original AI decisions.
+	UniversalTacticalDirector::setReplayMode(m_originalGameMode == GAME_SKIRMISH &&
+		wcsstr(header.versionTimeString.str(), L" [UTD1]") != nullptr);
 
 	Int rankPoints = 0;
 	m_file->read(&rankPoints, sizeof(rankPoints));
