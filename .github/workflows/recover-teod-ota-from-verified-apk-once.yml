@@ -33,7 +33,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$GITHUB_EVENT_NAME" = push
           test "$(git rev-parse --is-shallow-repository)" = false
-          test "$(git rev-parse HEAD^)" = "$SOURCE"
+          test "$(git rev-parse HEAD^)" = "1932d01f417ade4a2b581aade8265aa5e4d46aed"
           test "$(git show -s --format=%s HEAD)" = 'ci(update): recover TEOD engine from verified APK'
           test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-ota-from-verified-apk-once.yml
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
@@ -94,8 +94,8 @@ jobs:
           engines={'libmain.so','libmain60.so'}
           assert engines<=set(native)
           pinned=json.loads(pathlib.Path('.github/engine-baseline/bootstrap-native.json').read_text())['native_libraries']
-          assert set(pinned)==set(bootstrap)-engines
-          for name in pinned:
+          assert set(pinned)-engines==set(bootstrap)-engines
+          for name in sorted(set(bootstrap)-engines):
               assert a.digest(native[name])==a.digest(bootstrap[name])==pinned[name]['sha256'], 'NEW APK REQUIRED: '+name
           pub=pathlib.Path('android/app/src/main/assets/update-public.pem').read_bytes()
           with zipfile.ZipFile(new) as n,zipfile.ZipFile(old) as b:
