@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
+      BASE_MERGE: dc709c66ce3f555104df1a978acc7453c169bfa5
     steps:
       - uses: actions/checkout@v6
         with:
@@ -219,5 +219,5 @@ jobs:
             a.native_stamp(content,os.environ['GITHUB_SHA'],m['engine']['seq'])
           print('PASS: published verified signed engine',m['engine']['seq'],'serial',m['serial'])
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
-            f.write(f"### VERIFIED SIGNED ENGINE OTA PUBLISHED\\nSequence {m['engine']['seq']}, serial {m['serial']}, source {os.environ['GITHUB_SHA']}\\n")
+            f.write(f"### VERIFIED SIGNED ENGINE OTA PUBLISHED\nSequence {m['engine']['seq']}, serial {m['serial']}, source {os.environ['GITHUB_SHA']}\n")
           PY
