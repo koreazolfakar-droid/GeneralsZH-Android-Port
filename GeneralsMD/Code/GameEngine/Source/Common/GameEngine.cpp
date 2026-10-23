@@ -52,6 +52,9 @@
 #include "Common/GameAudio.h"
 #include "Common/GameEngine.h"
 #include "Common/GXReplayCheck.h"
+#if defined(__ANDROID__)
+#include "Common/GXCatchUpBudget.h"
+#endif
 #include "Common/INI.h"
 #include "Common/INIException.h"
 #include "Common/MessageStream.h"
@@ -1224,7 +1227,7 @@ extern NGMPGame* TheNGMPGame;
 // the same order, only grouped differently between draws: replays and saves are unaffected.
 static UnsignedInt s_gxCatchUpSteps = 0;
 
-static void gxCatchUpSpedUpLogic()
+static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point frameWorkStart)
 {
 	static std::chrono::steady_clock::time_point s_last;
 	static double s_debt = 0.0;
@@ -1260,7 +1263,24 @@ static void gxCatchUpSpedUpLogic()
 	// This frame's own logic step already ran (canUpdateRegularGameLogic is true on every frame
 	// while the logic time scale is off, as it is offline).
 	s_debt += dt * TheFramePacer->getActualFramesPerSecondLimit() - 1.0;
-	const std::chrono::steady_clock::time_point until = now + std::chrono::milliseconds(8);
+#if defined(__ANDROID__)
+    // A slow TEOD frame must not schedule extra full AI/pathfinding ticks merely
+    // because it ran slowly. Spend only the CPU time left by rendering + the
+    // mandatory simulation step. This preserves normal-speed game logic and
+    // multiplayer/replay scheduling, and keeps faster-speed catch-up when cheap.
+    const double spentMs = std::chrono::duration<double, std::milli>(now - frameWorkStart).count();
+    const double extraBudgetMs = GXCatchUpBudget::remainingMs(spentMs, normalFps);
+    if (extraBudgetMs <= 0.0) {
+        s_debt = 0.0; // never carry a high-speed backlog into the next frame
+        return;
+    }
+    const std::chrono::steady_clock::time_point until =
+        now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double, std::milli>(extraBudgetMs));
+#else
+    (void)frameWorkStart;
+    const std::chrono::steady_clock::time_point until = now + std::chrono::milliseconds(8);
+#endif
 	Int extra = 0;
 	while (s_debt >= 1.0 && extra < 3 && std::chrono::steady_clock::now() < until)
 	{
@@ -1460,6 +1480,7 @@ static void gxTraceEngineUpdatePhase(
 void GameEngine::update()
 {
 	USE_PERF_TIMER(GameEngine_update)
+	const auto gxFrameWorkStart = std::chrono::steady_clock::now();
 	{
 		// GeneralsX @bugfix Android port 31/07/2026 gated on isPerfEnabled(),
 		// not isEnabled() -- a gx_perf.txt-only session should still get
@@ -1545,7 +1566,7 @@ void GameEngine::update()
 		}
 
 		const auto gxCatchBegin = gxPerfTrace ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
-		gxCatchUpSpedUpLogic();
+		gxCatchUpSpedUpLogic(gxFrameWorkStart);
 		const double gxExtraLogicUs = gxPerfTrace ? std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-gxCatchBegin).count() : 0.0;
 
 		// GeneralsX @feature Android port 23/09/2026 Replay check: fast-forward extra
