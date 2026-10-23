@@ -35,7 +35,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/dev/mobile-v4
           test "$GITHUB_EVENT_NAME" = push
           test "$(git rev-parse --is-shallow-repository)" = false
-          test "$(git rev-parse HEAD^)" = "$MERGED_PR"
+          test "$(git rev-parse HEAD^)" = "29321c5c7927f9138cfdd9bcfa37a932dea9df86"
           test "$(git show -s --format=%s HEAD)" = 'ci(update): publish TEOD camera pan OTA from existing verified binaries'
           test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/recover-teod-camera-pan-existing-binary-once.yml
           git merge-base --is-ancestor "$SOURCE" HEAD
@@ -56,7 +56,7 @@ jobs:
           python3 - <<'PY'
           import json,os,pathlib
           m=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'old.json').read_text())
-          assert m['serial']==22 and m['engine']['seq']==3547
+          assert m['serial']==21 and m['engine']['seq']==3547
           assert m['engine']['source_commit']=='c558f3556cdc31dbe9640d740fe3d4e9450b2a9e'
           assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
           PY
