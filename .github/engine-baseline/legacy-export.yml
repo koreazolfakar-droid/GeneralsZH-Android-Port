@@ -64,6 +64,12 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Resolved engine sequence: $(bash scripts/build/android/engine-build-number.sh "$PWD")"
           echo "key=engine-state-v3-${{ hashFiles('CMakePresets.json', 'cmake/**', 'vcpkg.json', 'vcpkg-lock.json', '.github/engine-baseline/config.json') }}" >> "$GITHUB_OUTPUT"
+      # Keep the template in parity with the mobile job; export-only mode skips this gate.
+      - name: Check volume-particle regression for incremental engine builds
+        if: inputs.engine_incremental_mode == 'build'
+        run: |
+          set -euo pipefail
+          python3 scripts/qa/test-volume-particle-equivalence.py
       # Look up all components first. Never mix a half-restored cache with an
       # artifact fallback that would overwrite populated build directories.
       - uses: actions/cache/restore@v5

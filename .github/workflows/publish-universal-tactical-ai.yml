@@ -42,6 +42,7 @@ jobs:
           test "$(jq -r .head.sha <<< "$pr")" = "$(git rev-parse HEAD^2)"
           expected="$(printf '%s\n' \
             .github/engine-baseline/build.py \
+            .github/engine-baseline/legacy-export.yml \
             .github/workflows/universal-tactical-ai.yml \
             .github/workflows/publish-universal-tactical-ai.yml \
             GeneralsMD/Code/GameEngine/Include/GameLogic/UniversalTacticalDirector.h \
