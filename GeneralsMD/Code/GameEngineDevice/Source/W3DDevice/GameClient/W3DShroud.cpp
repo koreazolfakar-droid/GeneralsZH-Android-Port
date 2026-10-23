@@ -81,6 +81,9 @@ W3DShroud::W3DShroud()
 	m_boderShroudLevel = (W3DShroudLevel)TheGlobalData->m_shroudAlpha;	//assume border is black
 	m_clearDstTexture = TRUE;	//force clearing of destination texture;
 	m_srcTextureDirty = TRUE;	//first render must populate the GPU texture
+	m_shroudFullUpload = TRUE;
+	m_dirtyMinX = m_dirtyMinY = 0;
+	m_dirtyMaxX = m_dirtyMaxY = -1;
 
 	m_cellWidth=DEFAULT_SHROUD_CELL_SIZE;
 	m_cellHeight=DEFAULT_SHROUD_CELL_SIZE;
@@ -180,6 +183,7 @@ void W3DShroud::init(WorldHeightMap *pMap, Real worldCellSizeX, Real worldCellSi
 	//clear entire texture to black
 	memset(m_srcTextureData,0,m_srcTexturePitch*srcHeight);
 	m_srcTextureDirty = TRUE;
+	m_shroudFullUpload = TRUE;
 
 #if defined(RTS_DEBUG)
 	if (TheGlobalData && TheGlobalData->m_fogOfWarOn)
@@ -219,6 +223,7 @@ void W3DShroud::reset()
 
 	m_clearDstTexture = TRUE;	//always refill the destination texture after a reset
 	m_srcTextureDirty = TRUE;
+	m_shroudFullUpload = TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -227,6 +232,7 @@ void W3DShroud::ReleaseResources()
 {
 	REF_PTR_RELEASE (m_pDstTexture);
 	m_srcTextureDirty = TRUE;
+	m_shroudFullUpload = TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -260,8 +266,29 @@ Bool W3DShroud::ReAcquireResources()
 		m_pDstTexture->Get_Filter().Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_NONE);
 		m_clearDstTexture = TRUE;	//force clearing of destination texture first time it's used.
 		m_srcTextureDirty = TRUE;
+		m_shroudFullUpload = TRUE;
 
 		return TRUE;
+}
+
+//-----------------------------------------------------------------------------
+// Only visible texels changed by fog reveal/re-shroud need uploading.
+// A full map update remains mandatory after reset, context loss or fill.
+void W3DShroud::markShroudCellDirty(Int x, Int y)
+{
+	m_srcTextureDirty = TRUE;
+	if (m_dirtyMaxX < m_dirtyMinX)
+	{
+		m_dirtyMinX = m_dirtyMaxX = x;
+		m_dirtyMinY = m_dirtyMaxY = y;
+	}
+	else
+	{
+		if (x < m_dirtyMinX) m_dirtyMinX = x;
+		if (y < m_dirtyMinY) m_dirtyMinY = y;
+		if (x > m_dirtyMaxX) m_dirtyMaxX = x;
+		if (y > m_dirtyMaxY) m_dirtyMaxY = y;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -318,7 +345,7 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 			if (*texel != pixel)
 			{
 				*texel = pixel;
-				m_srcTextureDirty = TRUE;
+				markShroudCellDirty(x, y);
 			}
 		}
 		else
@@ -358,7 +385,7 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 			if (*texel != pixel)
 			{
 				*texel = pixel;
-				m_srcTextureDirty = TRUE;
+				markShroudCellDirty(x, y);
 			}
 		}
 		return;
@@ -370,6 +397,7 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 void W3DShroud::fillShroudData(W3DShroudLevel level)
 {
 	m_srcTextureDirty = TRUE;
+	m_shroudFullUpload = TRUE;
 
 	Int x,y;
 	UnsignedShort pixel;
@@ -721,6 +749,19 @@ void W3DShroud::render(CameraClass *cam)
 #endif
 
 	const Bool uploadRequired = m_srcTextureDirty || m_clearDstTexture;
+	// D3D8 copies use a 1-texel destination border. Previously the game
+	// recopied the entire shroud map on every small reveal. Reuse the old
+	// destination for unchanged cells, copying only the exact changed region.
+	if (m_srcTextureDirty && !m_shroudFullUpload && !m_clearDstTexture &&
+		m_dirtyMaxX >= m_dirtyMinX && m_dirtyMaxY >= m_dirtyMinY)
+	{
+		srcRect.left = m_dirtyMinX;
+		srcRect.top = m_dirtyMinY;
+		srcRect.right = m_dirtyMaxX + 1;
+		srcRect.bottom = m_dirtyMaxY + 1;
+		dstPoint.x = m_dirtyMinX + 1;
+		dstPoint.y = m_dirtyMinY + 1;
+	}
 	if (m_clearDstTexture)
 	{	//we need to clear unused parts of the destination texture to a known
 		//color in order to keep map border in the state we want.
@@ -740,6 +781,9 @@ void W3DShroud::render(CameraClass *cam)
 				pDestSurface->Peek_D3D_Surface(),
 				&dstPoint);
 		m_srcTextureDirty = FALSE;
+		m_shroudFullUpload = FALSE;
+		m_dirtyMinX = m_dirtyMinY = 0;
+		m_dirtyMaxX = m_dirtyMaxY = -1;
 	}
 
 	REF_PTR_RELEASE (pDestSurface);
