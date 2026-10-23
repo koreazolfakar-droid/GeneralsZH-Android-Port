@@ -18,9 +18,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       BASE_MERGE: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
-      PRIOR_ENGINE: '3567'
-      PRIOR_SERIAL: '22'
-      PRIOR_SOURCE: 0349d629ea11a33d9b2ee52766e42ae9a5c02c00
     steps:
       - uses: actions/checkout@v6
         with:
@@ -81,14 +78,19 @@ jobs:
           cp "$RUNNER_TEMP/prior-manifest.json" "$RUNNER_TEMP/prior-signed/manifest.json"
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior-signed/manifest.json.sig"
           python3 - <<'PY'
-          import os,json,importlib.util
+          import os,json,importlib.util,subprocess
           spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
           a=importlib.util.module_from_spec(spec)
           spec.loader.exec_module(a)
           p=a.verify_manifest(os.environ['RUNNER_TEMP']+'/prior-signed','android/app/src/main/assets/update-public.pem')
-          assert p['engine']['seq']==int(os.environ['PRIOR_ENGINE'])
-          assert p['serial']==int(os.environ['PRIOR_SERIAL'])
-          assert p['engine']['source_commit']==os.environ['PRIOR_SOURCE']
+          engine=p['engine']
+          a.validate_source(engine['source_commit'],engine['seq'])
+          subprocess.run(['git','merge-base','--is-ancestor',engine['source_commit'],os.environ['GITHUB_SHA']],check=True)
+          target=int(subprocess.check_output(['bash','scripts/build/android/engine-build-number.sh','.'],text=True))
+          assert engine['seq'] >= 3537 and p['serial'] >= 20
+          assert engine['seq'] < target
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+            f.write(f"PRIOR_ENGINE={engine['seq']}\nPRIOR_SERIAL={p['serial']}\nPRIOR_SOURCE={engine['source_commit']}\nNEXT_SERIAL={p['serial']+1}\n")
           assert set(p['engine']['files'])=={'libmain.so','libmain60.so'}
           print('PASS: unmodified signed OTA baseline',p['engine']['seq'])
           PY
@@ -146,7 +148,7 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$GITHUB_SHA" \
             --out prepared-update \
-            --serial 23 \
+            --serial "$NEXT_SERIAL" \
             --note 'Universal Tactical AI V1: bounded offline skirmish counters within eligible scripted teams and visible shared structure objectives. Preserves Engine 3537 mod AI scripts and original multiplayer/legacy replay AI. New offline recordings version tactical rules in existing metadata. Autonomous retreat/flanking and real-device/mod battle validation remain outstanding.'
           python3 - <<'PY'
           import json,os
