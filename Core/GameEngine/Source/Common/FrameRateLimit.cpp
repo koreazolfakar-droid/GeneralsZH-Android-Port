@@ -34,12 +34,15 @@ FrameRateLimit::FrameRateLimit()
 	QueryPerformanceCounter(&start);
 	m_freq = freq.QuadPart;
 	m_start = start.QuadPart;
+	m_deadline = start.QuadPart;
 #else
-	// Linux: Use CLOCK_MONOTONIC for high-resolution timing
+	// Linux: Use CLOCK_MONOTONIC for high-resolution timing.
 	struct timespec start;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	m_freq = 1000000000; // nanoseconds per second
-	m_start = static_cast<Int64>(start.tv_sec) * 1000000000 + start.tv_nsec;
+	const Int64 tickValue = static_cast<Int64>(start.tv_sec) * 1000000000 + start.tv_nsec;
+	m_start = tickValue;
+	m_deadline = tickValue;
 #endif
 }
 
@@ -47,23 +50,25 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 {
 	PROFILER_SECTION;
 
-	// GeneralsX @bugfix BenderAI 11/05/2026 Validate FPS limit to prevent division by zero and underflow
-	// Skip limiting if maxFps is 0 or extremely high (uncapped mode)
+	// GeneralsX @bugfix BenderAI 24/10/2026 Use a fixed frame deadline so late frames do not drift and pile up into visible stutter on Linux/Android.
 	if (maxFps == 0 || maxFps > 1000000)
 	{
-		// Uncapped or invalid: just return elapsed time without limiting
+		// Uncapped or invalid: just return elapsed time without limiting.
 #ifdef _WIN32
 		LARGE_INTEGER tick;
 		QueryPerformanceCounter(&tick);
-		double elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
-		m_start = tick.QuadPart;
-		return (Real)elapsedSeconds;
+		const Int64 now = tick.QuadPart;
+		const double elapsedSeconds = static_cast<double>(now - m_start) / static_cast<double>(m_freq);
+		m_start = now;
+		m_deadline = now;
+		return static_cast<Real>(elapsedSeconds);
 #else
 		struct timespec tick;
 		clock_gettime(CLOCK_MONOTONIC, &tick);
-		Int64 tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-		double elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
-		m_start = tickValue;
+		const Int64 now = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
+		const double elapsedSeconds = static_cast<double>(now - m_start) / static_cast<double>(m_freq);
+		m_start = now;
+		m_deadline = now;
 		return static_cast<Real>(elapsedSeconds);
 #endif
 	}
@@ -71,59 +76,80 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 #ifdef _WIN32
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
-	double elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
-	const double targetSeconds = 1.0 / maxFps;
-	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; // leave ~2ms for spin wait
-
-	if (sleepSeconds > 0.0)
+	Int64 now = tick.QuadPart;
+	if (m_deadline == 0)
 	{
-		// Non busy wait with Munkee sleep
-		DWORD dwMilliseconds = static_cast<DWORD>(sleepSeconds * 1000);
-		Sleep(dwMilliseconds);
+		m_deadline = now;
 	}
 
-	// Busy wait for remaining time
-	do
+	const Int64 period = static_cast<Int64>(static_cast<double>(m_freq) / maxFps);
+	if (m_deadline <= now)
 	{
-		QueryPerformanceCounter(&tick);
-		elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
+		m_deadline = now + period;
 	}
-	while (elapsedSeconds < targetSeconds);
 
-	m_start = tick.QuadPart;
-	return (Real)elapsedSeconds;
+	const Int64 waitTicks = m_deadline - now;
+	if (waitTicks > 0)
+	{
+		const double sleepSeconds = static_cast<double>(waitTicks) / static_cast<double>(m_freq);
+		const DWORD waitMs = static_cast<DWORD>(sleepSeconds * 1000.0);
+		if (waitMs > 0)
+		{
+			Sleep(waitMs);
+		}
+		while (true)
+		{
+			QueryPerformanceCounter(&tick);
+			now = tick.QuadPart;
+			if (now >= m_deadline)
+			{
+				break;
+			}
+		}
+	}
+
+	const Int64 elapsed = now - m_start;
+	m_start = now;
+	m_deadline += period;
+	return static_cast<Real>(elapsed) / static_cast<Real>(m_freq);
 #else
-	// Linux: Use CLOCK_MONOTONIC for high-resolution timing
 	struct timespec tick;
 	clock_gettime(CLOCK_MONOTONIC, &tick);
-	Int64 tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-	double elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
-	const double targetSeconds = 1.0 / maxFps;
-	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; // leave ~2ms for spin wait
-
-	if (sleepSeconds > 0.0)
+	Int64 now = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
+	if (m_deadline == 0)
 	{
-		// Non busy wait with nanosleep
-		struct timespec sleepTime;
-		sleepTime.tv_sec = static_cast<time_t>(sleepSeconds);
-		sleepTime.tv_nsec = static_cast<long>((sleepSeconds - sleepTime.tv_sec) * 1000000000);
-		nanosleep(&sleepTime, nullptr);
+		m_deadline = now;
 	}
 
-	// Busy wait for remaining time
-	do
+	const Int64 period = static_cast<Int64>(1000000000.0 / maxFps);
+	if (m_deadline <= now)
+	{
+		m_deadline = now + period;
+	}
+
+	const Int64 waitNanos = m_deadline - now;
+	if (waitNanos > 0)
+	{
+		struct timespec sleepTime;
+		sleepTime.tv_sec = static_cast<time_t>(waitNanos / 1000000000LL);
+		sleepTime.tv_nsec = static_cast<long>(waitNanos % 1000000000LL);
+		nanosleep(&sleepTime, nullptr);
+		clock_gettime(CLOCK_MONOTONIC, &tick);
+		now = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
+	}
+
+	while (now < m_deadline)
 	{
 		clock_gettime(CLOCK_MONOTONIC, &tick);
-		tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-		elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
+		now = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
 	}
-	while (elapsedSeconds < targetSeconds);
 
-	m_start = tickValue;
-	return static_cast<Real>(elapsedSeconds);
+	const Int64 elapsed = now - m_start;
+	m_start = now;
+	m_deadline += period;
+	return static_cast<Real>(elapsed) / static_cast<Real>(m_freq);
 #endif
 }
-
 
 const UnsignedInt RenderFpsPreset::s_fpsValues[] = {
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
@@ -171,7 +197,6 @@ UnsignedInt RenderFpsPreset::changeFpsValue(UnsignedInt value, FpsValueChange ch
 	case FpsValueChange_Decrease: return getPrevFpsValue(value);
 	}
 }
-
 
 UnsignedInt LogicTimeScaleFpsPreset::getNextFpsValue(UnsignedInt value)
 {
