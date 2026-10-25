@@ -64,7 +64,7 @@ on:
         type: choice
         description: "Verified engine state only: inspect, incremental build, or one-time legacy cache export. Never publishes."
         options: [inspect, build, export-legacy, off]
-        default: build
+        default: inspect
       engine_backup_run:
         type: string
         description: "Optional run ID holding engine-incremental-state. Empty selects the latest retained backup."
@@ -84,7 +84,7 @@ on:
       source_ref:
         type: string
         description: "Optional source commit to build using this workflow branch's caches."
-        default: "79343949820ce8bc76967e232e5ef0c9bad34b08"
+        default: ""
       require_existing_caches:
         type: boolean
         description: "Stop on a missing SDK, vcpkg, DXVK or compiler cache instead of starting fresh."
