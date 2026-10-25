@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "9e5199bb822669aecab3f165876ad1515a2895926d3647ea5db0c7c5164086cc",
-        "size": 42326512,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3586/libmain.so.gz"
+        "sha256": "5db3f0a8e97be273b551a5bd3442633f36a785f5e4ccb8bd65a2af85af3c6566",
+        "size": 42326560,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3594/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "555bbaae3342858695485f7592616a4d5e3c2d2c9fb3e1016051f5ca24e7d7b7",
+        "sha256": "5571b82bf94ab2a6f834ea27de361f038a90291d4c16210956e7134a4dec9b08",
         "size": 42330768,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3586/libmain60.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3594/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3586,
-    "source_commit": "c0dc4ac9e62946f65aad6f558e869b6c92584087"
+    "seq": 3594,
+    "source_commit": "79343949820ce8bc76967e232e5ef0c9bad34b08"
   },
-  "note": "Universal Tactical AI V1: bounded offline skirmish counters within eligible scripted teams and visible shared structure objectives. Preserves Engine 3537 mod AI scripts and original multiplayer/legacy replay AI. New offline recordings version tactical rules in existing metadata. Autonomous retreat/flanking and real-device/mod battle validation remain outstanding.",
-  "published": "2026-10-23",
+  "note": "Performance Architecture V2 Stage 1: bounded offline high-speed catch-up and cached GLES swap interval. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
+  "published": "2026-10-25",
   "schema": 1,
-  "serial": 23
+  "serial": 24
 }
