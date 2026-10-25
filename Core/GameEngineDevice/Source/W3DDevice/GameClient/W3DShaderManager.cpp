@@ -73,6 +73,18 @@
 #include "d3dx8tex.h"
 #include "dx8caps.h"
 
+#if defined(__ANDROID__)
+// The GLES-only terrain path is runtime-gated against Vulkan/DXVK. The
+// gameenginedevice target forward-declares the shared backend query instead
+// of widening its include paths for d3d8gles.h.
+extern "C" bool d3d8gles_ShouldUseVulkanBackend();
+#endif
+
+// Private state value consumed only by the native GLES combiner. It encodes
+// the existing SRCALPHA/INVSRCALPHA terrain edge equation in one fragment
+// program; D3D/DXVK never selects this shader and therefore never sees it.
+#define GX_D3DTOP_TERRAIN_ALPHA_BLEND 0x100u
+
 
 // Turn this on to turn off pixel shaders. jba[4/3/2003]
 #define do_not_DISABLE_PIXEL_SHADERS 1
@@ -1545,6 +1557,15 @@ class TerrainShader8Stage : public W3DShaderInterface
 	virtual Int init() override;			///<perform any one time initialization and validation
 } terrainShader8Stage;
 
+/// Android GLES terrain shader: exact base + alpha-edge blend in one pass.
+/// Cloud/lightmap noise remains the existing independent pass.
+class TerrainShaderGLESFused : public W3DShaderInterface
+{
+	virtual Int set(Int pass) override;
+	virtual void reset() override;
+	virtual Int init() override;
+} terrainShaderGLESFused;
+
 //Offsets into constant register pool used by vertex shader
 #define CV_WORLDVIEWPROJ_0	0	//4 vectors for transform of world->clip space.
 
@@ -1564,6 +1585,7 @@ class TerrainShaderPixelShader : public W3DShaderInterface
 ///List of different terrain shader implementations in order of preference
 W3DShaderInterface *TerrainShaderList[]=
 {
+	&terrainShaderGLESFused,
 	&terrainShaderPixelShader,
 	&terrainShader8Stage,
 	&terrainShader2Stage,
@@ -1790,9 +1812,71 @@ Int TerrainShader2Stage::set(Int pass)
 				DX8Wrapper::_Set_DX8_Transform(D3DTS_TEXTURE0, curView);
 			}
 			break;
-	}
+		}
 
 	return TRUE;
+}
+
+Int TerrainShaderGLESFused::init()
+{
+#if defined(__ANDROID__)
+	if (!d3d8gles_ShouldUseVulkanBackend() && terrainShader2Stage.init())
+	{
+		W3DShaders[W3DShaderManager::ST_TERRAIN_BASE]=this;
+		W3DShadersPassCount[W3DShaderManager::ST_TERRAIN_BASE]=1;
+		W3DShaders[W3DShaderManager::ST_TERRAIN_BASE_NOISE1]=this;
+		W3DShadersPassCount[W3DShaderManager::ST_TERRAIN_BASE_NOISE1]=2;
+		W3DShaders[W3DShaderManager::ST_TERRAIN_BASE_NOISE2]=this;
+		W3DShadersPassCount[W3DShaderManager::ST_TERRAIN_BASE_NOISE2]=2;
+		W3DShaders[W3DShaderManager::ST_TERRAIN_BASE_NOISE12]=this;
+		W3DShadersPassCount[W3DShaderManager::ST_TERRAIN_BASE_NOISE12]=2;
+		DEBUG_LOG(("W3DShaderManager: Android GLES exact terrain fusion enabled"));
+		return TRUE;
+	}
+#endif
+	return FALSE;
+}
+
+Int TerrainShaderGLESFused::set(Int pass)
+{
+	if (pass != 0)
+		return terrainShader2Stage.set(2);
+
+	// This is the same equation as the legacy two-draw path, evaluated in one
+	// fragment program: source = alphaTexture * diffuse and source alpha is
+	// alphaTexture.a * diffuse.a; destination is baseTexture * diffuse.
+	DX8Wrapper::Apply_Render_State_Changes();
+	DX8Wrapper::Set_DX8_Texture(0, W3DShaderManager::getShaderTexture(0)->Peek_D3D_Texture());
+	DX8Wrapper::Set_DX8_Texture(1, W3DShaderManager::getShaderTexture(1)->Peek_D3D_Texture());
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+	const DWORD filter = TheGlobalData && (TheGlobalData->m_bilinearTerrainTex || TheGlobalData->m_trilinearTerrainTex)
+		? D3DTEXF_LINEAR : D3DTEXF_POINT;
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_MINFILTER, filter);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_MAGFILTER, filter);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_MINFILTER, filter);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_MAGFILTER, filter);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_TEXCOORDINDEX, 0);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_COLORARG2, D3DTA_CURRENT);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_COLOROP, GX_D3DTOP_TERRAIN_ALPHA_BLEND);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_ALPHAOP, GX_D3DTOP_TERRAIN_ALPHA_BLEND);
+	DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_TEXCOORDINDEX, 1);
+	DX8Wrapper::Set_DX8_Render_State(D3DRS_ALPHABLENDENABLE, false);
+	return TRUE;
+}
+
+void TerrainShaderGLESFused::reset()
+{
+	terrainShader2Stage.reset();
 }
 
 Int TerrainShader8Stage::init()
@@ -3894,8 +3978,3 @@ void FlatTerrainShaderPixelShader::reset()
 
 	DX8Wrapper::Invalidate_Cached_Render_States();
 }
-
-
-
-
-

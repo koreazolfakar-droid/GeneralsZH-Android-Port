@@ -50,10 +50,16 @@ static DWORD s_gxTwoSidedBackPass = 0;
 #include <thread>
 #include <sys/resource.h>
 #include <unistd.h>
-
 #if defined(__ANDROID__)
 #include <android/native_window.h>
 #endif
+
+// Private D3D8 state value emitted only by the Android GLES terrain shader.
+// It is deliberately outside the D3DTOP enum so the native D3D/Vulkan paths
+// cannot select it. The generated equation is the legacy SRCALPHA/
+// INVSRCALPHA terrain edge blend, but evaluated without a second full-tile
+// draw.
+#define GX_D3DTOP_TERRAIN_ALPHA_BLEND 0x100u
 
 // GeneralsX @performance Android port 01/10/2026 GPU time per frame (GL_EXT_disjoint_timer_query),
 // to tell a GPU-bound frame from a CPU-bound one: a TIME_ELAPSED query spans from just after one
@@ -1025,6 +1031,13 @@ static std::string combinerOp(unsigned op, const std::string &a0, const std::str
 		break;
 	case D3DTOP_BLENDFACTORALPHA:
 		snprintf(buf, sizeof(buf), "mix(%s, %s, uTFactor.a)", a2.c_str(), a1.c_str());
+		break;
+	case GX_D3DTOP_TERRAIN_ALPHA_BLEND:
+		// a2 is the destination/base result and a1 is the alpha-edge sample.
+		// The legacy pass uses source = texture * diffuse and source alpha =
+		// texture.a * diffuse.a, with SRCALPHA/INVSRCALPHA.
+		snprintf(buf, sizeof(buf), "mix(%s, (%s * vCol), clamp((%s) * vCol.a, 0.0, 1.0))",
+			a2.c_str(), a1.c_str(), texAlphaExpr);
 		break;
 	case D3DTOP_DOTPRODUCT3:
 		snprintf(buf, sizeof(buf),

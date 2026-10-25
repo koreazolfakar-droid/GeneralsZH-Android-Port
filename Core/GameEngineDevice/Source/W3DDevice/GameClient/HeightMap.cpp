@@ -2271,7 +2271,9 @@ void HeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 
  		//Specify all textures that this shader may need.
  		W3DShaderManager::setTexture(0,m_stageZeroTexture);
- 		W3DShaderManager::setTexture(1,m_stageZeroTexture);
+		// The alpha wrapper shares the base D3D image but remains the semantic
+		// stage-1 source; GLES uses its separate UV set in the fused equation.
+		W3DShaderManager::setTexture(1,m_stageOneTexture);
  		W3DShaderManager::setTexture(2,m_stageTwoTexture);	//cloud
  		W3DShaderManager::setTexture(3,m_stageThreeTexture);//noise
 		//Disable writes to destination alpha channel (if there is one)
