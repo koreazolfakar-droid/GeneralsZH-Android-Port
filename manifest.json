@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "5db3f0a8e97be273b551a5bd3442633f36a785f5e4ccb8bd65a2af85af3c6566",
-        "size": 42326560,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3594/libmain.so.gz"
+        "sha256": "37dc2ad8418f2d96e3105267cbf9e5cf8c2d724303fe00812d19505ef03de7d5",
+        "size": 42330800,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3600/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "5571b82bf94ab2a6f834ea27de361f038a90291d4c16210956e7134a4dec9b08",
-        "size": 42330768,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3594/libmain60.so.gz"
+        "sha256": "63d680e3710da55449a8438cebc5edff97a244833265a8c9fb89427ebc95b14c",
+        "size": 42330896,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3600/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3594,
-    "source_commit": "79343949820ce8bc76967e232e5ef0c9bad34b08"
+    "seq": 3600,
+    "source_commit": "94b42a90cf68d281d7387d38f310525dcc798ed2"
   },
-  "note": "Performance Architecture V2 Stage 1: bounded offline high-speed catch-up and cached GLES swap interval. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
+  "note": "Android GLES exact terrain alpha fusion: preserves SRCALPHA/INVSRCALPHA RGB blending and keeps cloud/lightmap noise as an independent pass. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
   "published": "2026-10-25",
   "schema": 1,
-  "serial": 24
+  "serial": 25
 }
