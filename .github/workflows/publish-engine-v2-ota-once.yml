@@ -1,4 +1,4 @@
-# One-time fail-closed engine-only OTA for the verified Performance Architecture V2 build.
+# One-time fail-closed engine-only OTA for the verified GLES terrain-fusion build.
 # No APK build, no game-data changes, no signing-key changes.
 name: Publish verified Engine V2 OTA (one time)
 
@@ -22,8 +22,8 @@ jobs:
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_COMMIT: 79343949820ce8bc76967e232e5ef0c9bad34b08
-      NATIVE_RUN: '40168316854'
+      SOURCE_COMMIT: 94b42a90cf68d281d7387d38f310525dcc798ed2
+      NATIVE_RUN: '40170477541'
       BASELINE_RUN: '37422581004'
     steps:
       - name: Checkout exact engine source
@@ -89,7 +89,7 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$SOURCE_COMMIT" \
             --out prepared-update \
-            --note 'Performance Architecture V2 Stage 1: bounded offline high-speed catch-up and cached GLES swap interval. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.'
+            --note 'Android GLES exact terrain alpha fusion: preserves SRCALPHA/INVSRCALPHA RGB blending and keeps cloud/lightmap noise as an independent pass. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.'
           python3 - <<'PY'
           import json, os
           m = json.load(open('prepared-update/manifest.json'))
