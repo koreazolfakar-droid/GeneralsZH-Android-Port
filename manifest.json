@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "37dc2ad8418f2d96e3105267cbf9e5cf8c2d724303fe00812d19505ef03de7d5",
-        "size": 42330800,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3600/libmain.so.gz"
+        "sha256": "96ef6911c0764a43342af7e9e6ecfb06c8fbdb838001b7a9c3c5aa82149f322f",
+        "size": 42330816,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3603/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "63d680e3710da55449a8438cebc5edff97a244833265a8c9fb89427ebc95b14c",
-        "size": 42330896,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3600/libmain60.so.gz"
+        "sha256": "e9e207b16cd27acc2d1408373220200cebc85f420ba3aed24191a26f41156f4d",
+        "size": 42335008,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3603/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3600,
-    "source_commit": "94b42a90cf68d281d7387d38f310525dcc798ed2"
+    "seq": 3603,
+    "source_commit": "2f5207976b664055381e77738b223268a1ea068f"
   },
-  "note": "Android GLES exact terrain alpha fusion: preserves SRCALPHA/INVSRCALPHA RGB blending and keeps cloud/lightmap noise as an independent pass. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
-  "published": "2026-10-25",
+  "note": "Android terrain updateVB CPU optimization: hoists global light rays, caches circular-origin lookups, and conservatively skips non-intersecting dynamic-light iteration. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
+  "published": "2026-10-26",
   "schema": 1,
-  "serial": 25
+  "serial": 26
 }
