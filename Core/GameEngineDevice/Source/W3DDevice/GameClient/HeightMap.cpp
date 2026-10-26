@@ -488,6 +488,50 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		VERTEX_FORMAT *vbHardware=(VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
 #endif
 		VERTEX_FORMAT *vBase = data;
+		// GeneralsX @performance Codex 26/10/2026 Materialize values invariant
+		// across this rectangle before entering the four-vertex hot loop.
+		for (Int lightIndex=0; lightIndex < TheGlobalData->m_numGlobalLights; lightIndex++)
+		{
+			lightPos=&TheGlobalData->m_terrainLightPos[lightIndex];
+			lightRay[lightIndex].Set(-lightPos->x,-lightPos->y,-lightPos->z);
+		}
+		Int cachedX[VERTEX_BUFFER_TILE_LENGTH+1];
+		Int cachedY[VERTEX_BUFFER_TILE_LENGTH+1];
+		for (i=x0; i<=x1; i++) cachedX[i-x0]=getXWithOrigin(i);
+		for (j=y0; j<=y1; j++) cachedY[j-y0]=getYWithOrigin(j);
+		// Conservative broad-phase: wrapped rectangles use enclosing bounds,
+		// which may retain work but can never omit a touching light.
+		RefRenderObjListIterator *lightsForBlock=pLightsIterator;
+		if (pLightsIterator)
+		{
+			Real minX=ADJUST_FROM_INDEX_TO_REAL(cachedX[0]+pMap->getDrawOrgX());
+			Real maxX=minX;
+			Real minY=ADJUST_FROM_INDEX_TO_REAL(cachedY[0]+pMap->getDrawOrgY());
+			Real maxY=minY;
+			for (Int k=1; k<=x1-x0; k++) {
+				const Real x=ADJUST_FROM_INDEX_TO_REAL(cachedX[k]+pMap->getDrawOrgX());
+				if (x<minX) minX=x; if (x>maxX) maxX=x;
+			}
+			for (Int k=1; k<=y1-y0; k++) {
+				const Real y=ADJUST_FROM_INDEX_TO_REAL(cachedY[k]+pMap->getDrawOrgY());
+				if (y<minY) minY=y; if (y>maxY) maxY=y;
+			}
+			bool touches=false;
+			for (pLightsIterator->First(); !pLightsIterator->Is_Done(); pLightsIterator->Next())
+			{
+				LightClass *pLight=(LightClass*)pLightsIterator->Peek_Obj();
+				if (pLight->Get_Type()==LightClass::DIRECTIONAL) { touches=true; break; }
+				if (pLight->Get_Type()==LightClass::POINT || pLight->Get_Type()==LightClass::SPOT)
+				{
+					Vector3 lightLoc=pLight->Get_Position();
+					double midRange,range;
+					pLight->Get_Far_Attenuation_Range(midRange,range);
+					if (lightLoc.X+range>minX && lightLoc.X-range<maxX &&
+						lightLoc.Y+range>minY && lightLoc.Y-range<maxY) { touches=true; break; }
+				}
+			}
+			if (!touches) lightsForBlock=nullptr;
+		}
 		// Note that we are building the vertex buffer data in the memory buffer, data.
 		// At the bottom, we will copy the final vertex data for one cell into the
 		// hardware vertex buffer.
@@ -498,22 +542,22 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 			vb += (j-originY)*vertsPerRow;	//skip to correct row in vertex buffer
 			vb += (x0-originX)*4;		//skip to correct vertex in row.
 
-			const Int mapY = getYWithOrigin(j);
+			const Int mapY = cachedY[j-y0];
 			vn0 = mapY-cellOffset;
 			if (vn0 < -pMap->getDrawOrgY())
 				vn0=-pMap->getDrawOrgY();
-			vp1 = getYWithOrigin(j+cellOffset)+cellOffset;
+			vp1 = cachedY[j-y0+cellOffset]+cellOffset;
 			if (vp1 >= pMap->getYExtent()-pMap->getDrawOrgY())
 				vp1=pMap->getYExtent()-pMap->getDrawOrgY()-1;
 
 			yCoord = mapY+pMap->getDrawOrgY();
 			for (i=x0; i<x1; i++)
 			{
-				const Int mapX = getXWithOrigin(i);
+				const Int mapX = cachedX[i-x0];
 				un0 = mapX-cellOffset;
 				if (un0 < -pMap->getDrawOrgX())
 					un0=-pMap->getDrawOrgX();
-				up1 = getXWithOrigin(i+cellOffset)+cellOffset;
+				up1 = cachedX[i-x0+cellOffset]+cellOffset;
 				if (up1 >= pMap->getXExtent()-pMap->getDrawOrgX())
 					up1=pMap->getXExtent()-pMap->getDrawOrgX()-1;
 				xCoord = mapX+pMap->getDrawOrgX();
@@ -532,11 +576,6 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				pMap->getUVData(mapX, mapY, U, V);
 				pMap->getAlphaUVData(mapX, mapY, UA, VA, alpha, &flipForBlend);
 
-				for (Int lightIndex=0; lightIndex < TheGlobalData->m_numGlobalLights; lightIndex++)
-				{
-					lightPos=&TheGlobalData->m_terrainLightPos[lightIndex];
-					lightRay[lightIndex].Set(-lightPos->x,-lightPos->y,	-lightPos->z);
-				}
 
 				//top-left sample
 				l2r.Set(2*MAP_XY_FACTOR,0,MAP_HEIGHT_SCALE*(pMap->getDisplayHeight(mapX+cellOffset, mapY) - pMap->getDisplayHeight(un0, mapY)));
@@ -557,7 +596,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				vb->v1=V[0];
 				vb->u2=UA[0];
 				vb->v2=VA[0];
-				doTheLight(vb, lightRay, &normalAtTexel, pLightsIterator, alpha[0]);
+				doTheLight(vb, lightRay, &normalAtTexel, lightsForBlock, alpha[0]);
 				vb++;
 
 				//top-right sample
@@ -579,7 +618,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				vb->v1=V[1];
 				vb->u2=UA[1];
 				vb->v2=VA[1];
-				doTheLight(vb, lightRay, &normalAtTexel, pLightsIterator, alpha[1]);
+				doTheLight(vb, lightRay, &normalAtTexel, lightsForBlock, alpha[1]);
 				vb++;
 
 				//bottom-right sample
@@ -605,7 +644,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				vb->v1=V[2];
 				vb->u2=UA[2];
 				vb->v2=VA[2];
-				doTheLight(vb, lightRay, &normalAtTexel, pLightsIterator, alpha[2]);
+				doTheLight(vb, lightRay, &normalAtTexel, lightsForBlock, alpha[2]);
 				vb++;
 
 				//bottom-left sample
@@ -636,7 +675,7 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 				vb->v1=V[3];
 				vb->u2=UA[3];
 				vb->v2=VA[3];
-				doTheLight(vb, lightRay, &normalAtTexel, pLightsIterator, alpha[3]);
+				doTheLight(vb, lightRay, &normalAtTexel, lightsForBlock, alpha[3]);
 				vb++;
 
 				VERTEX_FORMAT *pCurVertices = vb-4;
