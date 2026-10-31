@@ -536,6 +536,11 @@ public:
 	*/
 	Team *getDefaultTeam() { DEBUG_ASSERTCRASH(m_defaultTeam!=nullptr,("default team is null")); return m_defaultTeam; }
 	const Team *getDefaultTeam() const { DEBUG_ASSERTCRASH(m_defaultTeam!=nullptr,("default team is null")); return m_defaultTeam; }
+	// Defensive game-content validation must not invoke the asserting getter
+	// before rejecting an ownerless mod projectile. Normal callers still use
+	// getDefaultTeam(); this does not change player/team state or serialization.
+	Team *getDefaultTeamIfSet() { return m_defaultTeam; }
+	const Team *getDefaultTeamIfSet() const { return m_defaultTeam; }
 
 	void setBuildList(BuildListInfo *pBuildList);			///< sets the build list.
 	BuildListInfo *getBuildList() { return m_pBuildList; }		///< returns the build list. (build list might be modified by the solo AI)
