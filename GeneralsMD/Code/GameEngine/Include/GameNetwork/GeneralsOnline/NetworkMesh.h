@@ -5,6 +5,8 @@
 #include <ws2ipdef.h>
 #endif
 #include <steam/steamnetworkingsockets.h>
+#include <utility>
+#include <vector>
 // GeneralsX @bugfix Android port 12/07/2026 - EConnectionState used to be
 // defined locally right here (this file is from the older go_int 32ae5135
 // snapshot); it's now canonically declared in PluginInterfaces.h (ported
@@ -171,6 +173,14 @@ public:
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
+
+	// GeneralsX @bugfix Android port 02/10/2026 A joining player's mesh is built before the
+	// join response that carries its TURN credentials (see JoinLobby). Until they are applied,
+	// signalling in both directions is held back, so no connection is ever negotiated without
+	// a relay to fall back on.
+	void AwaitTurnCredentials();
+	void ApplyTurnCredentials(const std::string& strUsername, const std::string& strToken);
+
 	void DisconnectUser(int64_t remoteUserID);
 	void Disconnect();
 
@@ -205,4 +215,9 @@ private:
 	std::string m_strTurnToken;
 	std::string m_strTurnUsernameString;
 	std::string m_strTurnTokenString;
+
+	void ReleaseDeferredSignalling();
+
+	bool m_bAwaitingTurnCredentials = false;
+	std::vector<std::pair<int64_t, uint16_t>> m_vecDeferredSignalling;
 };

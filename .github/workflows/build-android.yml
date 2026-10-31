@@ -16,6 +16,10 @@ permissions:
   actions: write
 
 on:
+  # One-shot CI branch trigger used to build the TURN-timeout test APK (retry).
+  push:
+    branches:
+      - ci/build-online-turn-timeout-b21ec5d
   # GeneralsX @bugfix Android CI 01/08/2026 dropped the push: trigger that
   # used to fire a full CI build on every push to main/claude/** touching
   # these paths. This session's actual dev loop builds and checksum-verifies
