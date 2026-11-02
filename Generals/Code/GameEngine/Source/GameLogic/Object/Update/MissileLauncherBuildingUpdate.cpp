@@ -204,6 +204,10 @@ Bool MissileLauncherBuildingUpdate::initiateIntentToDoSpecialPower( const Specia
 	DEBUG_ASSERTCRASH(!TheGlobalData->m_specialPowerUsesDelay || m_doorState == DOOR_OPEN, ("door is not fully open when specialpower is fired!"));
 #endif
 
+	// Upstream 6f37e0b3 / #62: do not launch before update() finds its power module.
+	if (m_specialPowerModule == nullptr)
+		return FALSE;
+
 	switchToState(DOOR_WAITING_TO_CLOSE);
 	return TRUE;
 }
