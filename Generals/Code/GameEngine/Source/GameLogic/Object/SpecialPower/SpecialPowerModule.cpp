@@ -96,11 +96,9 @@ SpecialPowerModule::SpecialPowerModule( Thing *thing, const ModuleData *moduleDa
 									: BehaviorModule( thing, moduleData )
 {
 
-#if RETAIL_COMPATIBLE_CRC
+// Upstream 6f37e0b3 / #62: newly constructed buildings must be able to ready special powers.
+	// The 0xFFFFFFFF sentinel left Strategy Center / CIA / satellite permanently unavailable.
 	m_availableOnFrame = 0;
-#else
-	m_availableOnFrame = 0xFFFFFFFF;
-#endif
 	m_pausedCount = 0;
 	m_pausedOnFrame = 0;
 	m_pausedPercent = 0.0f;
@@ -714,6 +712,9 @@ void SpecialPowerModule::xfer( Xfer *xfer )
 
 	// available on frame
 	xfer->xferUnsignedInt( &m_availableOnFrame );
+	// Upstream 8962a3ee / #62: old saves may persist the never-ready sentinel.
+	if ( xfer->getXferMode() == XFER_LOAD && m_availableOnFrame == 0xFFFFFFFF )
+		m_availableOnFrame = 0;
 
 	// paused by script
 	xfer->xferInt( &m_pausedCount );
