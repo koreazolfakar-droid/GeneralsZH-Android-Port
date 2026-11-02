@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "06321f64812cb03060620100901e6dc25b3299467a3ce77e62e78be770f160b3",
-        "size": 42330752,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3637/libmain.so.gz"
+        "sha256": "ca9b4ca78a3bad04d4748822c13cd9d2b538eebef973aede1fd7bc49a22ce234",
+        "size": 42330800,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3643/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "2330b308b723f8d440808a3f659eefee13923ac81b91494c224ae0fe4ba57375",
-        "size": 42335056,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3637/libmain60.so.gz"
+        "sha256": "f77824c875c87ec8e709a1e4d606ea1c9fbac0365f55fbf80d78608afe3ac760",
+        "size": 42335072,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3643/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3637,
-    "source_commit": "92345defa6e917947136737c63711db8f675b34d"
+    "seq": 3643,
+    "source_commit": "979ca62d3c169660bc68c834c252caf5f053ede0"
   },
-  "note": "Large battles Phase 1: reduce repeated per-Drawable ghost manager queries while keeping all shroud, per-unit updates, AI, mod, and render behavior. Add opt-in 1000-4000 drawable count/shroud/client update CPU diagnostics with bounded 1/32 sampling. Synthetic unit-scale and existing regressions required; no claim of device FPS gains until measured on Galaxy A56. Dual 30/60Hz native engine-only OTA; no APK, save or protocol changes.",
+  "note": "TEOD terrain CPU optimization: batch local height-cell dirty rectangles and reuse partial update for changed terrain cells instead of forcing full vertex rebuild after every terrain lowering event. Preserve normal halos, alpha/shoreline, scorch/road/bridge invalidation and full relight on time-of-day/device reset. TEOD and source-level regression tests passed; actual mobile FPS gain must be measured. Dual 30/60Hz engine-only OTA, no APK, gameplay protocol or mod changes.",
   "published": "2026-11-02",
   "schema": 1,
-  "serial": 28
+  "serial": 29
 }
