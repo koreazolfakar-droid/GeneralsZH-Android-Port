@@ -584,6 +584,45 @@ static void gxTraceClientUpdatePhase(
 /** -----------------------------------------------------------------------------------------------
  * Redraw all views, update the GUI, play sound effects, etc.
  */
+
+// GeneralsX @performance 02/11/2026: bounded, opt-in crowd-scale telemetry.
+// Sample one Drawable out of 32 per frame (rotating the sample position).
+// Full-loop wall time is measured twice per frame, without GPU sync or engine
+// state mutation. These measurements are not actual displayed FPS.
+static void gxTraceLargeBattleClient(unsigned drawables, unsigned queries, unsigned samples,
+    double shroudSampleUs, double updateSampleUs, double loopUs)
+{
+    using Clock = std::chrono::steady_clock;
+    static Clock::time_point windowStart = Clock::now();
+    static unsigned frames = 0, maxDrawables = 0;
+    static unsigned long long drawablesSum = 0, queriesSum = 0, samplesSum = 0;
+    static double loopSum = 0, shroudSum = 0, clientUpdateSum = 0;
+
+    ++frames;
+    drawablesSum += drawables;
+    queriesSum += queries;
+    samplesSum += samples;
+    loopSum += loopUs;
+    shroudSum += shroudSampleUs;
+    clientUpdateSum += updateSampleUs;
+    if (drawables > maxDrawables) maxDrawables = drawables;
+    const auto now = Clock::now();
+    const double windowMs = std::chrono::duration<double, std::milli>(now - windowStart).count();
+    if (windowMs < 2000.0) return;
+    const double framesDiv = frames ? (double)frames : 1.0;
+    const double samplesDiv = samplesSum ? (double)samplesSum : 1.0;
+    GX_PERF_TRACE("[GX-PERF-SCALE] frames=%u windowMs=%.1f drawablesAvg=%.1f drawablesMax=%u "
+        "shroudQueriesPerFrame=%.1f drawableLoopMs=%.3f shroudSampleUs=%.2f "
+        "clientUpdateSampleUs=%.2f samples=%llu sampleStride=32\n",
+        frames, windowMs, (double)drawablesSum / framesDiv, maxDrawables,
+        (double)queriesSum / framesDiv, loopSum / 1000.0 / framesDiv,
+        shroudSum / samplesDiv, clientUpdateSum / samplesDiv, samplesSum);
+    windowStart = now;
+    frames = maxDrawables = 0;
+    drawablesSum = queriesSum = samplesSum = 0;
+    loopSum = shroudSum = clientUpdateSum = 0;
+}
+
 DECLARE_PERF_TIMER(GameClient_update)
 DECLARE_PERF_TIMER(GameClient_draw)
 void GameClient::update()
@@ -813,13 +852,18 @@ void GameClient::update()
 		Int numNonLocalPlayers = 0;
 		Int nonLocalPlayerIndices[MAX_PLAYER_COUNT];
 
+		// The ghost-manager mode and shroud setting are stable for this client
+		// iteration. Cache them once; never skip ghost snapshots for any player.
 #if ENABLE_CONFIGURABLE_SHROUD
-		if (TheGlobalData->m_shroudOn)
+		const bool gxShroudEnabled = TheGlobalData->m_shroudOn;
 #else
-		if (true)
+		const bool gxShroudEnabled = true;
 #endif
+		const bool gxTrackAllGhostPlayers = gxShroudEnabled && TheGhostObjectManager->trackAllPlayers();
+
+		if (gxShroudEnabled)
 		{
-			if (TheGhostObjectManager->trackAllPlayers())
+			if (gxTrackAllGhostPlayers)
 			{
 				//Find indices of all active players
 				for (Int i=0; i < numPlayers; i++)
@@ -838,16 +882,21 @@ void GameClient::update()
 		}
 
 
+
+		// These counters are off when performance diagnostics are disabled.
+		unsigned gxDrawableCount = 0, gxQueryCount = 0, gxSampleCount = 0;
+		double gxSampleShroudUs = 0, gxSampleUpdateUs = 0;
+		const unsigned gxSampleOffset = gxPerfTrace ? (getFrame() & 31u) : 0u;
+		const auto gxLoopStart = gxPerfTrace ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
 		// call the update for all client drawables
 		Drawable* draw = firstDrawable();
 		while (draw)
 		{	// update() could free the Drawable, so go ahead and grab 'next'
 			Drawable* next = draw->getNextDrawable();
-#if ENABLE_CONFIGURABLE_SHROUD
-			if (TheGlobalData->m_shroudOn)
-#else
-			if (true)
-#endif
+			const bool gxSample = gxPerfTrace && (((gxDrawableCount + gxSampleOffset) & 31u) == 0u);
+			const auto gxShroudStart = gxSample ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
+			if (gxPerfTrace) ++gxDrawableCount;
+			if (gxShroudEnabled)
 			{
 				//immobile objects need to take snapshots whenever they become fogged
 				//so need to refresh their status.  We can't rely on external calls
@@ -856,7 +905,7 @@ void GameClient::update()
 				Object *object=draw->getObject();
 				if (object)
 				{
-					if (TheGhostObjectManager->trackAllPlayers())
+					if (gxTrackAllGhostPlayers)
 					{
 						// TheSuperHackers @info Update the shrouded status for all objects
 						// that own a ghost object for all non local players. This is costly.
@@ -867,11 +916,13 @@ void GameClient::update()
 							for (; playerIndex < playerIndexEnd; ++playerIndex)
 							{
 								object->getShroudedStatus(*playerIndex);
+								if (gxPerfTrace) ++gxQueryCount;
 							}
 						}
 					}
 
 					ObjectShroudStatus ss=object->getShroudedStatus(localPlayerIndex);
+					if (gxPerfTrace) ++gxQueryCount;
 					if (ss >= OBJECTSHROUD_FOGGED && draw->getShroudClearFrame() != InvalidShroudClearFrame) {
 						UnsignedInt limit = 2*LOGICFRAMES_PER_SECOND;
 						if (object->isEffectivelyDead()) {
@@ -886,8 +937,21 @@ void GameClient::update()
 					draw->setFullyObscuredByShroud(ss >= OBJECTSHROUD_FOGGED);
 				}
 			}
+			const auto gxUpdateStart = gxSample ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
 			draw->updateDrawable();
+			if (gxSample) {
+				const auto gxSampleEnd = std::chrono::steady_clock::now();
+				gxSampleShroudUs += std::chrono::duration<double, std::micro>(gxUpdateStart - gxShroudStart).count();
+				gxSampleUpdateUs += std::chrono::duration<double, std::micro>(gxSampleEnd - gxUpdateStart).count();
+				++gxSampleCount;
+			}
 			draw = next;
+		}
+		if (gxPerfTrace) {
+			const double gxLoopUs = std::chrono::duration<double, std::micro>(
+				std::chrono::steady_clock::now() - gxLoopStart).count();
+			gxTraceLargeBattleClient(gxDrawableCount, gxQueryCount, gxSampleCount,
+				gxSampleShroudUs, gxSampleUpdateUs, gxLoopUs);
 		}
 	}
 

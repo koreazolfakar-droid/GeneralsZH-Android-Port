@@ -1,0 +1,25 @@
+name: High unit-count client scale QA
+
+on:
+  pull_request:
+    branches: [dev/mobile-v4]
+    paths:
+      - 'GeneralsMD/Code/GameEngine/Source/GameClient/GameClient.cpp'
+      - 'scripts/qa/test-large-battle-client-scale.py'
+      - '.github/workflows/qa-high-unit-scale.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  client-scale-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Check regression syntax
+        run: python3 -m py_compile scripts/qa/test-large-battle-client-scale.py
+      - name: Test 1000, 2000 and 4000 Drawable equivalence
+        run: python3 scripts/qa/test-large-battle-client-scale.py
