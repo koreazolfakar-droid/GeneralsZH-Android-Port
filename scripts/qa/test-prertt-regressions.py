@@ -260,6 +260,14 @@ struct BaseHeightMapRenderObjClass{bool m_needFullUpdate=true,m_updating=false;u
 };
 struct HeightMapRenderObjClass:BaseHeightMapRenderObjClass{
  FakeMap map;FakeMap*m_map=&map;void*m_vertexBufferTiles=this;int m_x=65,m_y=49;unsigned geometry=0;bool requestDuringUpdate=false;
+ // Android-only localized height invalidation is flushed before the full-map
+ // branch. The independent fixture must model the new prerequisite and verify
+ // that a pending dirty cell is consumed, not silently remove the call.
+ bool m_heightCellDirty=false;unsigned flushCalls=0,dirtyFlushes=0;
+ void flushHeightCellDirty(RefRenderObjListIterator*){
+  ++flushCalls;
+  if(m_heightCellDirty && !m_needFullUpdate){++dirtyFlushes;m_heightCellDirty=false;}
+ }
  void updateCenter(CameraClass*,const Vector3*,RefRenderObjListIterator*);void legacy(CameraClass*,const Vector3*,RefRenderObjListIterator*);
  int updateBlock(int x0,int y0,int x1,int y1,FakeMap*p,RefRenderObjListIterator*){
   assert(x0==0&&y0==0&&x1==m_x-1&&y1==m_y-1&&p==m_map&&m_updating);++geometry;if(requestDuringUpdate)m_needFullUpdate=true;return 0;
@@ -278,6 +286,14 @@ int main(){
  assert(b.geometry==8 && b.bridgeFull==8);
  // Camera-driven center still performs tree/road/bridge visibility; no blanket skip.
  unsigned before=b.baseCalls;b.updateCenter(nullptr,nullptr,nullptr);assert(b.baseCalls==before+1&&b.geometry==8);
+ // Local terrain change must be flushed once, while a pending full refresh
+ // keeps the full-relight path rather than applying a redundant partial one.
+ b.m_heightCellDirty=true;unsigned dirtyBefore=b.dirtyFlushes;
+ b.updateCenter(nullptr,nullptr,nullptr);
+ assert(!b.m_heightCellDirty&&b.dirtyFlushes==dirtyBefore+1&&b.geometry==8);
+ b.m_heightCellDirty=true;b.m_needFullUpdate=true;dirtyBefore=b.dirtyFlushes;
+ view(b,false);assert(b.dirtyFlushes==dirtyBefore&&b.geometry==9);
+ b.m_heightCellDirty=false;
  // A fresh request raised during refresh must not be cleared by acknowledging the old one.
  b.requestDuringUpdate=true;b.m_needFullUpdate=true;view(b,false);assert(b.m_needFullUpdate&&!b.m_updating);
  b.requestDuringUpdate=false;view(b,false);assert(!b.m_needFullUpdate);
