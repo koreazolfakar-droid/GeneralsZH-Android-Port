@@ -902,7 +902,7 @@ void W3DTerrainVisual::setRawMapHeight(const ICoord2D *gridPos, Int height)
 			// A lowered terrain cell affects nearby normals, not all 128x128
 			// vertices. Queue the visual dirty rectangle for the next render
 			// frame; preserve the full-relight path for time-of-day changes.
-			m_terrainRenderObject->markHeightCellDirty(x, y);
+			static_cast<HeightMapRenderObjClass *>(m_terrainRenderObject)->markHeightCellDirty(x, y);
 #else
 			m_terrainRenderObject->staticLightingChanged();
 #endif

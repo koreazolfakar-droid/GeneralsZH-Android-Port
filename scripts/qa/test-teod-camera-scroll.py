@@ -131,7 +131,7 @@ height_source = extract(terrain,
     "void HeightMapRenderObjClass::markHeightCellDirty(Int mapX, Int mapY)",
     "\nvoid HeightMapRenderObjClass::flushHeightCellDirty")
 assert "#if defined(__ANDROID__) && !defined(DO_SEISMIC_SIMULATIONS)" in visual
-assert "m_terrainRenderObject->markHeightCellDirty(x, y);" in visual
+assert "static_cast<HeightMapRenderObjClass *>(m_terrainRenderObject)->markHeightCellDirty(x, y);" in visual
 assert "flushHeightCellDirty(pLightsIterator);" in terrain
 assert "doPartialUpdate(dirty, m_map, pLightsIterator);" in terrain
 assert "if (m_bridgeBuffer) m_bridgeBuffer->doFullUpdate();" in terrain
