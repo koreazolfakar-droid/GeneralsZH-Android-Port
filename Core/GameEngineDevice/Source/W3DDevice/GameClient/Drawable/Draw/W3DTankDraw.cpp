@@ -331,7 +331,8 @@ void W3DTankDraw::doDrawModule(const Matrix3D* transformMtx)
 
 	// kick debris higher the faster we move
 	Coord3D velMult;
-	velMag = (Real)sqrt( velMag );
+	// Upstream ce4af283 / #65: keep tread dust visible at 60 Hz.
+	velMag = (Real)sqrt( velMag ) * LOGICFRAMES_PER_BASEFRAME_REAL;
 
 	velMult.x = 0.5f * velMag + 0.1f;
 	if (velMult.x > 1.0f)
