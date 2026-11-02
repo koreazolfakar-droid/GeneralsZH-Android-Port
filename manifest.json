@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "35b3bbd6ed39bac7fbc506cbedf34b9622166032ee663224a10ea7c9b2e65e55",
-        "size": 42330816,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3631/libmain.so.gz"
+        "sha256": "06321f64812cb03060620100901e6dc25b3299467a3ce77e62e78be770f160b3",
+        "size": 42330752,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3637/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "9085a8aec83fed45f6316db68def16056db4a2acf725785e6cb24bdbccd3fe31",
-        "size": 42335072,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3631/libmain60.so.gz"
+        "sha256": "2330b308b723f8d440808a3f659eefee13923ac81b91494c224ae0fe4ba57375",
+        "size": 42335056,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3637/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3631,
-    "source_commit": "8c5e0a312d5b6ccea3c52da90f24995bba92defd"
+    "seq": 3637,
+    "source_commit": "92345defa6e917947136737c63711db8f675b34d"
   },
-  "note": "Selective upstream GeneralsX v1.4.2 engine-only backports: tank tread GLES transforms, 30/60Hz vehicle dust, Restart speed, legacy saved special powers, rally-point null guards, Android display refresh-rate request and terrain cloud diagnostics. Preserve local TEOD, AI, mod precedence and OTA protocol. Source and dual-engine validation required; physical-device FPS and mod A/B not independently tested.",
+  "note": "Large battles Phase 1: reduce repeated per-Drawable ghost manager queries while keeping all shroud, per-unit updates, AI, mod, and render behavior. Add opt-in 1000-4000 drawable count/shroud/client update CPU diagnostics with bounded 1/32 sampling. Synthetic unit-scale and existing regressions required; no claim of device FPS gains until measured on Galaxy A56. Dual 30/60Hz native engine-only OTA; no APK, save or protocol changes.",
   "published": "2026-11-02",
   "schema": 1,
-  "serial": 27
+  "serial": 28
 }
