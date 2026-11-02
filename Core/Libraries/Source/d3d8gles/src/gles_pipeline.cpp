@@ -1350,7 +1350,9 @@ WebGLPipeline::ProgramInfo *WebGLPipeline::getProgram(WebGLDevice *dev, unsigned
 		} else if (texIn == 0) {
 			snprintf(b, sizeof(b), "  vUV%d = vec2(0.0);\n", s);
 		} else if (st[s].xform) {
-			snprintf(b, sizeof(b), "  vUV%d = (uTexMat%d * vec4(aUV%d.xy, 0.0, 1.0)).xy;\n", s, s, tci);
+			// Upstream 8b7632a6 / issue #65: D3D 2D texture coordinates are (u, v, 1, 0).
+			// Preserve stage-matrix offsets used by tank treads and W3D texture mappers.
+			snprintf(b, sizeof(b), "  vUV%d = (uTexMat%d * vec4(aUV%d.xy, 1.0, 0.0)).xy;\n", s, s, tci);
 		} else {
 			snprintf(b, sizeof(b), "  vUV%d = aUV%d.xy;\n", s, tci);
 		}
