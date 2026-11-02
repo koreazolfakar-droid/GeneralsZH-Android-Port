@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include "GXVisualFrameScale.h"
 
 #include "Common/Thing.h"
 #include "Common/ThingFactory.h"
@@ -541,7 +542,7 @@ void W3DTruckDraw::doDrawModule(const Matrix3D* transformMtx)
 		Coord3D accel = *physics->getAcceleration();
 		accel.z = 0; // ignore gravitational force.
 		// Upstream ce4af283 / #65: acceleration per retail 30 Hz frame.
-		Bool accelerating = accel.length()*LOGICFRAMES_PER_BASEFRAME_REAL*LOGICFRAMES_PER_BASEFRAME_REAL>ACCEL_THRESHOLD;
+		Bool accelerating = accel.length()*GXFrameVisuals::retail30HzScale()*GXFrameVisuals::retail30HzScale()>ACCEL_THRESHOLD;
 		//DEBUG_LOG(("Accel %f, speed %f", accel.length(), speed));
 		if (accelerating)	{
 			Real dot = accel.x*vel->x + accel.y*vel->y;
@@ -551,7 +552,7 @@ void W3DTruckDraw::doDrawModule(const Matrix3D* transformMtx)
 		}
 		if (ParticleSystem *particleSys = TheParticleSystemManager->findParticleSystem(m_truckEffectIDs[DustEffect])) {
 			// Need more dust the faster we go.
-			speed *= LOGICFRAMES_PER_BASEFRAME_REAL;
+			speed *= GXFrameVisuals::retail30HzScale();
 			if (speed>SIZE_CAP) {
 				speed = SIZE_CAP;
 			}
