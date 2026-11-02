@@ -600,7 +600,8 @@ void W3DTankTruckDraw::doDrawModule(const Matrix3D* transformMtx)
 		enableWheelEmitters(true);
 		Coord3D accel = *physics->getAcceleration();
 		accel.z = 0; // ignore gravitational force.
-		Bool accelerating = accel.length()>ACCEL_THRESHOLD;
+		// Upstream ce4af283 / #65: acceleration per retail 30 Hz frame.
+		Bool accelerating = accel.length()*LOGICFRAMES_PER_BASEFRAME_REAL*LOGICFRAMES_PER_BASEFRAME_REAL>ACCEL_THRESHOLD;
 		//DEBUG_LOG(("Accel %f, speed %f", accel.length(), speed));
 		if (accelerating)	{
 			Real dot = accel.x*vel->x + accel.y*vel->y;
@@ -610,6 +611,7 @@ void W3DTankTruckDraw::doDrawModule(const Matrix3D* transformMtx)
 		}
 		if (ParticleSystem *particleSys = TheParticleSystemManager->findParticleSystem(m_truckEffectIDs[DustEffect])) {
 			// Need more dust the faster we go.
+			speed *= LOGICFRAMES_PER_BASEFRAME_REAL;
 			if (speed>SIZE_CAP) {
 				speed = SIZE_CAP;
 			}
@@ -661,7 +663,8 @@ void W3DTankTruckDraw::doDrawModule(const Matrix3D* transformMtx)
 
 	// kick debris higher the faster we move
 	Coord3D velMult;
-	velMag = (Real)sqrt( velMag );
+	// Upstream ce4af283 / #65: speed per retail 30 Hz frame.
+	velMag = (Real)sqrt( velMag ) * LOGICFRAMES_PER_BASEFRAME_REAL;
 
 	velMult.x = 0.5f * velMag + 0.1f;
 	if (velMult.x > 1.0f)
