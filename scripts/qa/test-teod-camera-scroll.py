@@ -123,4 +123,78 @@ draw(); assert uploads==2
 draw(); assert uploads==2
 dest_clear=True # Context loss / renderer reset
 draw(); assert uploads==3
+
+# Compile the ACTUAL Android terrain dirty-range aggregator with UBSan. A
+# lowered height cell should refresh its neighboring normals, not the full map.
+visual = (R / "Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DTerrainVisual.cpp").read_text()
+height_source = extract(terrain,
+    "void HeightMapRenderObjClass::markHeightCellDirty(Int mapX, Int mapY)",
+    "\nvoid HeightMapRenderObjClass::flushHeightCellDirty")
+assert "#if defined(__ANDROID__) && !defined(DO_SEISMIC_SIMULATIONS)" in visual
+assert "m_terrainRenderObject->markHeightCellDirty(x, y);" in visual
+assert "flushHeightCellDirty(pLightsIterator);" in terrain
+assert "doPartialUpdate(dirty, m_map, pLightsIterator);" in terrain
+assert "if (m_bridgeBuffer) m_bridgeBuffer->doFullUpdate();" in terrain
+fixture = r'''
+#include <algorithm>
+#include <cassert>
+using Int = int;
+using Bool = int;
+constexpr int TRUE = 1, FALSE = 0;
+struct Point { int x=0, y=0; };
+struct IRegion2D { Point lo,hi; };
+struct WorldHeightMap {
+ int x=129,y=129;
+ int getXExtent() const { return x; }
+ int getYExtent() const { return y; }
+};
+class HeightMapRenderObjClass {
+public:
+ WorldHeightMap *m_map=nullptr;
+ Bool m_needFullUpdate=FALSE;
+ Bool m_heightCellDirty=FALSE;
+ IRegion2D m_heightCellDirtyRegion;
+ void markHeightCellDirty(Int mapX,Int mapY);
+};
+''' + height_source + r'''
+int main() {
+ WorldHeightMap map;
+ HeightMapRenderObjClass t;
+ t.m_map = &map;
+ t.markHeightCellDirty(40,50);
+ assert(t.m_heightCellDirty);
+ assert(t.m_heightCellDirtyRegion.lo.x==38 && t.m_heightCellDirtyRegion.lo.y==48);
+ assert(t.m_heightCellDirtyRegion.hi.x==43 && t.m_heightCellDirtyRegion.hi.y==53);
+ t.markHeightCellDirty(41,52);
+ assert(t.m_heightCellDirtyRegion.hi.x==44 && t.m_heightCellDirtyRegion.hi.y==55);
+ t.m_heightCellDirty=FALSE;
+ t.markHeightCellDirty(0,0);
+ assert(t.m_heightCellDirtyRegion.lo.x==0 && t.m_heightCellDirtyRegion.lo.y==0);
+ assert(t.m_heightCellDirtyRegion.hi.x==3 && t.m_heightCellDirtyRegion.hi.y==3);
+ t.m_heightCellDirty=FALSE;
+ t.markHeightCellDirty(128,128);
+ assert(t.m_heightCellDirtyRegion.lo.x==126 && t.m_heightCellDirtyRegion.lo.y==126);
+ assert(t.m_heightCellDirtyRegion.hi.x==128 && t.m_heightCellDirtyRegion.hi.y==128);
+ t.m_heightCellDirty=FALSE;
+ t.markHeightCellDirty(-1,10);
+ assert(t.m_needFullUpdate && !t.m_heightCellDirty);
+ t.m_needFullUpdate=FALSE;
+ t.markHeightCellDirty(10,10);
+ assert(t.m_heightCellDirty);
+ t.m_heightCellDirty=FALSE;
+ t.m_needFullUpdate=TRUE;
+ t.markHeightCellDirty(11,11);
+ assert(!t.m_heightCellDirty); // Global relighting takes precedence.
+}
+'''
+with tempfile.TemporaryDirectory(prefix="gx-terrain-dirty-") as td:
+    src=pathlib.Path(td)/"dirty.cpp"
+    exe=pathlib.Path(td)/"dirty"
+    src.write_text(fixture)
+    subprocess.run([compiler,"-std=c++17","-O1","-Wall","-Wextra","-Werror",
+        "-fsanitize=undefined","-fno-sanitize-recover=undefined",
+        str(src),"-o",str(exe)], check=True)
+    subprocess.run([str(exe)],check=True,timeout=15)
+print("PASS: production Android terrain height dirty rectangle, halo and full-relight fallback")
+
 print("PASS: shroud upload gate, fog invalidation, axis-safe scrolling and frame waiter")

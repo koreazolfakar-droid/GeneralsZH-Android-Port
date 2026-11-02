@@ -79,6 +79,10 @@ public:
 	virtual	void adjustTerrainLOD(Int adj) override;
 	virtual void reset() override;
 	virtual void doPartialUpdate(const IRegion2D &partialRange, WorldHeightMap *htMap, RefRenderObjListIterator *pLightsIterator) override;
+#if defined(__ANDROID__)
+	// Batch isolated terrain-height changes; global relighting still uses staticLightingChanged().
+	void markHeightCellDirty(Int mapX, Int mapY);
+#endif
 
 	virtual void oversizeTerrain(Int tilesToOversize) override; ///< Oversize the visible terrain area.
 	virtual void setTerrainDrawSize(Int width, Int height) override; ///< Resize the visible terrain area. Always defaults to oversize dimensions when oversize is set.
@@ -94,6 +98,11 @@ protected:
 	VERTEX_FORMAT *m_vertexBufferBackup; ///< In memory copy of the vertex buffer data for quick update of dynamic lighting.
 	Int m_originX; ///<  Origin point in the grid.  Slides around.
 	Int m_originY; ///< Origin point in the grid.  Slides around.
+#if defined(__ANDROID__)
+	Bool m_heightCellDirty;
+	IRegion2D m_heightCellDirtyRegion;
+	void flushHeightCellDirty(RefRenderObjListIterator *pLightsIterator);
+#endif
 	Int m_oversizeDrawWidth; // Oversize draw width required by mission scripts for cinematic sequences.
 	Int m_oversizeDrawHeight; // Oversize draw height required by mission scripts for cinematic sequences.
 	DX8IndexBufferClass			*m_indexBuffer;	///<indices defining triangles in a VB tile.
