@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: c81e6c68c1f9ce7c2bca646f8eaed4832796f348
+      BASE_MERGE: 8afa1b542fc5abbcab165d59b297678c151a93de
       PRIOR_ENGINE: '3603'
       PRIOR_SERIAL: '26'
       PRIOR_SOURCE: 2f5207976b664055381e77738b223268a1ea068f
@@ -40,7 +40,7 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
           pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/35")"
           test "$(jq -r .merged <<< "$pr")" = true
-          test "$(jq -r .merge_commit_sha <<< "$pr")" = "$BASE_MERGE"
+          test "$(jq -r .merge_commit_sha <<< "$pr")" = c81e6c68c1f9ce7c2bca646f8eaed4832796f348
           test "$(jq -r .head.ref <<< "$pr")" = feature/upstream-1.4.2-selective-engine-20261102
           test "$(git show HEAD:.github/workflows/build-android.yml | grep -c '\[engine-ota-only\]')" = 1
           # This controller must be the only post-merge change; never override source fixes.
@@ -50,6 +50,7 @@ jobs:
             exit 1
           }
           test "$(git rev-list --count HEAD)" -gt "$PRIOR_ENGINE"
+          git diff --check ff400f40a9c08c984ebf62edc1056d796860f0a7 HEAD
       - name: Verify one-time upstream ports and existing engine regressions
         shell: bash
         run: |
