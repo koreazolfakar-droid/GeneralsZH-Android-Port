@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 8afa1b542fc5abbcab165d59b297678c151a93de
+      BASE_MERGE: efe17e58fd73387ca385ba01a99ab6f7b539940a
       PRIOR_ENGINE: '3603'
       PRIOR_SERIAL: '26'
       PRIOR_SOURCE: 2f5207976b664055381e77738b223268a1ea068f
