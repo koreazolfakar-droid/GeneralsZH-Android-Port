@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 118eab639ec02a6e052787e430421cd6524f7a11
+      BASE_MERGE: 0a8b2a241f8c1bf69ee75449efdeac7f59a2c200
       PRIOR_ENGINE: '3637'
       PRIOR_SERIAL: '28'
       PRIOR_SOURCE: 92345defa6e917947136737c63711db8f675b34d
@@ -36,16 +36,19 @@ jobs:
           test "$(git rev-parse --is-shallow-repository)" = false
           test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] publish: localized terrain height OTA retest (#38)'
+          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] publish: localized terrain OTA native fix (#39)'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/38")"
-          # Guard both the original PR #37 engine fix and this PR #38 QA adapter.
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/39")"
+          # Guard original engine fix PR #37 and earlier test adapter PR #38.
+          qa_pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/38")"
+          test "$(jq -r .merged <<< "$qa_pr")" = true
+          test "$(jq -r .merge_commit_sha <<< "$qa_pr")" = 118eab639ec02a6e052787e430421cd6524f7a11
           prior_pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/37")"
           test "$(jq -r .merged <<< "$prior_pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$prior_pr")" = db322297fe206a7d5dbb1876988fba5fc96969cd
           test "$(jq -r .merged <<< "$pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$pr")" = "$BASE_MERGE"
-          test "$(jq -r .head.ref <<< "$pr")" = fix/teod-prertt-qa-fixture-20261102
+          test "$(jq -r .head.ref <<< "$pr")" = fix/teod-terrain-virtual-dispatch-20261102
           test "$(git show HEAD:.github/workflows/build-android.yml | grep -c '\[engine-ota-only\]')" = 1
           # This controller must be the only post-merge change; never override source fixes.
           actual="$(git diff --name-only "$BASE_MERGE" HEAD)"
