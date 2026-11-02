@@ -846,6 +846,9 @@ void SpecialPowerModule::xfer( Xfer *xfer )
 
 	// available on frame
 	xfer->xferUnsignedInt( &m_availableOnFrame );
+	// Upstream 8962a3ee / #62: recover never-ready powers from older saved games.
+	if ( xfer->getXferMode() == XFER_LOAD && m_availableOnFrame == 0xFFFFFFFF )
+		m_availableOnFrame = 0;
 
 	// paused by script
 	xfer->xferInt( &m_pausedCount );

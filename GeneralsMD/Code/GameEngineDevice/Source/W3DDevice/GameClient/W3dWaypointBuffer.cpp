@@ -200,8 +200,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 								numPoints++;
 							}
 
-							m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
-							WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							if (m_waypointNodeRobj) {
+								m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
+								WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							}
 						}
 					}
 					//Now render the lines in one pass!
@@ -284,8 +286,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 								            points[ numPoints++ ].Set( Vector3( waypoint->x, waypoint->y, waypoint->z ) );
 							            }
 
-							            m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
-							            WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							            if (m_waypointNodeRobj) {
+							            	m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
+							            	WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							            }
                           lineExists = TRUE;
 						            }
 					            }
@@ -296,8 +300,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
                       if ( destinationPoint->length() > 1.0f )
                       {
 								        points[ numPoints++ ].Set( Vector3( destinationPoint->x, destinationPoint->y, destinationPoint->z ) );
-							          m_waypointNodeRobj->Set_Position(Vector3(destinationPoint->x,destinationPoint->y,destinationPoint->z));
-							          WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							          if (m_waypointNodeRobj) {
+							          	m_waypointNodeRobj->Set_Position(Vector3(destinationPoint->x,destinationPoint->y,destinationPoint->z));
+							          	WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							          }
                         lineExists = TRUE;
                       }
                     }
@@ -469,8 +475,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 
 									if (pNearElbow)//did we find a nearest corner?
 									{
-										m_waypointNodeRobj->Set_Position(Vector3(pNearElbow->x,pNearElbow->y,ctr->z));
-										WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+										if (m_waypointNodeRobj) {
+											m_waypointNodeRobj->Set_Position(Vector3(pNearElbow->x,pNearElbow->y,ctr->z));
+											WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+										}
 										points[ numPoints ].Set( Vector3( pNearElbow->x, pNearElbow->y, ctr->z ) );
 										numPoints++;
 
@@ -495,8 +503,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 											dot = firstToRPDelta.x * firstElbowDelta.x + firstToRPDelta.y * firstElbowDelta.y;
 											if (dot < 0)// we have a second elbow
 											{
-												m_waypointNodeRobj->Set_Position(Vector3(pFarElbow->x,pFarElbow->y,ctr->z));
-												WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+												if (m_waypointNodeRobj) {
+													m_waypointNodeRobj->Set_Position(Vector3(pFarElbow->x,pFarElbow->y,ctr->z));
+													WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+												}
 												points[ numPoints ].Set( Vector3( pFarElbow->x, pFarElbow->y, ctr->z ) );
 												numPoints++;
 											}
@@ -517,8 +527,10 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 					else
 						continue;
 
-					m_waypointNodeRobj->Set_Position(Vector3(naturalRallyPoint.x,naturalRallyPoint.y,naturalRallyPoint.z));
-					WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+					if (m_waypointNodeRobj) {
+						m_waypointNodeRobj->Set_Position(Vector3(naturalRallyPoint.x,naturalRallyPoint.y,naturalRallyPoint.z));
+						WW3D::Render(*m_waypointNodeRobj,localRinfo); //The little hockey puck
+					}
 
 
 					m_line->Set_Points( numPoints, points );

@@ -197,6 +197,11 @@ static void restartMissionMenu()
 	Int rankPointsStartedWith = TheGameLogic->getRankPointsToAddAtGameStart();// must write down before reset
 	GameDifficulty diff = TheScriptEngine->getGlobalDifficulty();
 	Int fps = TheFramePacer->getFramesPerSecondLimit();
+#if defined(GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER)
+	// Upstream 9150bf01 / #58: MSG_NEW_GAME multiplies the retail-rate value on reload.
+	// Convert back to 30 Hz units to prevent doubling game speed on Restart.
+	fps /= GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+#endif
 
 	TheGameLogic->clearGameData(FALSE);
 	TheGameEngine->setQuitting(FALSE);
