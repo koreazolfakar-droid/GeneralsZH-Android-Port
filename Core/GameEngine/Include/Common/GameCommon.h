@@ -71,8 +71,6 @@ enum
 const Real LOGICFRAMES_PER_MSEC_REAL = (((Real)LOGICFRAMES_PER_SECOND) / ((Real)MSEC_PER_SECOND));
 const Real MSEC_PER_LOGICFRAME_REAL = (((Real)MSEC_PER_SECOND) / ((Real)LOGICFRAMES_PER_SECOND));
 const Real LOGICFRAMES_PER_SECONDS_REAL = (Real)LOGICFRAMES_PER_SECOND;
-// Upstream ce4af283 / #65: convert 60 Hz draw-frame velocities to historical 30 Hz units.
-const Real LOGICFRAMES_PER_BASEFRAME_REAL = LOGICFRAMES_PER_SECONDS_REAL / (Real)BaseFps;
 const Real SECONDS_PER_LOGICFRAME_REAL = 1.0f / LOGICFRAMES_PER_SECONDS_REAL;
 
 // ----------------------------------------------------------------------------------------------
