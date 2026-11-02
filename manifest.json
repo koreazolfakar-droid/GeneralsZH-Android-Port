@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "96ef6911c0764a43342af7e9e6ecfb06c8fbdb838001b7a9c3c5aa82149f322f",
+        "sha256": "35b3bbd6ed39bac7fbc506cbedf34b9622166032ee663224a10ea7c9b2e65e55",
         "size": 42330816,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3603/libmain.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3631/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "e9e207b16cd27acc2d1408373220200cebc85f420ba3aed24191a26f41156f4d",
-        "size": 42335008,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3603/libmain60.so.gz"
+        "sha256": "9085a8aec83fed45f6316db68def16056db4a2acf725785e6cb24bdbccd3fe31",
+        "size": 42335072,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3631/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3603,
-    "source_commit": "2f5207976b664055381e77738b223268a1ea068f"
+    "seq": 3631,
+    "source_commit": "8c5e0a312d5b6ccea3c52da90f24995bba92defd"
   },
-  "note": "Android terrain updateVB CPU optimization: hoists global light rays, caches circular-origin lookups, and conservatively skips non-intersecting dynamic-light iteration. Dual 30/60Hz engine-only OTA; no APK, game-data, save-format or online-protocol changes. Physical-device FPS and mod A/B remain unverified.",
-  "published": "2026-10-26",
+  "note": "Selective upstream GeneralsX v1.4.2 engine-only backports: tank tread GLES transforms, 30/60Hz vehicle dust, Restart speed, legacy saved special powers, rally-point null guards, Android display refresh-rate request and terrain cloud diagnostics. Preserve local TEOD, AI, mod precedence and OTA protocol. Source and dual-engine validation required; physical-device FPS and mod A/B not independently tested.",
+  "published": "2026-11-02",
   "schema": 1,
-  "serial": 26
+  "serial": 27
 }
