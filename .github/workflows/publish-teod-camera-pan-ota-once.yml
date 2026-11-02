@@ -1,6 +1,6 @@
-# Fail-closed release: signed engine-only OTA for high-unit-scale PR #36; no APK publish.
+# Fail-closed release: signed engine-only OTA for localized terrain updates PR #37; no APK publish.
 # All libraries must be produced by the existing dual 30/60Hz incremental builder.
-name: Publish high-unit-scale engine OTA (one time)
+name: Publish localized terrain-height engine OTA (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -17,10 +17,10 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 12f81ae1a76e5b557ff1cf10445feabb3d00ec1d
-      PRIOR_ENGINE: '3631'
-      PRIOR_SERIAL: '27'
-      PRIOR_SOURCE: 8c5e0a312d5b6ccea3c52da90f24995bba92defd
+      BASE_MERGE: db322297fe206a7d5dbb1876988fba5fc96969cd
+      PRIOR_ENGINE: '3637'
+      PRIOR_SERIAL: '28'
+      PRIOR_SOURCE: 92345defa6e917947136737c63711db8f675b34d
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,12 +36,12 @@ jobs:
           test "$(git rev-parse --is-shallow-repository)" = false
           test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] publish: high-unit-scale engine OTA (#36)'
+          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] publish: localized terrain height OTA (#37)'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/36")"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/37")"
           test "$(jq -r .merged <<< "$pr")" = true
           test "$(jq -r .merge_commit_sha <<< "$pr")" = "$BASE_MERGE"
-          test "$(jq -r .head.ref <<< "$pr")" = opt/high-unit-scale-phase1-20261102
+          test "$(jq -r .head.ref <<< "$pr")" = perf/teod-local-height-dirty-20261102
           test "$(git show HEAD:.github/workflows/build-android.yml | grep -c '\[engine-ota-only\]')" = 1
           # This controller must be the only post-merge change; never override source fixes.
           actual="$(git diff --name-only "$BASE_MERGE" HEAD)"
@@ -50,8 +50,8 @@ jobs:
             exit 1
           }
           test "$(git rev-list --count HEAD)" -gt "$PRIOR_ENGINE"
-          git diff --check 8c5e0a312d5b6ccea3c52da90f24995bba92defd HEAD
-      - name: Verify high-unit-count client and existing engine regressions
+          git diff --check 92345defa6e917947136737c63711db8f675b34d HEAD
+      - name: Verify TEOD terrain-locality and existing engine regressions
         shell: bash
         run: |
           set -euo pipefail
@@ -140,8 +140,8 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$GITHUB_SHA" \
             --out prepared-update \
-            --serial 28 \
-            --note 'Large battles Phase 1: reduce repeated per-Drawable ghost manager queries while keeping all shroud, per-unit updates, AI, mod, and render behavior. Add opt-in 1000-4000 drawable count/shroud/client update CPU diagnostics with bounded 1/32 sampling. Synthetic unit-scale and existing regressions required; no claim of device FPS gains until measured on Galaxy A56. Dual 30/60Hz native engine-only OTA; no APK, save or protocol changes.'
+            --serial 29 \
+            --note 'TEOD terrain CPU optimization: batch local height-cell dirty rectangles and reuse partial update for changed terrain cells instead of forcing full vertex rebuild after every terrain lowering event. Preserve normal halos, alpha/shoreline, scorch/road/bridge invalidation and full relight on time-of-day/device reset. TEOD and source-level regression tests passed; actual mobile FPS gain must be measured. Dual 30/60Hz engine-only OTA, no APK, gameplay protocol or mod changes.'
           python3 - <<'PY'
           import json,os
           m=json.load(open('prepared-update/manifest.json'))
