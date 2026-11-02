@@ -898,7 +898,14 @@ void W3DTerrainVisual::setRawMapHeight(const ICoord2D *gridPos, Int height)
  		if (m_logicHeightMap->getHeight(x,y) > height)
 		{
 			m_logicHeightMap->setRawHeight(x, y, height);
-			m_terrainRenderObject->staticLightingChanged(); // OOH! this could benefit from the new Seismic update code
+#if defined(__ANDROID__) && !defined(DO_SEISMIC_SIMULATIONS)
+			// A lowered terrain cell affects nearby normals, not all 128x128
+			// vertices. Queue the visual dirty rectangle for the next render
+			// frame; preserve the full-relight path for time-of-day changes.
+			m_terrainRenderObject->markHeightCellDirty(x, y);
+#else
+			m_terrainRenderObject->staticLightingChanged();
+#endif
 
 
 #ifdef DO_SEISMIC_SIMULATIONS
