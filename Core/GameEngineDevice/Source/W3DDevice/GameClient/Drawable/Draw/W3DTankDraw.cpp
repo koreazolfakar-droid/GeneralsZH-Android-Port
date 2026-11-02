@@ -30,6 +30,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include <stdlib.h>
 #include <math.h>
+#include "GXVisualFrameScale.h"
 
 #include "Common/Thing.h"
 #include "Common/ThingFactory.h"
@@ -332,7 +333,7 @@ void W3DTankDraw::doDrawModule(const Matrix3D* transformMtx)
 	// kick debris higher the faster we move
 	Coord3D velMult;
 	// Upstream ce4af283 / #65: keep tread dust visible at 60 Hz.
-	velMag = (Real)sqrt( velMag ) * LOGICFRAMES_PER_BASEFRAME_REAL;
+	velMag = (Real)sqrt( velMag ) * GXFrameVisuals::retail30HzScale();
 
 	velMult.x = 0.5f * velMag + 0.1f;
 	if (velMult.x > 1.0f)
