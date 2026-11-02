@@ -1302,6 +1302,9 @@ m_vertexBufferTiles(nullptr),
 m_vertexBufferBackup(nullptr),
 m_originX(0),
 m_originY(0),
+#if defined(__ANDROID__)
+m_heightCellDirty(FALSE),
+#endif
 m_oversizeDrawWidth(0),
 m_oversizeDrawHeight(0),
 m_indexBuffer(nullptr),
@@ -1417,6 +1420,9 @@ void HeightMapRenderObjClass::ReAcquireResources()
 void HeightMapRenderObjClass::reset()
 {
 	BaseHeightMapRenderObjClass::reset();
+#if defined(__ANDROID__)
+	m_heightCellDirty = FALSE;
+#endif
 	m_oversizeDrawWidth = 0;
 	m_oversizeDrawHeight = 0;
 }
@@ -1496,6 +1502,9 @@ shaders, and materials.*/
 Int HeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, RefRenderObjListIterator *pLightsIterator, Bool updateExtraPassTiles)
 {
 	BaseHeightMapRenderObjClass::initHeightData(x, y, pMap, pLightsIterator, updateExtraPassTiles);
+#if defined(__ANDROID__)
+	m_heightCellDirty = FALSE; // A new map gets its own complete vertex rebuild.
+#endif
 	Int i,j;
 //	Int	vertsPerRow=x*2-2;
 //	Int	vertsPerColumn=y*2-2;
@@ -1910,6 +1919,57 @@ static void calcVis(const FrustumClass & frustum, WorldHeightMap *pMap, Int minX
 
 
 
+#if defined(__ANDROID__)
+// Height changes from construction and map deformation affect only nearby
+// vertices/normals. Coalesce them until the next render frame instead of
+// rerunning a full 128x128 vertex/lighting pass for every isolated cell.
+void HeightMapRenderObjClass::markHeightCellDirty(Int mapX, Int mapY)
+{
+	if (!m_map || m_needFullUpdate) return; // A full initialization/relight is already queued.
+	if (mapX < 0 || mapY < 0 || mapX >= m_map->getXExtent()
+		|| mapY >= m_map->getYExtent()) {
+		m_needFullUpdate = true; // Fail closed on unexpected coordinates.
+		return;
+	}
+	// updateVB samples adjacent heights for normals. Include a two-cell halo
+	// and clamp before doPartialUpdate scans texture and shoreline cells.
+	const Int loX = std::max(0, mapX - 2);
+	const Int loY = std::max(0, mapY - 2);
+	const Int hiX = std::min(m_map->getXExtent() - 1, mapX + 3);
+	const Int hiY = std::min(m_map->getYExtent() - 1, mapY + 3);
+	if (!m_heightCellDirty) {
+		m_heightCellDirtyRegion.lo.x = loX;
+		m_heightCellDirtyRegion.lo.y = loY;
+		m_heightCellDirtyRegion.hi.x = hiX;
+		m_heightCellDirtyRegion.hi.y = hiY;
+		m_heightCellDirty = TRUE;
+	} else {
+		m_heightCellDirtyRegion.lo.x = std::min(m_heightCellDirtyRegion.lo.x, loX);
+		m_heightCellDirtyRegion.lo.y = std::min(m_heightCellDirtyRegion.lo.y, loY);
+		m_heightCellDirtyRegion.hi.x = std::max(m_heightCellDirtyRegion.hi.x, hiX);
+		m_heightCellDirtyRegion.hi.y = std::max(m_heightCellDirtyRegion.hi.y, hiY);
+	}
+}
+
+void HeightMapRenderObjClass::flushHeightCellDirty(RefRenderObjListIterator *pLightsIterator)
+{
+	if (!m_heightCellDirty) return;
+	const IRegion2D dirty = m_heightCellDirtyRegion;
+	m_heightCellDirty = FALSE;
+	if (!m_map || !m_vertexBufferTiles || m_needFullUpdate) return;
+	// Reuse the established partial-update path, including alpha blend tiles,
+	// shorelines, impassable display, vertex normals and terrain lighting.
+	doPartialUpdate(dirty, m_map, pLightsIterator);
+	// Preserve the auxiliary invalidations from staticLightingChanged(), but
+	// do not force all terrain vertices to regenerate for a single lowered cell.
+	m_scorchesInBuffer = 0;
+	m_curNumScorchVertices = 0;
+	m_curNumScorchIndices = 0;
+	if (m_roadBuffer) m_roadBuffer->updateLighting();
+	if (m_bridgeBuffer) m_bridgeBuffer->doFullUpdate();
+}
+#endif
+
 //=============================================================================
 // HeightMapRenderObjClass::updateCenter
 //=============================================================================
@@ -1931,6 +1991,9 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 		return;		//did not initialize resources yet.
 
 	BaseHeightMapRenderObjClass::updateCenter(camera, cameraPivot, pLightsIterator);
+#if defined(__ANDROID__)
+	flushHeightCellDirty(pLightsIterator);
+#endif
 
 	if (m_x >= m_map->getXExtent() && m_y >= m_map->getYExtent())
     {
