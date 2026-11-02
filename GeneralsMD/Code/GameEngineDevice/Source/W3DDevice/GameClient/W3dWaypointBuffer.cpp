@@ -287,8 +287,8 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 							            }
 
 							            if (m_waypointNodeRobj) {
-							            	m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
-							            	WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							                m_waypointNodeRobj->Set_Position(Vector3(waypoint->x,waypoint->y,waypoint->z));
+							                WW3D::Render(*m_waypointNodeRobj,localRinfo);
 							            }
                           lineExists = TRUE;
 						            }
@@ -301,8 +301,8 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
                       {
 								        points[ numPoints++ ].Set( Vector3( destinationPoint->x, destinationPoint->y, destinationPoint->z ) );
 							          if (m_waypointNodeRobj) {
-							          	m_waypointNodeRobj->Set_Position(Vector3(destinationPoint->x,destinationPoint->y,destinationPoint->z));
-							          	WW3D::Render(*m_waypointNodeRobj,localRinfo);
+							              m_waypointNodeRobj->Set_Position(Vector3(destinationPoint->x,destinationPoint->y,destinationPoint->z));
+							              WW3D::Render(*m_waypointNodeRobj,localRinfo);
 							          }
                         lineExists = TRUE;
                       }
