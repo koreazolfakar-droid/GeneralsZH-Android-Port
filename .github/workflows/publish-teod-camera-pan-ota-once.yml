@@ -1,6 +1,6 @@
-# Fail-closed release: no APK build, engine-only signed OTA after PR32 merge.
+# Fail-closed release: signed engine-only OTA after upstream v1.4.2 PR #35. Never rebuild or publish an APK.
 # All libraries must be produced by the existing dual 30/60Hz incremental builder.
-name: Publish TEOD camera pan engine OTA (one time)
+name: Publish selective upstream 1.4.2 engine OTA (one time)
 on:
   push:
     branches: [dev/mobile-v4]
@@ -17,10 +17,10 @@ jobs:
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
-      BASE_MERGE: 34004d6835a6af1ae0aabe9359c95dfa6894f0ab
-      PRIOR_ENGINE: '3547'
-      PRIOR_SERIAL: '21'
-      PRIOR_SOURCE: c558f3556cdc31dbe9640d740fe3d4e9450b2a9e
+      BASE_MERGE: c81e6c68c1f9ce7c2bca646f8eaed4832796f348
+      PRIOR_ENGINE: '3603'
+      PRIOR_SERIAL: '26'
+      PRIOR_SOURCE: 2f5207976b664055381e77738b223268a1ea068f
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,49 +36,47 @@ jobs:
           test "$(git rev-parse --is-shallow-repository)" = false
           test "$(git rev-parse HEAD^1)" = "$BASE_MERGE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] perf(android): merge TEOD camera-pan fixes (#32)'
+          test "$(git show -s --format=%s HEAD)" = '[engine-ota-only] publish: selective upstream 1.4.2 engine OTA (#35)'
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/32")"
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/35")"
           test "$(jq -r .merged <<< "$pr")" = true
-          test "$(jq -r .merge_commit_sha <<< "$pr")" = "$GITHUB_SHA"
-          test "$(jq -r .head.sha <<< "$pr")" = "$(git rev-parse HEAD^2)"
-          test "$(jq -r .head.ref <<< "$pr")" = perf/teod-camera-scroll-20261023
-          test "$(jq -r .head.sha <<< "$pr")" = "$(git rev-parse HEAD^2)"
-          expected="$(printf '%s\n' \
-            Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp \
-            Core/Libraries/Include/GXProgramCacheWriter.h \
-            Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp \
-            Core/Libraries/Source/d3d8gles/src/gles_thread.cpp \
-            GeneralsMD/Code/GameEngineDevice/Include/W3DDevice/GameClient/W3DShroud.h \
-            GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DShroud.cpp \
-            .github/workflows/build-android.yml \
-            .github/workflows/qa-teod-camera-scroll.yml \
-            .github/workflows/publish-teod-camera-pan-ota-once.yml \
-            scripts/qa/test-teod-camera-scroll.py \
-            scripts/qa/test-shader-cache-async.py \
-            scripts/qa/test-shroud-dirty-rect.py | sort)"
-          # An explicit renderer-only commit must NEVER trigger an APK build.
+          test "$(jq -r .merge_commit_sha <<< "$pr")" = "$BASE_MERGE"
+          test "$(jq -r .head.ref <<< "$pr")" = feature/upstream-1.4.2-selective-engine-20261102
           test "$(git show HEAD:.github/workflows/build-android.yml | grep -c '\[engine-ota-only\]')" = 1
-          actual="$(git diff --name-only "$BASE_MERGE" HEAD | sort)"
-          test "$actual" = "$expected" || { echo 'Unexpected changed source file; refusing release'; exit 1; }
-      - name: Run camera scroll, shader storage, terrain, GLES and engine security gates
+          # This controller must be the only post-merge change; never override source fixes.
+          actual="$(git diff --name-only "$BASE_MERGE" HEAD)"
+          test "$actual" = '.github/workflows/publish-teod-camera-pan-ota-once.yml' || {
+            echo 'Refusing OTA: source changes or concurrent commits detected'
+            exit 1
+          }
+          test "$(git rev-list --count HEAD)" -gt "$PRIOR_ENGINE"
+      - name: Verify one-time upstream ports and existing engine regressions
         shell: bash
         run: |
           set -euo pipefail
+          python3 scripts/qa/test-upstream-142-port.py
           python3 scripts/qa/test-teod-camera-scroll.py
           python3 scripts/qa/test-shader-cache-async.py
           python3 scripts/qa/test-shroud-dirty-rect.py
           python3 scripts/qa/test-volume-particle-equivalence.py
           python3 scripts/qa/test-gles-upload-regressions.py
           python3 scripts/qa/test-engine-security.py
+          python3 scripts/qa/test-vehicle-ai-v1.py
       - name: Confirm previous signed OTA is intact
         shell: bash
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior-manifest.json"
+          mkdir -p prior-check
+          cp "$RUNNER_TEMP/prior-manifest.json" prior-check/manifest.json
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq .content | base64 --decode > prior-check/manifest.json.sig
           python3 - <<'PY'
-          import os,json
-          p=json.load(open(os.environ['RUNNER_TEMP']+'/prior-manifest.json'))
+          import os,json,importlib.util
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(a)
+          p=a.verify_manifest('prior-check','android/app/src/main/assets/update-public.pem')
+          assert p['channel']=='koreazolfakar-droid/mobile-v4/v1'
           assert p['engine']['seq']==int(os.environ['PRIOR_ENGINE'])
           assert p['serial']==int(os.environ['PRIOR_SERIAL'])
           assert p['engine']['source_commit']==os.environ['PRIOR_SOURCE']
@@ -140,8 +138,8 @@ jobs:
             --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
             --expected-source "$GITHUB_SHA" \
             --out prepared-update \
-            --serial 22 \
-            --note 'TEOD camera-pan engine: incremental terrain Y-limit fix, partial shroud uploads, asynchronous shader binary disk writes and render producer wait notifications. All visuals and gameplay retained. Source/dual engine tests passed; direct device FPS benefit not independently verified.'
+            --serial 27 \
+            --note 'Selective upstream GeneralsX v1.4.2 engine-only backports: tank tread GLES transforms, 30/60Hz vehicle dust, Restart speed, legacy saved special powers, rally-point null guards, Android display refresh-rate request and terrain cloud diagnostics. Preserve local TEOD, AI, mod precedence and OTA protocol. Source and dual-engine validation required; physical-device FPS and mod A/B not independently tested.'
           python3 - <<'PY'
           import json,os
           m=json.load(open('prepared-update/manifest.json'))
