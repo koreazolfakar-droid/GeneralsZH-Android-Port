@@ -1,0 +1,28 @@
+name: Selective upstream v1.4.2 engine port checks
+
+on:
+  pull_request:
+    branches:
+      - dev/mobile-v4
+    paths:
+      - 'Core/**'
+      - 'Generals/**'
+      - 'GeneralsMD/**'
+      - 'scripts/qa/test-upstream-142-port.py'
+      - '.github/workflows/upstream-142-engine-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Check script syntax
+        run: python3 -m py_compile scripts/qa/test-upstream-142-port.py
+      - name: Verify targeted ports, counts, and no duplicates
+        run: python3 scripts/qa/test-upstream-142-port.py
