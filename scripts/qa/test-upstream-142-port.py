@@ -24,17 +24,18 @@ def main() -> None:
     draw = "Core/GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/"
     count(gles, 'vec4(aUV%d.xy, 1.0, 0.0)')
     count(gles, 'vec4(aUV%d.xy, 0.0, 1.0)', 0)
-    count(common, 'const Real LOGICFRAMES_PER_BASEFRAME_REAL =')
+    count(common, 'const Real LOGICFRAMES_PER_BASEFRAME_REAL =', 0)
+    count(draw + 'GXVisualFrameScale.h', 'inline Real retail30HzScale()')
     for path, vel, accel, speed in (
         ("W3DTankDraw.cpp", 1, 0, 0),
         ("W3DTankTruckDraw.cpp", 1, 1, 1),
         ("W3DTruckDraw.cpp", 0, 1, 1),
     ):
         file = draw + path
-        count(file, 'velMag = (Real)sqrt( velMag ) * LOGICFRAMES_PER_BASEFRAME_REAL;', vel)
+        count(file, 'velMag = (Real)sqrt( velMag ) * GXFrameVisuals::retail30HzScale();', vel)
         count(file, 'velMag = (Real)sqrt( velMag );', 0)
-        count(file, 'accel.length()*LOGICFRAMES_PER_BASEFRAME_REAL*LOGICFRAMES_PER_BASEFRAME_REAL>ACCEL_THRESHOLD;', accel)
-        count(file, 'speed *= LOGICFRAMES_PER_BASEFRAME_REAL;', speed)
+        count(file, 'accel.length()*GXFrameVisuals::retail30HzScale()*GXFrameVisuals::retail30HzScale()>ACCEL_THRESHOLD;', accel)
+        count(file, 'speed *= GXFrameVisuals::retail30HzScale();', speed)
     for game in ("Generals", "GeneralsMD"):
         menu = f"{game}/Code/GameEngine/Source/GameClient/GUI/GUICallbacks/Menus/QuitMenu.cpp"
         count(menu, 'fps /= GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;')
