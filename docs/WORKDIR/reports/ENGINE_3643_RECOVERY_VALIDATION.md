@@ -44,3 +44,14 @@ No attached Galaxy A56 or TEOD MODDB_Ver11 data: all ten requested physical scen
 - `Core/Libraries/Include/GXProductionProfile.h`
 
 No OTA version allocated or artifact published. Existing OTA 3643 / serial 29 remains the release baseline.
+
+## Subsequent OTA release verification
+
+Engine 3645, serial 30 was published through existing OTA scripts by successful run https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/41638573122 . Android engine-only build https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/41636998338 succeeded for source 408e11692b21166f9c7c220f3219f30956befff1 . The first attempt 41636417007 exposed a missing telemetry include in the preRTT fixture; that fixture was repaired and all preRTT checks then passed before the successful build.
+
+Independent public-download verification: signed manifest verified with pinned public key; both gzip payloads decompress to AArch64 ELF and match manifest sizes and SHA256:
+
+- libmain.so: 42339056 bytes, 354000f45be64a03891f2a398a5fb472b2bc1e447559c10c75d5507124050b65
+- libmain60.so: 42347440 bytes, 1ba4b61d35defd07879a7ed51b86ea261ff7b3d5fd97415e1c560706ce22fb5c
+
+No APK built or distributed. Device visuals, saves and performance remain unverified and are explicitly disclosed in the signed release note. Earlier local toolchain blockers above are the historical recovery status; Android compilation was subsequently completed in the existing cache-backed Actions engine-only workflow.
