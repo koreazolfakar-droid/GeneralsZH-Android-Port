@@ -886,6 +886,8 @@ void OpenALAudioManager::playAudioEvent(AudioEventRTS* event)
 		if (!ffmpegFile->open(file))
 		{
 			DEBUG_LOG(("Failed to open FFmpeg file: %s\n", fileToPlay.str()));
+			// The FFmpeg wrapper owns and closes File even when open() fails.
+			delete ffmpegFile;
 			releasePlayingAudio(audio);
 			return;
 		}
