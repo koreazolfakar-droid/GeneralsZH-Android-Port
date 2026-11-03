@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "354000f45be64a03891f2a398a5fb472b2bc1e447559c10c75d5507124050b65",
-        "size": 42339056,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3645/libmain.so.gz"
+        "sha256": "6bff919d00d430ffc8326c35b7bd567c773361438a71719ad8bc1443c0059187",
+        "size": 42339104,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3659/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "1ba4b61d35defd07879a7ed51b86ea261ff7b3d5fd97415e1c560706ce22fb5c",
+        "sha256": "9096d0e7795fcd7a15cfeeb4c6ffe0312d6e7cb2530b0cad6a413bc9a2acfbbd",
         "size": 42347440,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3645/libmain60.so.gz"
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3659/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3645,
-    "source_commit": "408e11692b21166f9c7c220f3219f30956befff1"
+    "seq": 3659,
+    "source_commit": "474b7c0fb484b9b0c2ce22f6c2f991fb7c167554"
   },
-  "note": "Terrain invalidation and circular dirty-region repairs; fewer redundant GLES texture commands; FFmpeg MP3 size/packet cleanup; script parse cleanup; bounded diagnostics. Dual-engine Android build and automated regressions passed. Physical-device visuals, save/load and FPS remain unverified. Engine-only OTA; no new APK.",
+  "note": "Engine asset/audio reliability: accept available music tracks; invalidate missing-file cache after asset-root changes; FFmpeg/OpenAL error cleanup and malformed-stream validation. Host/Android 30+60Hz build and automated regressions passed. TEOD missing texture content and physical-device visuals/audio remain unverified. Engine-only OTA, no APK.",
   "published": "2026-11-03",
   "schema": 1,
-  "serial": 30
+  "serial": 31
 }
