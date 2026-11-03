@@ -54,7 +54,7 @@ def looks_valid(extension, peek, size):
         if size < 18 or len(peek) < 18:
             return False
         width, height = struct.unpack_from('<HH', peek, 12)
-        return width > 0 and height > 0 and peek[2] in (2, 3, 10, 11) and peek[16] in (8, 24, 32)
+        return width > 0 and height > 0 and peek[2] in (2, 10) and peek[16] in (24, 32)
     if extension == '.dds':
         return size >= 128 and peek[:4] == b'DDS '
     if extension == '.mp3':
