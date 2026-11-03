@@ -1,0 +1,81 @@
+name: Publish verified terrain repair engine 3645
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-terrain-repair-3645.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: 408e11692b21166f9c7c220f3219f30956befff1
+      ENGINE_RUN: '41636998338'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 408e11692b21166f9c7c220f3219f30956befff1
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Require exact successful native build and unchanged prior channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" > "$RUNNER_TEMP/build.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior.json"
+          python3 - <<'PY'
+          import json,os
+          r=json.load(open(os.environ['RUNNER_TEMP']+'/build.json'))
+          assert r['status']=='completed' and r['conclusion']=='success'
+          assert r['head_sha']==os.environ['SOURCE'] and r['event']=='workflow_dispatch'
+          assert r['path']=='.github/workflows/build-android.yml'
+          assert r['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY']
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/prior.json'))
+          assert p['engine']['seq']==3643 and p['serial']==29
+          assert p['engine']['source_commit']=='979ca62d3c169660bc68c834c252caf5f053ede0'
+          PY
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 41636998338
+          github-token: ${{ github.token }}
+          path: engine-build
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+      - name: Prepare existing OTA format and verify candidate provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py --report-dir engine-build --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk --expected-source "$SOURCE" --out prepared-update --serial 30 --note 'Terrain invalidation and circular dirty-region repairs; fewer redundant GLES texture commands; FFmpeg MP3 size/packet cleanup; script parse cleanup; bounded diagnostics. Dual-engine Android build and automated regressions passed. Physical-device visuals, save/load and FPS remain unverified. Engine-only OTA; no new APK.'
+          python3 - <<'PY'
+          import json,os
+          r=json.load(open('engine-build/result.json'))
+          m=json.load(open('prepared-update/manifest.json'))
+          assert r['build']=='PASS' and r['new_apk_required'] is False
+          assert m['engine']['seq']==3645 and m['serial']==30
+          assert m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/current.json"
+          cmp "$RUNNER_TEMP/prior.json" "$RUNNER_TEMP/current.json"
+      - name: Sign and verify using existing identity
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: bash scripts/update/sign-manifest.sh prepared-update
+      - name: Publish through existing OTA channel
+        run: |
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
