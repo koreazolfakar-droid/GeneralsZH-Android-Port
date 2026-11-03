@@ -1232,18 +1232,9 @@ void HeightMapRenderObjClass::doPartialUpdate(const IRegion2D &partialRange, Wor
 		}
 	updateShorelineTiles(partialRange.lo.x,partialRange.lo.y,partialRange.hi.x,partialRange.hi.y,htMap);
 
-#if defined(__ANDROID__)
-	// Impassability overlays share the same VBO-relative circular coordinates.
-	// Update only the changed physical rectangles rather than broad whole rows.
-	for (Int yi = 0; yi < yRanges.count; ++yi) {
-		for (Int xi = 0; xi < xRanges.count; ++xi) {
-			updateViewImpassableAreas(TRUE, xRanges.lo[xi], xRanges.hi[xi],
-				yRanges.lo[yi], yRanges.hi[yi]);
-		}
-	}
-#else
+// Unlike the circular terrain VBOs, the impassable lookup is indexed
+	// in logical terrain coordinates. Keep its existing coordinate space.
 	updateViewImpassableAreas(TRUE, minX, maxX, minY, maxY);
-#endif
 }
 
 //=============================================================================
