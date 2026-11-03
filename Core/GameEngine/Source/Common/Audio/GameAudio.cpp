@@ -947,41 +947,42 @@ Real AudioManager::getAudioLengthMS( const AudioEventRTS *event )
 //-------------------------------------------------------------------------------------------------
 Bool AudioManager::isMusicAlreadyLoaded() const
 {
-	const AudioEventInfo *musicToLoad = nullptr;
-	AudioEventInfoHash::const_iterator it;
-	for (it = m_allAudioEventInfo.begin(); it != m_allAudioEventInfo.end(); ++it) {
-		if (it->second) {
-			const AudioEventInfo *aet = it->second;
-			if (aet->m_soundType == AT_Music) {
-				musicToLoad = aet;
-			}
+	// A single missing track must not reject a valid installation. Iteration
+	// over m_allAudioEventInfo has no guaranteed order, so the old last-entry
+	// probe caused nondeterministic startup failures on modded installs.
+	Bool hasMusicDefinition = FALSE;
+	UnsignedInt missingTracks = 0;
+	AsciiString firstMissingEvent;
+	AsciiString firstMissingPath;
+	for (AudioEventInfoHash::const_iterator it = m_allAudioEventInfo.begin();
+		it != m_allAudioEventInfo.end(); ++it)
+	{
+		const AudioEventInfo *info = it->second;
+		if (info == nullptr || info->m_soundType != AT_Music)
+			continue;
+		hasMusicDefinition = TRUE;
+
+		AudioEventRTS event;
+		event.setAudioEventInfo(info);
+		event.generateFilename();
+		const AsciiString path = event.getFilename();
+		if (TheFileSystem->doesFileExist(path.str()))
+			return TRUE;
+
+		++missingTracks;
+		if (firstMissingPath.isEmpty()) {
+			firstMissingPath = path;
+			firstMissingEvent = info->m_audioName;
 		}
 	}
-
-	if (!musicToLoad) {
-		// GeneralsX @diag Android port 06/09/2026 A FALSE from this function makes
-		// GameEngine::init() set the quit flag, so the game reaches the main menu
-		// and then closes on the loop's first check -- a black screen and an exit
-		// with status 0, with nothing anywhere saying why. Say why.
+	if (!hasMusicDefinition) {
 		fprintf(stderr, "[gxaudio] isMusicAlreadyLoaded: no AT_Music entries defined at all\n");
-		return FALSE;
+	} else {
+		fprintf(stderr,
+			"[gxaudio] isMusicAlreadyLoaded: none of %u music tracks exists; first missing '%s' -> '%s'\n",
+			(unsigned)missingTracks, firstMissingEvent.str(), firstMissingPath.str());
 	}
-
-	AudioEventRTS aud;
-	aud.setAudioEventInfo(musicToLoad);
-	aud.generateFilename();
-
-	AsciiString astr = aud.getFilename();
-
-	const Bool exists = TheFileSystem->doesFileExist(astr.str());
-	if (!exists) {
-		// Note that the probed track is whichever music entry came last out of an
-		// unordered hash, so this names one missing file, not necessarily the only
-		// one -- but it is the one the engine judged the whole game on.
-		fprintf(stderr, "[gxaudio] isMusicAlreadyLoaded: probe track '%s' -> file '%s' NOT FOUND\n",
-			musicToLoad->m_audioName.str(), astr.str());
-	}
-	return exists;
+	return FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------

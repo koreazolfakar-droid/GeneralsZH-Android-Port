@@ -143,6 +143,7 @@ Bool FFmpegFile::open(File *file)
 			char error_buffer[1024];
 			av_strerror(result, error_buffer, sizeof(error_buffer));
 			DEBUG_LOG(("Failed 'avcodec_parameters_to_context': %s", error_buffer));
+			avcodec_free_context(&codec_ctx);
 			close();
 			return false;
 		}
@@ -152,6 +153,7 @@ Bool FFmpegFile::open(File *file)
 			char error_buffer[1024];
 			av_strerror(result, error_buffer, sizeof(error_buffer));
 			DEBUG_LOG(("Failed 'avcodec_open2': %s", error_buffer));
+			avcodec_free_context(&codec_ctx);
 			close();
 			return false;
 		}
@@ -162,9 +164,19 @@ Bool FFmpegFile::open(File *file)
 		output_stream.stream_type = input_codec->type;
 		output_stream.stream_idx = stream_idx;
 		output_stream.frame = av_frame_alloc();
+		if (output_stream.frame == nullptr) {
+			DEBUG_LOG(("Could not allocate decoded frame"));
+			close();
+			return false;
+		}
 	}
 
 	m_packet = av_packet_alloc();
+	if (m_packet == nullptr) {
+		DEBUG_LOG(("Could not allocate AVPacket"));
+		close();
+		return false;
+	}
 
 	return true;
 }
@@ -244,7 +256,11 @@ Bool FFmpegFile::decodePacket()
 	}
 
 	const int stream_idx = m_packet->stream_index;
-	DEBUG_ASSERTCRASH(m_streams.size() > stream_idx, ("stream index out of bounds"));
+	// Reject corrupt packet metadata before indexing the stream array.
+	if (stream_idx < 0 || static_cast<size_t>(stream_idx) >= m_streams.size()) {
+		DEBUG_LOG(("Invalid FFmpeg packet stream index: %d", stream_idx));
+		return false;
+	}
 
 	auto &stream = m_streams[stream_idx];
 	AVCodecContext *codec_ctx = stream.codec_ctx;

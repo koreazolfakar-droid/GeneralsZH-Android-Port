@@ -1,0 +1,37 @@
+name: Asset and audio reliability QA
+
+on:
+  pull_request:
+    paths:
+      - 'Core/GameEngine/Source/Common/Audio/GameAudio.cpp'
+      - 'Core/GameEngineDevice/Source/StdDevice/Common/StdLocalFileSystem.cpp'
+      - 'Core/GameEngineDevice/Source/OpenALAudioDevice/OpenALAudioManager.cpp'
+      - 'Core/GameEngineDevice/Source/VideoDevice/FFmpeg/FFmpegFile.cpp'
+      - 'scripts/qa/*asset*'
+      - 'scripts/qa/*media*'
+      - '.github/workflows/qa-asset-audio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asset-audio-host-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Python QA syntax
+        run: python3 -m py_compile scripts/qa/test-asset-audio-reliability.py scripts/qa/test-asset-root-cache.py scripts/qa/verify-mod-media.py scripts/qa/test-verify-mod-media.py
+      - name: Music preflight C++ host regression
+        run: python3 scripts/qa/test-asset-audio-reliability.py
+      - name: Loose-asset root cache C++ host regression
+        run: python3 scripts/qa/test-asset-root-cache.py
+      - name: BIGF media and malformed archive regression
+        run: python3 scripts/qa/test-verify-mod-media.py
+      - name: Install FFmpeg build and runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libavformat-dev libavcodec-dev libavutil-dev pkg-config
+      - name: FFmpeg AVIO size regression
+        run: python3 scripts/qa/test-ffmpeg-avio-size.py
