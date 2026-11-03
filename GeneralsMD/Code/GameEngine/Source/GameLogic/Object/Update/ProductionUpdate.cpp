@@ -57,6 +57,15 @@
 #include "GXTrace.h"
 #include "Common/GXReplayCheck.h"
 
+// GeneralsX @feature Codex 03/11/2026 Time only opted-in production stages;
+// keep the diagnostic clock and output outside the gameplay state.
+#if defined(__ANDROID__)
+#include "GXProductionProfile.h"
+#define GX_PRODUCTION_STAGE(stage) gxProductionProfile.mark(stage)
+#else
+#define GX_PRODUCTION_STAGE(stage) ((void)0)
+#endif
+
 
 // PUBLIC /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -647,6 +656,10 @@ UpdateSleepTime ProductionUpdate::update()
 	const ProductionUpdateModuleData *d = getProductionUpdateModuleData();
 	UnsignedInt now = TheGameLogic->getFrame();
 	Object *us = getObject();
+#if defined(__ANDROID__)
+	GXProductionProfile<> gxProductionProfile(GXTrace::isPerfEnabled(), now,
+		(unsigned)us->getID(), us->getTemplate()->getName().str());
+#endif
 
 	// update the door behaviors
 	if( d->m_numDoorAnimations > 0 )
@@ -677,6 +690,7 @@ UpdateSleepTime ProductionUpdate::update()
 	// if we have dirty bits that need to be set and cleared, do it here all at once
 	if( m_flagsDirty == TRUE )
 	{
+		GX_PRODUCTION_STAGE(GXPS_FLAGS);
 		Drawable *draw = us->getDrawable();
 
 		if( draw )
@@ -686,6 +700,7 @@ UpdateSleepTime ProductionUpdate::update()
 		m_clearFlags.clear();
 		m_setFlags.clear();
 		m_flagsDirty = FALSE;
+		GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 
 	}
 
@@ -704,11 +719,13 @@ UpdateSleepTime ProductionUpdate::update()
 		return UPDATE_SLEEP_NONE;
 
 	// get the player that is building this thing
+	GX_PRODUCTION_STAGE(GXPS_AVAILABILITY);
 	Player *player = us->getControllingPlayer();
 
 	// sanity
 	if( player == nullptr )
 	{
+		GX_PRODUCTION_STAGE(GXPS_CLEANUP);
 
 		// remove from queue list
 		removeFromProductionQueue( production );
@@ -732,6 +749,7 @@ UpdateSleepTime ProductionUpdate::update()
 		if (!production->getProductionObject()->isKindOf(KINDOF_DOZER))
 		{
 
+			GX_PRODUCTION_STAGE(GXPS_CLEANUP);
 			cancelUnitCreate(production->getProductionID());
 			return UPDATE_SLEEP_NONE;
 
@@ -740,6 +758,7 @@ UpdateSleepTime ProductionUpdate::update()
 	}
 
 	// increase the frames we've been under production for
+	GX_PRODUCTION_STAGE(GXPS_BUILD_TIME);
 	production->m_framesUnderConstruction++;
 
 	// how many total logic frames does it take to produce this unit
@@ -752,6 +771,7 @@ UpdateSleepTime ProductionUpdate::update()
 	// GeneralsX @feature Android port 24/09/2026 Diagnostic only, see GXReplayCheck::upgradeShiftFrames.
 	if( production->m_type == PRODUCTION_UPGRADE )
 		totalProductionFrames += GXReplayCheck::upgradeShiftFrames( now + totalProductionFrames - production->m_framesUnderConstruction, (UnsignedInt)us->getID() );
+	GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 
 	// figure out our percent complete
 	production->m_percentComplete = INT_TO_REAL( production->m_framesUnderConstruction ) /
@@ -785,7 +805,9 @@ UpdateSleepTime ProductionUpdate::update()
 					ExitDoorType exitDoor = production->getExitDoor();
 					if (exitDoor == DOOR_NONE_AVAILABLE)
 					{
+						GX_PRODUCTION_STAGE(GXPS_RESERVE);
 						exitDoor = exitInterface->reserveDoorForExit(production->m_objectToProduce, nullptr);
+						GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 						production->setExitDoor(exitDoor);
 					}
 
@@ -854,8 +876,10 @@ UpdateSleepTime ProductionUpdate::update()
 						//
 						if( d->m_numDoorAnimations == 0 || door == nullptr || door->m_doorWaitOpenFrame != 0 )
 						{
+							GX_PRODUCTION_STAGE(GXPS_CREATE);
 							Object *newObj = TheThingFactory->newObject( production->m_objectToProduce,
 																	creationBuilding->getControllingPlayer()->getDefaultTeam() );
+							GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 
 							GX_NET_TRACE("production done frame %u: factory id=%u unit=%s new id=%u frames under construction %d of %d (%.6f%%) door %d opened %u wait-open %u closed %u\n",
 								(unsigned)TheGameLogic->getFrame(), (unsigned)creationBuilding->getID(),
@@ -868,22 +892,27 @@ UpdateSleepTime ProductionUpdate::update()
 							newObj->setProducer(creationBuilding);
 
 							// call the exit interface to do the rally point and position stuff
+							GX_PRODUCTION_STAGE(GXPS_EXIT);
 							exitInterface->exitObjectViaDoor( newObj, exitDoor );
+							GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 
 							// since we successfully exited via this door, we should NOT call unreserveDoorForExit
 							// when we toss this production entry. so set it back to an innocuous value.
 							production->setExitDoor(DOOR_NONE_AVAILABLE);
 
 							// Now, play the sound associated with the new object's production.
+							GX_PRODUCTION_STAGE(GXPS_AUDIO);
 							AudioEventRTS voiceCreate = *newObj->getTemplate()->getVoiceCreated();
 							voiceCreate.setObjectID(newObj->getID());
 							TheAudio->addAudioEvent(&voiceCreate);
 
 							// call the onUnitCreated for the player
+							GX_PRODUCTION_STAGE(GXPS_NOTIFY);
 							creationBuilding->getControllingPlayer()->onUnitCreated( creationBuilding, newObj );
 
 							// onCreates have been called on newObj, and after that the owner was set,
 							// so now is the time to call the game side of CreateModules
+							GX_PRODUCTION_STAGE(GXPS_CALLBACKS);
 							for (BehaviorModule** m = newObj->getBehaviorModules(); *m; ++m)
 							{
 								CreateModuleInterface* create = (*m)->getCreate();
@@ -892,6 +921,7 @@ UpdateSleepTime ProductionUpdate::update()
 								create->onBuildComplete();
 							}
 
+							GX_PRODUCTION_STAGE(GXPS_AUDIO);
 							if( production->getProductionQuantity() == production->getProductionQuantityRemaining() )
 							{
 								//Call the voice created for the 1st object -- because it's possible to create multiple objects like redguards!
@@ -900,6 +930,7 @@ UpdateSleepTime ProductionUpdate::update()
 								TheAudio->addAudioEvent( &sound );
 							}
 
+							GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 							creationBuilding->getControllingPlayer()->getAcademyStats()->recordProduction( newObj, creationBuilding );
 
 							//We created one guy, but we may want to do more so we should stay in this node of production.
@@ -914,6 +945,7 @@ UpdateSleepTime ProductionUpdate::update()
 
 				if( production->getProductionQuantityRemaining() == 0 )
 				{
+					GX_PRODUCTION_STAGE(GXPS_CLEANUP);
 					// remove this production entry so we can go on to the next if we are totally finished
 					removeFromProductionQueue( production );
 
@@ -924,6 +956,7 @@ UpdateSleepTime ProductionUpdate::update()
 			}
 			else
 			{
+				GX_PRODUCTION_STAGE(GXPS_CLEANUP);
 
 				// there is no exit interface, this is an error
 				DEBUG_CRASH( ("Cannot create '%s', there is no ExitUpdate interface defined for producer object '%s'",
@@ -942,6 +975,7 @@ UpdateSleepTime ProductionUpdate::update()
 		else if( production->m_type == PRODUCTION_UPGRADE )
 		{
 			const UpgradeTemplate *upgrade = production->m_upgradeToResearch;
+			GX_PRODUCTION_STAGE(GXPS_UPGRADE_NOTIFY);
 
 			GX_NET_TRACE("upgrade done frame %u: factory id=%u %s player %d upgrade=%s frames under construction %d of %d\n",
 				(unsigned)now, (unsigned)us->getID(), us->getTemplate()->getName().str(), (int)player->getPlayerIndex(),
@@ -991,6 +1025,7 @@ UpdateSleepTime ProductionUpdate::update()
 			}
 
 			// update the upgrade status in the player or give the upgrade to the object
+			GX_PRODUCTION_STAGE(GXPS_UPGRADE_APPLY);
 			if( upgrade->getUpgradeType() == UPGRADE_TYPE_PLAYER )
 			{
 				player->addUpgrade( upgrade, UPGRADE_STATUS_COMPLETE );
@@ -1000,6 +1035,7 @@ UpdateSleepTime ProductionUpdate::update()
 				us->giveUpgrade( upgrade );
 			}
 
+			GX_PRODUCTION_STAGE(GXPS_BOOKKEEPING);
 			player->getAcademyStats()->recordUpgrade( upgrade, FALSE );
 
 			//Also mark the UI dirty -- incase object with upgrade cameo is selected.
@@ -1022,6 +1058,7 @@ UpdateSleepTime ProductionUpdate::update()
 			}
 
 			// remove this production entry so we can go on to the next
+			GX_PRODUCTION_STAGE(GXPS_CLEANUP);
 			removeFromProductionQueue( production );
 
 			// delete the production entry

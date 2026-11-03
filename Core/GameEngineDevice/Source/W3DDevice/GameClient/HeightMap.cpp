@@ -93,6 +93,7 @@
 #include "GXTrace.h"
 #if defined(__ANDROID__)
 #include "GXPreRenderStats.h"
+#include "GXTerrainUpdateStats.h"
 #endif
 #include <chrono>
 // GeneralsX @feature Codex 14/10/2026 Reuse existing shared text-atlas counters
@@ -204,6 +205,9 @@ struct GxTerrainCpuScope {
 		++calls[phase];
 		const double seconds = std::chrono::duration<double>(now-window).count();
 		if (seconds < 2.0) return;
+#if defined(__ANDROID__)
+		GXTerrainUpdates::report(std::chrono::duration<double,std::micro>(now.time_since_epoch()).count());
+#endif
 		fprintf(stderr, "[GX-PERF-TERRAIN-CPU] t=%.0fus seconds=%.3f lighting=%.3fms/%u-calls center=%.3fms/%u-calls submit=%.3fms/%u-calls (nested main-thread totals)\n",
 			std::chrono::duration<double,std::micro>(now.time_since_epoch()).count(), seconds,
 			us[0]/1000.0,calls[0],us[1]/1000.0,calls[1],us[2]/1000.0,calls[2]);
@@ -483,6 +487,13 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 		VERTEX_FORMAT *vbHardware=eagerLock?(VERTEX_FORMAT*)eagerLock->Get_Vertex_Array():nullptr;
 		std::vector<Int> changedQuads;
 		const bool perfGeometry=GXTrace::isPerfEnabled();
+		if (perfGeometry) {
+			GXTerrainUpdates::state().regeneratedQuads += size_t(x1-x0)*size_t(y1-y0);
+			if (!compareGeometry) {
+				++GXTerrainUpdates::state().uploads;
+				GXTerrainUpdates::state().uploadedBytes += size_t(endVertex-firstVertex)*sizeof(VERTEX_FORMAT);
+			}
+		}
 #else
 		DX8VertexBufferClass::AppendLockClass lockVtxBuffer(pVB,firstVertex,endVertex-firstVertex);
 		VERTEX_FORMAT *vbHardware=(VERTEX_FORMAT*)lockVtxBuffer.Get_Vertex_Array();
@@ -763,7 +774,11 @@ Int HeightMapRenderObjClass::updateVB(DX8VertexBufferClass	*pVB, VERTEX_FORMAT *
 			DX8VertexBufferClass::AppendLockClass changedLock(pVB,first,end-first);
 			VERTEX_FORMAT *hardware=(VERTEX_FORMAT*)changedLock.Get_Vertex_Array();
 			for(Int offset:changedQuads) memcpy(hardware+offset-first,vBase+offset,4*sizeof(VERTEX_FORMAT));
-			if(perfGeometry) { ++gxGeomLocks; gxGeomWritten+=changedQuads.size(); }
+			if(perfGeometry) {
+				++gxGeomLocks; gxGeomWritten+=changedQuads.size();
+				++GXTerrainUpdates::state().uploads;
+				GXTerrainUpdates::state().uploadedBytes += size_t(end-first)*sizeof(VERTEX_FORMAT);
+			}
 		}
 		if(litColors && x0==originX && y0==originY && x1==originX+VERTEX_BUFFER_TILE_LENGTH && y1==originY+VERTEX_BUFFER_TILE_LENGTH)
 			litColors->initialized=true;
@@ -1139,30 +1154,33 @@ void HeightMapRenderObjClass::doPartialUpdate(const IRegion2D &partialRange, Wor
 	if (minY<0) minY = 0;
 	if (maxX > m_x-1) maxX = m_x-1;
 	if (maxY > m_y-1) maxY = m_y-1;
-	if (maxX < minX) return;
-	if (maxY < minY) return;
-	if (m_originX == 0 && m_originY == 0) {
-		// simple case.
-		updateBlock(minX, minY, maxX, maxY,
-								htMap, pLightsIterator);
+	if (maxX <= minX || maxY <= minY) return;
+#if defined(__ANDROID__)
+	if (GXTrace::isPerfEnabled()) ++GXTerrainUpdates::state().partialUpdates;
+#endif
+	// GeneralsX @performance Astra 03/11/2026 Map each dirty axis into the
+	// circular vertex window. The old rotated case discarded X bounds and
+	// regenerated entire rows even for one deformed cell. Split at both seams
+	// so the existing normal halo, lighting and UV calculations touch only the
+	// requested cells; material and shoreline bookkeeping below is unchanged.
+	Int xLo[2] = {(minX + m_originX) % (m_x-1), 0};
+	Int yLo[2] = {(minY + m_originY) % (m_y-1), 0};
+	Int xHi[2] = {xLo[0] + maxX-minX, 0};
+	Int yHi[2] = {yLo[0] + maxY-minY, 0};
+	Int xRanges = 1, yRanges = 1;
+	if (xHi[0] > m_x-1) {
+		xHi[1] = xHi[0] - (m_x-1);
+		xHi[0] = m_x-1;
+		xRanges = 2;
 	}
-	else
-	{
-		minY = minY+m_originY;
-		maxY = maxY+m_originY;
-
-		if (minY> m_y-1) {
-			minY -= m_y-1;
- 			maxY -= m_y-1;
-		}
-		if (maxY > m_y-1) {
-			maxY -= m_y-1;
-			updateBlock(0, minY, m_x-1, m_y-1, htMap, pLightsIterator);
-			updateBlock(0, 0, m_x-1, maxY, htMap, pLightsIterator);
-		} else {
-			updateBlock(0, minY, m_x-1, maxY, htMap, pLightsIterator);
-		}
+	if (yHi[0] > m_y-1) {
+		yHi[1] = yHi[0] - (m_y-1);
+		yHi[0] = m_y-1;
+		yRanges = 2;
 	}
+	for (Int yRange=0; yRange<yRanges; ++yRange)
+		for (Int xRange=0; xRange<xRanges; ++xRange)
+			updateBlock(xLo[xRange], yLo[yRange], xHi[xRange], yHi[yRange], htMap, pLightsIterator);
 
 	if (!m_extraBlendTilePositions)
 	{	//Need to allocate memory
@@ -1467,8 +1485,32 @@ void HeightMapRenderObjClass::setTerrainDrawSize(Int width, Int height)
 	else
 		height = std::min(height, m_map->getYExtent());
 
-	if (width == m_map->getDrawWidth() && height == m_map->getDrawHeight())
+#if defined(__ANDROID__)
+	const Bool rawSizeMatches = width == m_map->getDrawWidth() && height == m_map->getDrawHeight();
+#endif
+	// GeneralsX @bugfix Astra 03/11/2026 Compare the effective draw size.
+	// setDrawOrg/createDrawArea applies these overrides too; comparing the raw
+	// camera request reinitialized unchanged terrain every frame in these modes.
+	if (TheGlobalData && TheGlobalData->m_stretchTerrain) {
+		width = std::min((Int)WorldHeightMap::STRETCH_DRAW_WIDTH, m_map->getXExtent());
+		height = std::min((Int)WorldHeightMap::STRETCH_DRAW_HEIGHT, m_map->getYExtent());
+	}
+	if (TheGlobalData && TheGlobalData->m_drawEntireTerrain) {
+		width = m_map->getXExtent();
+		height = m_map->getYExtent();
+	}
+	if (width == m_map->getDrawWidth() && height == m_map->getDrawHeight()) {
+#if defined(__ANDROID__)
+		if (GXTrace::isPerfEnabled()) {
+			++GXTerrainUpdates::state().sizeRejected;
+			if (!rawSizeMatches) ++GXTerrainUpdates::state().overrideRejected;
+		}
+#endif
 		return;
+	}
+#if defined(__ANDROID__)
+	GXTerrainUpdates::ReasonScope gxReason(GXTerrainUpdates::DrawSize);
+#endif
 
 	Int dx = width-m_map->getDrawWidth();
 	Int dy = height-m_map->getDrawHeight();
@@ -1631,6 +1673,9 @@ Int HeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, 
 	}
 
 	updateBlock(0,0,x-1,y-1,pMap,pLightsIterator);
+#if defined(__ANDROID__)
+	if (GXTrace::isPerfEnabled()) ++GXTerrainUpdates::state().initialCompleted;
+#endif
 
 	return 0;
 }
@@ -1928,6 +1973,9 @@ void HeightMapRenderObjClass::markHeightCellDirty(Int mapX, Int mapY)
 	if (!m_map || m_needFullUpdate) return; // A full initialization/relight is already queued.
 	if (mapX < 0 || mapY < 0 || mapX >= m_map->getXExtent()
 		|| mapY >= m_map->getYExtent()) {
+#if defined(__ANDROID__)
+		GXTerrainUpdates::request(GXTerrainUpdates::InvalidHeightCell);
+#endif
 		m_needFullUpdate = true; // Fail closed on unexpected coordinates.
 		return;
 	}
@@ -2006,6 +2054,9 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
             m_needFullUpdate=false;
             m_updating=true;
             updateBlock(0,0,m_x-1,m_y-1,m_map,pLightsIterator);
+#if defined(__ANDROID__)
+            if (GXTrace::isPerfEnabled()) ++GXTerrainUpdates::state().fullCompleted;
+#endif
             m_updating=false;
 #if defined(__ANDROID__)
             if(GXPreRTT::active()) ++GXPreRTT::state().fullMapRefreshes;
@@ -2137,6 +2188,9 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 		m_needFullUpdate = false;
 		m_map->setDrawArea(newDrawArea);
 		updateBlock(0, 0, m_x-1, m_y-1, m_map, pLightsIterator);
+#if defined(__ANDROID__)
+		if (GXTrace::isPerfEnabled()) ++GXTerrainUpdates::state().fullCompleted;
+#endif
 		m_updating = false;
 		return;
 	}
@@ -2154,6 +2208,9 @@ void HeightMapRenderObjClass::updateCenter(CameraClass *camera, const Vector3 *c
 				m_originY = 0;
 				m_originX = 0;
 				updateBlock(0, 0, m_x-1, m_y-1, m_map, pLightsIterator);
+#if defined(__ANDROID__)
+				if (GXTrace::isPerfEnabled()) ++GXTerrainUpdates::state().cameraFullCompleted;
+#endif
 			}
 			m_updating = false;
 			return;

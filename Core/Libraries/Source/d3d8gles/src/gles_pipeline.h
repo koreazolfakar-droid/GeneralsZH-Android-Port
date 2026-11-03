@@ -530,9 +530,8 @@ private:
 	// glBindTexture per stage per draw for no reason. 0 doubles as "no GL
 	// texture bound" for both an unset stage and an explicitly-unbound one,
 	// which is fine since both cases want the same skip-if-unchanged
-	// behavior. Only the bind itself is skipped; glActiveTexture still runs
-	// unconditionally so applySamplerState (called right after) always has
-	// the correct unit current if it needs to touch sampler parameters.
+	// behavior. GeneralsX @performance Codex 03/11/2026 A unit is selected only
+	// for a real bind/upload or sampler change; no global active-unit cache is needed.
 	GLuint m_lastBoundTex[2] = {0, 0};
 
 	// Perf counters logged once every couple of seconds by present(), not
@@ -545,7 +544,7 @@ private:
 	unsigned m_perfLogLastMs = 0;
 	void bindTextures(WebGLDevice *dev, ProgramInfo *prog);
 	void uploadTexture(WebGLTexture *tex);
-	void applySamplerState(WebGLDevice *dev, unsigned stage, WebGLTexture *tex);
+	void applySamplerState(WebGLDevice *dev, unsigned stage, WebGLTexture *tex, bool stageActive);
 
 	uint64_t computeProgramKey(WebGLDevice *dev, unsigned fvf) const;
 

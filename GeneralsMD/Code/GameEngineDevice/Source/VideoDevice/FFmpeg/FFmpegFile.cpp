@@ -14,6 +14,7 @@
 // the build-system level, any bug fixed here must be fixed identically in Core's copy too,
 // and vice versa -- see the audio-stream-starvation fix as the example.
 #include "Common/file.h"
+#include <cerrno>
 #include <cstdio>
 
 extern "C" {
@@ -62,12 +63,23 @@ bool FFmpegFile::open(File *file)
         return false;
     }
 
-    m_avioCtx = avio_alloc_context(buffer, avio_ctx_buffer_size, 0, file, &readPacket, nullptr, nullptr);
+    // GeneralsX @bugfix Codex 03/11/2026 Report the virtual file's size to demuxers.
+    // MP3's Xing check converts avio_size() to unsigned; ENOSYS from a missing
+    // callback then looks like a huge concatenated file, even for valid audio.
+    // Keep ordinary seeks unsupported and retain diagnostics for real bad headers.
+    auto queryFileSize = [](void* opaque, int64_t, int whence) -> int64_t {
+        if (whence != AVSEEK_SIZE)
+            return AVERROR(ENOSYS);
+        const int size = static_cast<File*>(opaque)->size();
+        return size >= 0 ? size : AVERROR(EIO);
+    };
+    m_avioCtx = avio_alloc_context(buffer, avio_ctx_buffer_size, 0, file, &readPacket, nullptr, queryFileSize);
     if (m_avioCtx == nullptr) {
         DEBUG_LOG(("Failed to alloc AVIOContext"));
         close();
         return false;
     }
+    m_avioCtx->seekable = 0; // The callback answers AVSEEK_SIZE only.
 
     m_fmtCtx->pb = m_avioCtx;
     m_fmtCtx->flags |= AVFMT_FLAG_CUSTOM_IO;
@@ -194,6 +206,13 @@ bool FFmpegFile::decodePacket()
     DEBUG_ASSERTCRASH(m_fmtCtx != nullptr, ("null format context"));
     DEBUG_ASSERTCRASH(m_packet != nullptr, ("null packet pointer"));
 
+    // GeneralsX @bugfix Codex 03/11/2026 Malformed packets can return before the
+    // successful-send unref below. Release every packet before the next read.
+    struct PacketRelease {
+        AVPacket* packet;
+        ~PacketRelease() { av_packet_unref(packet); }
+    } packetRelease { m_packet };
+
     int result = av_read_frame(m_fmtCtx, m_packet);
     if (result == AVERROR_EOF) {
         // GeneralsX @bugfix Android port 08/09/2026 This copy of the file never recorded
@@ -202,6 +221,13 @@ bool FFmpegFile::decodePacket()
         // decoder just needs another push") could never answer TRUE. The Core/ copy of
         // this same file already had this exact fix (14/06/2026); this copy was missed.
         m_atEof = true;
+        return false;
+    }
+
+    if (result < 0) {
+        char error_buffer[1024];
+        av_strerror(result, error_buffer, sizeof(error_buffer));
+        DEBUG_LOG(("Failed 'av_read_frame': %s", error_buffer));
         return false;
     }
 

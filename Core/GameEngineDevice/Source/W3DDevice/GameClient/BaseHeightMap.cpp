@@ -90,6 +90,9 @@
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 #include "W3DDevice/GameClient/BaseHeightMap.h"
+#if defined(__ANDROID__)
+#include "GXTerrainUpdateStats.h"
+#endif
 
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "W3DDevice/GameClient/FlatHeightMap.h"
@@ -438,6 +441,9 @@ void BaseHeightMapRenderObjClass::ReleaseResources()
 //=============================================================================
 void BaseHeightMapRenderObjClass::ReAcquireResources()
 {
+#if defined(__ANDROID__)
+	GXTerrainUpdates::ReasonScope gxReason(GXTerrainUpdates::ResourceRestore);
+#endif
 	W3DShaderManager::init();	//reaquire resources which may be needed by custom shaders
 
 	if (TheWaterRenderObj)
@@ -1771,6 +1777,9 @@ shaders, and materials.*/
 //=============================================================================
 Int BaseHeightMapRenderObjClass::initHeightData(Int x, Int y, WorldHeightMap *pMap, RefRenderObjListIterator *pLightsIteratork, Bool updateExtraPassTiles)
 {
+#if defined(__ANDROID__)
+	GXTerrainUpdates::request(GXTerrainUpdates::Initialization);
+#endif
 
 	REF_PTR_SET(m_map, pMap);	//update our heightmap pointer in case it changed since last call.
 
@@ -2354,6 +2363,9 @@ void BaseHeightMapRenderObjClass::removeTerrainBibDrawable(DrawableID id)
 //=============================================================================
 void BaseHeightMapRenderObjClass::staticLightingChanged()
 {
+#if defined(__ANDROID__)
+	GXTerrainUpdates::request(GXTerrainUpdates::StaticLightingOrHeight);
+#endif
 	// Cause the terrain to get updated with new lighting.
 	m_needFullUpdate = true;
 
@@ -2373,6 +2385,9 @@ void BaseHeightMapRenderObjClass::staticLightingChanged()
 //=============================================================================
 void BaseHeightMapRenderObjClass::setTimeOfDay( TimeOfDay tod )
 {
+#if defined(__ANDROID__)
+	GXTerrainUpdates::ReasonScope gxReason(GXTerrainUpdates::TimeOfDay);
+#endif
 	staticLightingChanged();
 }
 

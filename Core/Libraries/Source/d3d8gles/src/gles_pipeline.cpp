@@ -343,6 +343,9 @@ struct WebGLPipeline::ProgramInfo {
 	GLint uViewportPos = -1;
 	GLint uYFlip = -1;
 	GLint uTex0 = -1, uTex1 = -1;
+	// GeneralsX @performance Codex 03/11/2026 Sampler selectors are immutable per linked
+	// program; switching programs preserves their values just like the cached world matrix.
+	bool haveSamplerBindings = false;
 	GLint uTexMat0 = -1, uTexMat1 = -1;
 	GLint uTFactor = -1;
 	GLint uAlphaRef = -1;
@@ -1952,7 +1955,7 @@ void WebGLPipeline::uploadTexture(WebGLTexture *tex)
 	        tex->m_levels[0]->m_width, tex->m_levels[0]->m_height, (int)tex->m_format, levels);
 }
 
-void WebGLPipeline::applySamplerState(WebGLDevice *dev, unsigned stage, WebGLTexture *tex)
+void WebGLPipeline::applySamplerState(WebGLDevice *dev, unsigned stage, WebGLTexture *tex, bool stageActive)
 {
 	const DWORD minf = dev->getStageState(stage, D3DTSS_MINFILTER);
 	const DWORD magf = dev->getStageState(stage, D3DTSS_MAGFILTER);
@@ -1963,6 +1966,9 @@ void WebGLPipeline::applySamplerState(WebGLDevice *dev, unsigned stage, WebGLTex
 	                                ((au & 7) << 9) | ((av & 7) << 12));
 	if (tex->m_gl.samplerKey == key) return;
 	tex->m_gl.samplerKey = key;
+	// GeneralsX @performance Codex 03/11/2026 A cache hit needs no active-unit command.
+	// If bindTextures already selected this unit for a bind/upload, retain that selection.
+	if (!stageActive) glActiveTexture(GL_TEXTURE0 + stage);
 
 	const bool hasMips = tex->m_levels.size() > 1;
 	GLenum glMin;
@@ -2002,7 +2008,11 @@ void WebGLPipeline::bindTextures(WebGLDevice *dev, ProgramInfo *prog)
 {
 	for (int s = 0; s < 2; s++) {
 		WebGLTexture *tex = dev->getTexture2D(s);
-		glActiveTexture(GL_TEXTURE0 + s);
+		// GeneralsX @performance Codex 03/11/2026 Select the unit only when a texture
+		// command will use it. Sampler-only changes select it inside applySamplerState.
+		const bool mustBind = tex ? (tex->m_gl.dirty || tex->m_gl.name == 0 || m_lastBoundTex[s] != tex->m_gl.name)
+		                          : m_lastBoundTex[s] != 0;
+		if (mustBind) glActiveTexture(GL_TEXTURE0 + s);
 		if (tex) {
 			if (tex->m_gl.dirty || tex->m_gl.name == 0) {
 				uploadTexture(tex); // binds tex->m_gl.name as a side effect
@@ -2011,14 +2021,17 @@ void WebGLPipeline::bindTextures(WebGLDevice *dev, ProgramInfo *prog)
 				glBindTexture(GL_TEXTURE_2D, tex->m_gl.name);
 				m_lastBoundTex[s] = tex->m_gl.name;
 			}
-			applySamplerState(dev, s, tex);
+			applySamplerState(dev, s, tex, mustBind);
 		} else if (m_lastBoundTex[s] != 0) {
 			glBindTexture(GL_TEXTURE_2D, 0);
 			m_lastBoundTex[s] = 0;
 		}
 	}
-	if (prog->uTex0 >= 0) glUniform1i(prog->uTex0, 0);
-	if (prog->uTex1 >= 0) glUniform1i(prog->uTex1, 1);
+	if (!prog->haveSamplerBindings) {
+		if (prog->uTex0 >= 0) glUniform1i(prog->uTex0, 0);
+		if (prog->uTex1 >= 0) glUniform1i(prog->uTex1, 1);
+		prog->haveSamplerBindings = true;
+	}
 }
 
 // ---------------------------------------------------------------------------
