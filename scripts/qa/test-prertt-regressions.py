@@ -246,6 +246,7 @@ def test_full_map(work,benchmark):
     code=r'''
 #define __ANDROID__ 1
 #include "GXPreRenderStats.h"
+#include "GXTerrainUpdateStats.h"
 #include <cassert>
 #include <cstdio>
 #include <chrono>
@@ -277,13 +278,16 @@ struct HeightMapRenderObjClass:BaseHeightMapRenderObjClass{
     code+=prefix()+prefix(True)+r'''
 static void view(HeightMapRenderObjClass&h,bool old){if(h.m_needFullUpdate){if(old)h.legacy(nullptr,nullptr,nullptr);else h.updateCenter(nullptr,nullptr,nullptr);}}
 int main(){
+ setenv("GX_PERF","1",1);
  HeightMapRenderObjClass a,b;
  for(int i=0;i<1000;++i){view(a,true);view(b,false);}
  assert(a.baseCalls==1000 && a.bridgeFull==1000 && a.m_needFullUpdate);
  assert(b.baseCalls==1 && b.bridgeFull==1 && b.geometry==1 && !b.m_needFullUpdate && !b.m_updating);
+ assert(GXTerrainUpdates::state().fullCompleted==1);
  // New static lighting/time-of-day requests each apply exactly once.
  for(int i=0;i<7;++i){b.m_needFullUpdate=true;view(b,false);view(b,false);}
  assert(b.geometry==8 && b.bridgeFull==8);
+ assert(GXTerrainUpdates::state().fullCompleted==8);
  // Camera-driven center still performs tree/road/bridge visibility; no blanket skip.
  unsigned before=b.baseCalls;b.updateCenter(nullptr,nullptr,nullptr);assert(b.baseCalls==before+1&&b.geometry==8);
  // Local terrain change must be flushed once, while a pending full refresh
