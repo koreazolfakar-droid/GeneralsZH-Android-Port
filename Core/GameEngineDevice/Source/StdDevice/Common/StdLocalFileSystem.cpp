@@ -599,7 +599,13 @@ void StdLocalFileSystem::setAssetRootPath(const AsciiString& path)
 {
 	std::string p(path.str());
 	std::replace(p.begin(), p.end(), '\\', '/');
-	s_assetFallbackPath = std::filesystem::path(std::move(p));
+	const std::filesystem::path nextRoot(std::move(p));
+	// Negative lookups and cached directory entries belong to the old root.
+	// A different install/mod root must not inherit stale missing-file results.
+	if (nextRoot != s_assetFallbackPath) {
+		forgetMissingFiles();
+		s_assetFallbackPath = nextRoot;
+	}
 	DEBUG_LOG(("StdLocalFileSystem::setAssetRootPath - asset fallback path set to '%s'", s_assetFallbackPath.string().c_str()));
 }
 #endif
