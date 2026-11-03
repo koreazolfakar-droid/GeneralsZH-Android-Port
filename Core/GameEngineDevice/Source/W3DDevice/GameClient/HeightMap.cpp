@@ -92,6 +92,9 @@
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 #include "GXTrace.h"
 #if defined(__ANDROID__)
+#include "GXTerrainWrappedRange.h"
+#endif
+#if defined(__ANDROID__)
 #include "GXPreRenderStats.h"
 #endif
 #include <chrono>
@@ -1141,6 +1144,22 @@ void HeightMapRenderObjClass::doPartialUpdate(const IRegion2D &partialRange, Wor
 	if (maxY > m_y-1) maxY = m_y-1;
 	if (maxX < minX) return;
 	if (maxY < minY) return;
+#if defined(__ANDROID__)
+	// Partial terrain updates use map-relative logical bounds. Convert both
+	// axes into the physical circular VBO coordinates, not entire X rows.
+	// The last map vertex is a shared boundary, hence the m_x-1/m_y-1
+	// circular cell extents. At most four rectangles can cross the seams.
+	const GXTerrainWrappedRange xRanges =
+		GXTerrainSplitWrappedRange(minX, maxX, m_originX, m_x - 1);
+	const GXTerrainWrappedRange yRanges =
+		GXTerrainSplitWrappedRange(minY, maxY, m_originY, m_y - 1);
+	for (Int yi = 0; yi < yRanges.count; ++yi) {
+		for (Int xi = 0; xi < xRanges.count; ++xi) {
+			updateBlock(xRanges.lo[xi], yRanges.lo[yi],
+				xRanges.hi[xi], yRanges.hi[yi], htMap, pLightsIterator);
+		}
+	}
+#else
 	if (m_originX == 0 && m_originY == 0) {
 		// simple case.
 		updateBlock(minX, minY, maxX, maxY,
@@ -1163,6 +1182,8 @@ void HeightMapRenderObjClass::doPartialUpdate(const IRegion2D &partialRange, Wor
 			updateBlock(0, minY, m_x-1, maxY, htMap, pLightsIterator);
 		}
 	}
+
+#endif
 
 	if (!m_extraBlendTilePositions)
 	{	//Need to allocate memory
@@ -1211,6 +1232,8 @@ void HeightMapRenderObjClass::doPartialUpdate(const IRegion2D &partialRange, Wor
 		}
 	updateShorelineTiles(partialRange.lo.x,partialRange.lo.y,partialRange.hi.x,partialRange.hi.y,htMap);
 
+// Unlike the circular terrain VBOs, the impassable lookup is indexed
+	// in logical terrain coordinates. Keep its existing coordinate space.
 	updateViewImpassableAreas(TRUE, minX, maxX, minY, maxY);
 }
 
