@@ -1,0 +1,161 @@
+name: Publish verified asset/audio engine 3659 OTA (one time)
+
+# Deliberately triggered ONLY by adding this file to dev/mobile-v4.
+# Uses the already-verified exact 30/60Hz engine build; it neither builds nor packages an APK.
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-asset-audio-3659.yml]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'koreazolfakar-droid/GeneralsZH-Android-Port'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: 474b7c0fb484b9b0c2ce22f6c2f991fb7c167554
+      ENGINE_RUN: '41655123198'
+      PREVIOUS_SOURCE: 408e11692b21166f9c7c220f3219f30956befff1
+      MERGE_COMMIT: f4b98b2d5161ca97961632f91e5263be6742d621
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Require exact merged source and successful immutable dual-engine build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/branches/dev/mobile-v4" --jq .commit.sha)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$MERGE_COMMIT"
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          # The PR build's complete tracked tree was identical to the merge.
+          # This publication-only commit may add exactly this workflow and NO native sources.
+          test "$(git diff --name-only "$SOURCE" HEAD)" = '.github/workflows/publish-asset-audio-3659.yml'
+          test "$(bash scripts/build/android/engine-build-number.sh "$PWD" | tr -d '\r')" = 3661
+          gh api "repos/$GITHUB_REPOSITORY/pulls/43" > "$RUNNER_TEMP/pr.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" > "$RUNNER_TEMP/build.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior.json"
+          python3 - <<'PY'
+          import json, os, subprocess
+          tmp=os.environ['RUNNER_TEMP']
+          pr=json.load(open(tmp+'/pr.json'))
+          r=json.load(open(tmp+'/build.json'))
+          p=json.load(open(tmp+'/prior.json'))
+          source=os.environ['SOURCE']
+          assert pr['merged'] and pr['merge_commit_sha']==os.environ['MERGE_COMMIT']
+          assert pr['head']['sha']==source
+          assert r['status']=='completed' and r['conclusion']=='success'
+          assert r['head_sha']==source and r['event']=='pull_request'
+          assert r['path']=='.github/workflows/qa-native-asset-audio.yml'
+          assert r['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY']
+          assert p['engine']['seq']==3645 and p['serial']==30
+          assert p['engine']['source_commit']==os.environ['PREVIOUS_SOURCE']
+          assert set(p['engine']['files'])=={'libmain.so','libmain60.so'}
+          assert int(subprocess.check_output(['git','rev-list','--count',source],text=True))==3659
+          print('PASS: merged source, prebuilt provenance, and unchanged OTA baseline')
+          PY
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 41655123198
+          github-token: ${{ github.token }}
+          path: engine-build
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: 37422581004
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+
+      - name: Prepare exact tested 30/60Hz engine OTA; no APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$SOURCE" --out prepared-update --serial 31 \
+            --note 'Engine asset/audio reliability: accept available music tracks; invalidate missing-file cache after asset-root changes; FFmpeg/OpenAL error cleanup and malformed-stream validation. Host/Android 30+60Hz build and automated regressions passed. TEOD missing texture content and physical-device visuals/audio remain unverified. Engine-only OTA, no APK.'
+          python3 - <<'PY'
+          import json, os
+          r=json.load(open('engine-build/result.json'))
+          m=json.load(open('prepared-update/manifest.json'))
+          assert r['build']=='PASS' and r['source_head']==os.environ['SOURCE']
+          assert r['dependency_compatibility']=='PASS' and r['new_apk_required'] is False
+          assert set(r['variants'])=={'30','60'}
+          assert all(v['source_sha']==os.environ['SOURCE'] and v['engine_sequence']==3659 for v in r['variants'].values())
+          assert m['serial']==31 and m['engine']['seq']==3659
+          assert m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: exact source 3659, verified unchanged APK dependencies and dual engines')
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/current.json"
+          cmp "$RUNNER_TEMP/prior.json" "$RUNNER_TEMP/current.json"
+
+      - name: Sign and verify manifest with existing private key
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/update/sign-manifest.sh prepared-update
+
+      - name: Publish ONLY the signed verified engine payload to updates branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+
+      - name: Verify signed live OTA manifest and both downloadable binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published-check
+          for file in manifest.json manifest.json.sig; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/$file?ref=updates" \
+              --jq .content | base64 --decode > "published-check/$file"
+          done
+          python3 - <<'PY'
+          import gzip, hashlib, importlib.util, json, os, pathlib, time, urllib.request
+          spec = importlib.util.spec_from_file_location('artifacts', 'scripts/update/update-artifacts.py')
+          a = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(a)
+          m = a.verify_manifest('published-check', 'android/app/src/main/assets/update-public.pem')
+          assert m['serial']==31 and m['engine']['seq']==3659
+          assert m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          for name, row in m['engine']['files'].items():
+            for attempt in range(7):
+              try:
+                with urllib.request.urlopen(row['url'], timeout=90) as response:
+                  payload=gzip.decompress(response.read())
+                break
+              except Exception:
+                if attempt==6: raise
+                time.sleep(8)
+            assert len(payload)==row['size'], name
+            assert hashlib.sha256(payload).hexdigest()==row['sha256'], name
+            a.native_stamp(payload,os.environ['SOURCE'],3659)
+            print('PASS: signed live engine', name, row['sha256'])
+          print('PASS: SIGNED OTA PUBLISHED engine=3659 serial=31')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+            f.write('### VERIFIED SIGNED ENGINE-ONLY OTA PUBLISHED\nEngine 3659, serial 31, source '+os.environ['SOURCE']+'\nNo APK built. Physical-device behavior not yet tested.\n')
+          PY
