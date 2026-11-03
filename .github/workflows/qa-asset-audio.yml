@@ -29,5 +29,9 @@ jobs:
         run: python3 scripts/qa/test-asset-root-cache.py
       - name: BIGF media and malformed archive regression
         run: python3 scripts/qa/test-verify-mod-media.py
+      - name: Install FFmpeg build and runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libavformat-dev libavcodec-dev libavutil-dev pkg-config
       - name: FFmpeg AVIO size regression
         run: python3 scripts/qa/test-ffmpeg-avio-size.py
