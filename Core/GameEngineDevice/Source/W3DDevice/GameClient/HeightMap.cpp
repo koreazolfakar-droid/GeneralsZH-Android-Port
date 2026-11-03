@@ -1380,7 +1380,7 @@ void HeightMapRenderObjClass::adjustTerrainLOD(Int adj)
 									break;
 	}
 	if (m_map==nullptr) return;
-	m_map->setDrawOrg(m_map->getDrawOrgX(), m_map->getDrawOrgX());
+	m_map->setDrawOrg(m_map->getDrawOrgX(), m_map->getDrawOrgY());
 	if (m_shroud)
 		m_shroud->reset();	//need reset here since initHeightData will load new shroud.
 	this->initHeightData(m_map->getDrawWidth(),
