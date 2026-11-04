@@ -57,6 +57,7 @@ def main():
 #include <GLES3/gl3.h>
 #undef ANDROID
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -76,12 +77,14 @@ static bool loadDriver(){
 }
 static EGLDisplay display=EGL_NO_DISPLAY;static EGLSurface surface=EGL_NO_SURFACE;
 static EGLContext context=EGL_NO_CONTEXT;static EGLConfig config;
+static std::atomic<bool> g_gpuResetPending{false};
 struct SDL_Window{};static SDL_Window window;
 static bool SDL_GetWindowSizeInPixels(SDL_Window*w,int*x,int*y){
  assert(w==&window);return eglQuerySurface(display,surface,EGL_WIDTH,x)&&eglQuerySurface(display,surface,EGL_HEIGHT,y);
 }
 namespace gxrt {
 template<class F>void sync(F f){f();}
+static bool contextReplaced(){return false;}
 static void ensureContext(SDL_Window*w,void*expected){
  assert(w==&window&&eglGetCurrentContext()==expected&&eglGetCurrentSurface(EGL_DRAW)==surface);
 }
@@ -91,7 +94,8 @@ constexpr unsigned D3DCLEAR_TARGET=1,D3DCLEAR_ZBUFFER=2,D3DCLEAR_STENCIL=4;
 struct D3DVIEWPORT8{DWORD X=0,Y=0,Width=234,Height=108;float MinZ=0,MaxZ=1;};
 struct WebGLDevice {D3DVIEWPORT8 viewport;const D3DVIEWPORT8&getViewport(){return viewport;}};
 class WebGLPipeline {public:
- SDL_Window*m_window=&window;void*m_glContext=nullptr;bool m_ctxReady=true,m_needsFullClear=false;
+ SDL_Window*m_window=&window;void*m_glContext=nullptr;bool m_ctxReady=true,m_needsFullClear=false,m_gpuRecoveryPending=false;
+ bool recoverLostContext(){return false;}
  bool m_vbActive=false;int m_winW=234,m_winH=108,m_fbWidth=234,m_fbHeight=108;
  int m_curRTWidth=234,m_curRTHeight=108,m_vbW=234,m_vbH=108,m_vbRW=117,m_vbRH=54;
  unsigned m_curFBO=0,m_vbFBO=0,m_lastProgram=0,m_lastArrayBuffer=0,m_lastBoundTex[2]{};
