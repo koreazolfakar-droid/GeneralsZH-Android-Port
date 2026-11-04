@@ -33,15 +33,17 @@ UI/touch coordinates while scaling raster rectangles to current physical pixels.
 
 The physical resize path avoids device Reset, terrain rebuilds, texture uploads
 and virtual-target reallocations. The existing virtual scene-resolution and
-upscaler choices remain intact. Restore checks context ownership, drains queued
-commands, rebinds the current FBO, invalidates draw-state caches, reapplies the
+upscaler choices remain intact. Restore checks context ownership, forces a checked detach/rebind even
+when SDL sees the same context/window (bypassing its MakeCurrent shortcut), drains
+queued commands, rebinds the current FBO, invalidates draw-state caches, reapplies the
 retained swap policy, and forces the next backbuffer clear to cover every region.
 Explicit game-resolution Reset remains separate from drawable-size updates.
 
 The context handoff checks every detach/bind; worker-bind failure falls back only
 when the original context can actually be made current on the main thread. An
 unrecoverable handoff or genuinely replaced context emits a fatal diagnostic and
-stops before further GL work. **Complete GPU-resource reconstruction following
+stops before further GL work. **SDL's explicit `RENDER_DEVICE_RESET` signal also stops an initialized GLES device,
+even if EGL recycles the previous context handle. Complete GPU-resource reconstruction following
 real context loss is not implemented. This candidate does not satisfy seamless
 context-loss recovery and is not approved for OTA publication.**
 
@@ -52,13 +54,14 @@ are injected for the host fixtures; these are not Android instrumentation tests.
 
 - `python3 scripts/qa/test-sdl3-render-lifecycle.py`: actual watcher, Android update
   gate, restoration service, window handler and wrapper resize path; first paused
-  frame, invalid-drawable retry, window-ID filtering, coalescing, unchanged/changed
+  frame, invalid-drawable retry, window-ID filtering, explicit device-reset dispatch/guard, coalescing, unchanged/changed
   sizes, 100 switches, unchanged Vulkan Reset path. Original source fails the
   first-paused-frame assertion.
 - `python3 scripts/qa/test-gles-context-lifecycle.py`: compiles the complete actual
   thread implementation with real `std::thread` and command ring. Validates drain,
   ownership transfer, duplicate resume, 100 rapid switches, verified fallback,
-  direct context rebind, retained swap policy, and injected detach/bind/replacement
+  direct context rebind, forced surface rebind despite the SDL same-context
+  shortcut, retained swap policy, and injected detach/bind/replacement
   failures. The pre-fix thread implementation allowed unsafe replacement.
 - `python3 scripts/qa/test-gles-surface-restoration.py`: production resize,
   explicit backbuffer Reset, virtual target allocation/resize/disable, refresh,
@@ -92,7 +95,7 @@ using NDK r27c / Clang 18, Android API 28, AArch64. This includes complete
 `gles_thread.cpp`; it uses the pinned DXVK headers and SDL 3.4.2 headers. Only the
 pre-existing `INVALID_HANDLE_VALUE` macro redefinition warning is emitted.
 The final archive SHA256 is
-`ccabfe29c07ded6f5d6b2d5784a74ebf8b233a2eb301c7e5eb08d4a32deda189`.
+`15c60aa1ebfad68dec452f67e2de178c14434de133a79483303d5d29e879a92b`.
 `llvm-readelf` confirms all three archive objects are AArch64. The harness used the
 production CMake target, with interface targets supplying the existing CompatLib,
 pinned DXVK and SDL include paths; it did not replace production sources.
@@ -102,7 +105,11 @@ native engine build script fails preflight because vcpkg, glslang and the comple
 DXVK build prerequisites are absent. The existing incremental engine-state
 artifact is 5,398,376,241 bytes compressed and cannot be downloaded and unpacked
 within the remaining workspace storage. `libmain.so` and `libmain60.so` were not
-produced or claimed validated. No APK was built.
+produced or claimed validated. No APK was built. The push-triggered engine-only native workflow
+[41754090285](https://github.com/koreazolfakar-droid/GeneralsZH-Android-Port/actions/runs/41754090285)
+failed while restoring retained build state, before compiling native sources;
+no dual-engine artifacts were produced. The separate automatically triggered APK
+workflow was canceled, preserving engine-only scope.
 
 All changed native components are within the engine payload: d3d8gles is statically
 linked, and the SDL engine/wrapper changes are engine code. No Activity Java,

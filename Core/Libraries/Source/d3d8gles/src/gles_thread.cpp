@@ -504,7 +504,11 @@ void ensureContext(SDL_Window *window, void *expectedContext)
 		const SDL_GLContext current = SDL_GL_GetCurrentContext();
 		if (!expectedContext || (current && current != expectedContext))
 			contextFailure("restoration observed a replaced context");
-		if (!current && !SDL_GL_MakeCurrent(window, static_cast<SDL_GLContext>(expectedContext)))
+		// SDL short-circuits MakeCurrent for the same context/window. Force
+		// EGL to bind the replacement surface even when the context survived.
+		if (current && !SDL_GL_MakeCurrent(window, nullptr))
+			contextFailure("restoration could not release original context");
+		if (!SDL_GL_MakeCurrent(window, static_cast<SDL_GLContext>(expectedContext)))
 			contextFailure("restoration could not bind original context");
 	});
 	s_swapInterval.invalidate();

@@ -34,7 +34,7 @@ def main():
     watcher = extract(source, 'static bool SDLCALL mobileLifecycleWatcher(')
     gate = extract(source, 'static inline bool mobileShouldPauseRendering(')
     update = extract(source, 'void SDL3GameEngine::update(')
-    events = sorted(set(re.findall(r'SDL_EVENT_\w+', watcher)))
+    events = sorted(set(re.findall(r'SDL_EVENT_\w+', watcher)) | {'SDL_EVENT_RENDER_DEVICE_RESET'})
     code = '''
 #include <atomic>
 #include <cassert>
@@ -55,7 +55,8 @@ static void gxRequestSurfaceFrameRate(SDL_Window*){}
 static void SDL_Delay(int){}
 static void logMobileLifecycleEvent(const char*){}
 static std::atomic<bool>s_appBackgrounded{false},s_appInactive{false},s_surfaceRestorePending{false};
-static unsigned renders=0,repairs=0;static bool validSurface=true;
+static unsigned renders=0,repairs=0,deviceResets=0;static bool validSurface=true;
+static void d3d8gles_context_lost(){++deviceResets;}
 static bool d3d8gles_restore_surface(){++repairs;return validSurface;}
 struct GameEngine{void update(){++renders;}};
 struct SDL_WindowEvent{unsigned type=0,windowID=7;};
@@ -131,6 +132,7 @@ int main(){
  event(SDL_EVENT_DID_ENTER_FOREGROUND);event(SDL_EVENT_DID_ENTER_FOREGROUND);
  engine.update();assert(repairs==r+2);
  assert(renders==before+3);
+ event(SDL_EVENT_RENDER_DEVICE_RESET);assert(deviceResets==1);
  puts("PASS: production SDL watcher/gate, first paused frame, retries, event coalescing, 100 switches");
 }
 '''
@@ -141,6 +143,30 @@ int main(){
         subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', '-O1', '-g',
                         '-fsanitize=undefined', str(cpp), '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
+        # Exercise the actual bridge too: inactive backends ignore SDL reset,
+        # while an initialized GLES device must stop before stale GPU-ID reuse.
+        device_source = (ROOT / 'Core/Libraries/Source/d3d8gles/src/d3d8gles.cpp').read_text()
+        if not args.source_ref:
+            bridge = extract(device_source, 'extern "C" void d3d8gles_context_lost()')
+            bridge_cpp = Path(tmp) / 'device-reset.cpp'
+            bridge_cpp.write_text(r'''
+#include <cstdio>
+#include <cstdlib>
+class WebGLPipeline {public:
+ bool active=false;
+ static WebGLPipeline*get(){static WebGLPipeline p;return &p;}
+ bool ready(){return active;}
+};
+''' + bridge + r'''
+int main(int argc,char**){WebGLPipeline::get()->active=argc>1;d3d8gles_context_lost();}
+''')
+            bridge_binary = Path(tmp) / 'device-reset'
+            subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', str(bridge_cpp),
+                            '-o', str(bridge_binary)], check=True)
+            subprocess.run([str(bridge_binary)], check=True)
+            lost = subprocess.run([str(bridge_binary), 'initialized'], capture_output=True, text=True)
+            assert lost.returncode != 0 and 'GPU resource rebuild required' in lost.stderr
+            print('PASS: production explicit context-loss signal blocks stale GPU IDs, inactive backend unaffected')
 
 
 if __name__ == '__main__':

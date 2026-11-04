@@ -2177,9 +2177,8 @@ extern "C" void d3d8gles_set_native_mode(int w, int h)
 	}
 }
 
-// Forward a canvas/window resize to the WebGL pipeline so the backbuffer
-// and viewport match the browser viewport (called from SDL3GameEngine's
-// SDL_EVENT_WINDOW_RESIZED handler).
+// Physical drawable updates change raster/presentation mapping only. D3D
+// present parameters and logical backbuffer dimensions belong to Reset().
 extern "C" void d3d8gles_resize(int w, int h)
 {
 	if (w > 0 && h > 0 && WebGLPipeline::get()->ready()) {
@@ -2191,6 +2190,17 @@ extern "C" void d3d8gles_resize(int w, int h)
 extern "C" bool d3d8gles_restore_surface()
 {
 	return WebGLPipeline::get()->refreshDrawable(true);
+}
+
+// GeneralsX @bugfix Codex 04/11/2026 Pointer identity is insufficient if EGL
+// recycles a lost context's handle. Never reuse that context's cached GPU IDs.
+extern "C" void d3d8gles_context_lost()
+{
+	if (WebGLPipeline::get()->ready()) {
+		fprintf(stderr, "[d3d8gles] FATAL: SDL renderer device reset; GPU resource rebuild required\n");
+		fflush(stderr);
+		std::abort();
+	}
 }
 
 // ---------------------------------------------------------------------------

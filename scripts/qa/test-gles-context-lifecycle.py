@@ -57,7 +57,7 @@ static SDL_ThreadID owner=0,mainThread=0;
 static thread_local SDL_GLContext current=nullptr;
 static SDL_GLContext original=reinterpret_cast<SDL_GLContext>(1);
 static std::atomic<int> failWorkerBind{0},failMainBind{0},failDetach{0};
-static std::atomic<unsigned> swaps{0},intervals{0},calls{0};
+static std::atomic<unsigned> swaps{0},intervals{0},calls{0},binds{0},detaches{0};
 static bool(*watch)(void*,SDL_Event*)=nullptr;
 SDL_ThreadID SDL_GetCurrentThreadID(){return std::hash<std::thread::id>{}(std::this_thread::get_id());}
 SDL_GLContext SDL_GL_GetCurrentContext(){return current;}
@@ -65,9 +65,10 @@ const char*SDL_GetError(){return "injected context failure";}
 bool SDL_GL_MakeCurrent(SDL_Window*,SDL_GLContext ctx){
  std::lock_guard<std::mutex> lock(ownerMutex);
  const auto id=SDL_GetCurrentThreadID();
- if(!ctx){if(failDetach.exchange(0))return false;if(owner==id)owner=0;current=nullptr;return true;}
+ if(!ctx){if(failDetach.exchange(0))return false;++detaches;if(owner==id)owner=0;current=nullptr;return true;}
+ if(current==ctx)return true; // SDL skips EGL for the same current context/window.
  if((id==mainThread?failMainBind:failWorkerBind).exchange(0))return false;
- assert(owner==0||owner==id);owner=id;current=ctx;return true;
+ assert(owner==0||owner==id);++binds;owner=id;current=ctx;return true;
 }
 bool SDL_GL_SetSwapInterval(int){assert(current==original);++intervals;return true;}
 bool SDL_GL_SwapWindow(SDL_Window*){assert(current==original);++swaps;return true;}
@@ -79,14 +80,20 @@ int main(int argc,char**argv){
  assert(SDL_GL_MakeCurrent(&window,original));
  const std::string mode=argc>1?argv[1]:"normal";
  if(mode=="direct"){
+  const unsigned beforeBind=binds,beforeDetach=detaches;
   gxrt::ensureContext(&window,original);assert(current==original);
+  assert(binds==beforeBind+1&&detaches==beforeDetach+1);
   SDL_GL_MakeCurrent(&window,nullptr);gxrt::ensureContext(&window,original);
   assert(current==original);gxrt::present(&window,-1);assert(intervals==1);
   puts("PASS: direct-mode restoration rebinds original context");return 0;
  }
  assert(gxrt::start(&window));
  draw();gxrt::sync([]{});assert(calls==1&&SDL_GL_GetCurrentContext()==nullptr);
+ if(mode=="surface-detach-failure")failDetach=1;
+ if(mode=="surface-bind-failure")failWorkerBind=1;
+ const unsigned beforeBind=binds,beforeDetach=detaches;
  gxrt::ensureContext(&window,original);
+ assert(binds==beforeBind+1&&detaches==beforeDetach+1);
  if(mode=="release-failure")failDetach=1;
  if(mode=="pause-main-failure")failMainBind=1;
  event(SDL_EVENT_WILL_ENTER_BACKGROUND);
@@ -122,7 +129,7 @@ int main(int argc,char**argv){
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode == 0, result.stderr
             print(result.stdout.strip())
-        for mode in ("replacement","release-failure","pause-main-failure","resume-detach-failure","unrecoverable"):
+        for mode in ("replacement","release-failure","pause-main-failure","resume-detach-failure","unrecoverable","surface-detach-failure","surface-bind-failure"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode != 0, f"{mode}: unsafe continuation accepted"
             assert "context lifecycle failure" in result.stderr, result.stderr

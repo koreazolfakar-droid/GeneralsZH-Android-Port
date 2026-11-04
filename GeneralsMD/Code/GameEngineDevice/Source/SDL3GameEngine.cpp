@@ -74,6 +74,7 @@
 // path, and everything links into the same libmain.so. See gles_pipeline.cpp.
 extern "C" void d3d8gles_SetPresentUncapped(bool uncapped);
 extern "C" bool d3d8gles_restore_surface();
+extern "C" void d3d8gles_context_lost();
 #include <android/native_window.h>
 #include <dlfcn.h>
 
@@ -211,6 +212,13 @@ static void logMobileLifecycleEvent(const char *name)
 static bool SDLCALL mobileLifecycleWatcher(void *userdata, SDL_Event *event)
 {
 	switch (event->type) {
+#if defined(__ANDROID__)
+		// GeneralsX @bugfix Codex 04/11/2026 EGL may recycle a lost context's
+		// handle. SDL's explicit device-reset signal invalidates all GPU names.
+		case SDL_EVENT_RENDER_DEVICE_RESET:
+			d3d8gles_context_lost();
+			break;
+#endif
 		case SDL_EVENT_WILL_ENTER_BACKGROUND:
 			logMobileLifecycleEvent("WILL_ENTER_BACKGROUND");
 			s_appBackgrounded.store(true);

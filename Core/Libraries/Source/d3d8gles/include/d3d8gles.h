@@ -33,11 +33,12 @@
 // libdxvk_d3d8.so -- named distinctly so both can coexist in libmain.so.
 extern "C" IDirect3D8 *WINAPI Direct3DCreate8_GLES(UINT sdkVersion);
 
-// Called from the SDL3 window-resize path so the GLES pipeline's cached
-// framebuffer size stays in sync without waiting for the next Reset().
+// Update physical drawable pixels while preserving the logical D3D backbuffer
+// and game/UI coordinates. This path never resets the device.
 extern "C" void d3d8gles_resize(int w, int h);
 // False means Android has no valid drawable yet; retry after the next event pump.
 extern "C" bool d3d8gles_restore_surface();
+extern "C" void d3d8gles_context_lost();
 
 // GeneralsX @build Android port render-backend picker 07/09/2026 - single
 // source of truth for the Vulkan/GLES/GLES+ANGLE choice, called from every
