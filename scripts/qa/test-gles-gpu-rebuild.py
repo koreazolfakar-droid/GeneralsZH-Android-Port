@@ -116,7 +116,7 @@ struct WebGLPipeline {
   m_adoptCurrentContext=false;
   assert(w==2340&&h==1080);
   if(failInitialization)return false;
-  m_fbWidth=w;m_fbHeight=h;m_ctxReady=true;return true;
+  m_fbWidth=w;m_fbHeight=h;m_ctxReady=true;s_gxGlesReady=true;return true;
  }
  bool setVirtualBackbuffer(int w,int h,int rw,int rh,bool gsr) {
   ++virtualBuilds;
