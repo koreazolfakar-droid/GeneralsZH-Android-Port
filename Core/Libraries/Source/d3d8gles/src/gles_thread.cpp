@@ -60,6 +60,7 @@ uint64_t s_framesQueued = 0;
 
 SDL_Window *s_window = nullptr;
 SDL_GLContext s_context = nullptr;
+std::atomic<bool> s_contextReplaced{false};
 SDL_ThreadID s_mainThread = 0;
 bool s_watchInstalled = false;
 
@@ -292,8 +293,16 @@ void takeFromMain()
 	if (g_active || !s_thread.joinable() || s_stop.load())
 		return;
 	const SDL_GLContext current = SDL_GL_GetCurrentContext();
-	if (current != nullptr && current != s_context)
-		contextFailure("SDL replaced context; device resource rebuild required");
+	if (current != nullptr && current != s_context) {
+		// SDL completed EGL context recreation on the event thread. Retain its
+		// current context on main; submitting GL through the old worker would
+		// use objects from the destroyed context. Rebuild before handoff.
+		s_context = current;
+		s_contextReplaced.store(true, std::memory_order_release);
+		s_swapInterval.invalidate();
+		fprintf(stderr, "[d3d8gles] Android EGL context replaced; deferring GPU reconstruction\n");
+		return;
+	}
 	// SDL may have failed its restore while the surface was unavailable. Try
 	// the preserved context once more now; its GPU resources are still valid.
 	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context))
@@ -512,6 +521,65 @@ void ensureContext(SDL_Window *window, void *expectedContext)
 			contextFailure("restoration could not bind original context");
 	});
 	s_swapInterval.invalidate();
+}
+
+bool contextReplaced()
+{
+	return s_contextReplaced.load(std::memory_order_acquire);
+}
+
+bool prepareForContextRecovery()
+{
+	// Gameplay is gated. Flush any render thread commands before resetting
+	// GPU IDs; leave a newly created context (if already current) untouched.
+	if (g_active) {
+		bool released = false;
+		sync([&released] {
+			released = SDL_GL_MakeCurrent(s_window, nullptr);
+			if (released)
+				s_hasContext.store(false, std::memory_order_release);
+		});
+		if (!released) {
+			fprintf(stderr, "[d3d8gles] recovery: render-thread context release failed: %s\n", SDL_GetError());
+			return false;
+		}
+		g_active = false;
+	}
+	const SDL_GLContext current = SDL_GL_GetCurrentContext();
+	if (current) {
+		s_context = current;
+		return true;
+	}
+	// SDL may still be rebuilding the window surface; retry on the next pump
+	// rather than binding the stale context or continuing GPU work.
+	return false;
+}
+
+void forgetLostContextFences()
+{
+	// All producer commands were drained at pause. Pending GPU fences from
+	// the destroyed context cannot be queried or deleted in the new one.
+	std::lock_guard<std::mutex> lock(s_fenceMutex);
+	for (FenceProxy *f : s_pendingFences) {
+		f->real = nullptr;
+		f->state.store(2, std::memory_order_release);
+	}
+	s_pendingFences.clear();
+	s_swapInterval.invalidate();
+}
+
+void resumeAfterContextRecovery(SDL_Window *window)
+{
+	s_window = window;
+	const SDL_GLContext current = SDL_GL_GetCurrentContext();
+	if (current == nullptr) {
+		fprintf(stderr, "[d3d8gles] recovery: no current context to hand back\n");
+		return;
+	}
+	s_context = current;
+	s_contextReplaced.store(false, std::memory_order_release);
+	if (s_thread.joinable() && !s_stop.load())
+		takeFromMain();
 }
 
 void present(SDL_Window *window, int swapInterval)
