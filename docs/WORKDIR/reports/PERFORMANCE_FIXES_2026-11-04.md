@@ -97,7 +97,8 @@ python3 scripts/qa/bench-terrain-sparse-uploads.py
 - Snapshot checks include uninitialized tails, restoration, budget/release,
   fragmentation fallback, dense movement and 2048 differential mutation rounds.
 - Shroud: **2,519,040** exhaustive state/ghost-transition comparisons per build,
-  run with and without `DISABLE_INVALID_PREVENTION`. Baseline mixed-visibility
+  using the production enum definitions, run with and without
+  `DISABLE_INVALID_PREVENTION`. Baseline mixed-visibility
   fixtures of 100/500/1376 **cells** query 200/1000/2752 times; candidate queries 2.
   These are cells of an object's footprint, **not measured unit-count battles**.
 

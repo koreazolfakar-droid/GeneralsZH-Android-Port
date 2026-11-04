@@ -34,9 +34,8 @@ def main():
 #include <vector>
 #include <algorithm>
 using Int=int;using Bool=bool;using ObjectShroudStatus=int;using CellShroudStatus=int;
-constexpr int MAX_PLAYER_COUNT=8,OBJECTSHROUD_CLEAR=0,OBJECTSHROUD_PARTIAL_CLEAR=1;
-constexpr int OBJECTSHROUD_FOGGED=2,OBJECTSHROUD_SHROUDED=3,OBJECTSHROUD_INVALID=4,OBJECTSHROUD_INVALID_BUT_PREVIOUS_VALID=5;
-constexpr int CELLSHROUD_CLEAR=0,CELLSHROUD_FOGGED=1,CELLSHROUD_SHROUDED=2;
+constexpr int MAX_PLAYER_COUNT=8;
+SHROUD_ENUMS
 constexpr int KINDOF_IMMOBILE=1,KINDOF_MINE=2,NEUTRAL=0;
 #define DEBUG_ASSERTCRASH(condition,message) assert(condition)
 static unsigned queries=0;
@@ -57,6 +56,13 @@ struct Data {
 struct PartitionData:Data {int getShroudedStatus(int);};
 struct LegacyPartitionData:Data {int getShroudedStatus(int);};
 '''
+    common = (ROOT / 'Core/GameEngine/Include/Common/GameCommon.h').read_text()
+    enums = []
+    for name in ('CellShroudStatus', 'ObjectShroudStatus'):
+        start = common.index('{', common.index('enum ' + name))
+        end = common.index('};', start) + 2
+        enums.append('enum ' + common[start:end])
+    code = code.replace('SHROUD_ENUMS', '\n'.join(enums))
     code += legacy.replace('PartitionData::', 'LegacyPartitionData::') + '\n' + current
     code += r'''
 int main(){
@@ -66,7 +72,7 @@ int main(){
   for(int pattern=0;pattern<combinations;++pattern){
    std::vector<CellAndObjectIntersection> cells(count);int v=pattern;
    for(auto&c:cells){c.cell.status=v%3;v/=3;}
-   for(int previous=0;previous<4;++previous)for(int flags=0;flags<64;++flags)
+   for(int previous:{OBJECTSHROUD_CLEAR,OBJECTSHROUD_PARTIAL_CLEAR,OBJECTSHROUD_FOGGED,OBJECTSHROUD_SHROUDED})for(int flags=0;flags<64;++flags)
     for(int validity:{OBJECTSHROUD_INVALID,OBJECTSHROUD_INVALID_BUT_PREVIOUS_VALID,OBJECTSHROUD_CLEAR}){
      Object object;object.kinds=flags&3;Ghost a,b;player.relationship=(flags>>2)&1;
      PartitionData candidate;LegacyPartitionData baseline;
