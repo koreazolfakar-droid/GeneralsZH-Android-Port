@@ -307,8 +307,14 @@ void takeFromMain()
 	}
 	// SDL may have failed its restore while the surface was unavailable. Try
 	// the preserved context once more now; its GPU resources are still valid.
-	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context))
-		contextFailure("restore original context on main thread");
+	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context)) {
+		// A destroyed EGL context cannot be rebound. Retain the foreground
+		// render gate; refreshDrawable will create/adopt a replacement instead
+		// of crashing before the repair code has a chance to run.
+		s_contextReplaced.store(true, std::memory_order_release);
+		fprintf(stderr, "[d3d8gles] EGL context could not be restored; deferring replacement\n");
+		return;
+	}
 	if (!SDL_GL_MakeCurrent(s_window, nullptr))
 		contextFailure("release main thread after resume");
 	s_swapInterval.invalidate();
@@ -552,8 +558,22 @@ bool prepareForContextRecovery()
 		s_context = current;
 		return true;
 	}
-	// SDL may still be rebuilding the window surface; retry on the next pump
-	// rather than binding the stale context or continuing GPU work.
+	// A device-reset signal may arrive while the render thread still owned
+	// its context; after detaching that worker, main has no current context.
+	// Try the preserved SDL context before deciding it has been destroyed.
+	if (s_context && SDL_GL_MakeCurrent(s_window, s_context))
+		return true;
+
+	// If EGL really destroyed it, create a fresh SDL-managed GLES context.
+	// The game is gated until this succeeds; never present an invalid frame.
+	SDL_GLContext replacement = SDL_GL_CreateContext(s_window);
+	if (replacement && SDL_GL_MakeCurrent(s_window, replacement)) {
+		s_context = replacement;
+		s_contextReplaced.store(true, std::memory_order_release);
+		fprintf(stderr, "[d3d8gles] recovery: created new GLES context after EGL loss\n");
+		return true;
+	}
+	fprintf(stderr, "[d3d8gles] recovery: EGL context not yet available: %s\n", SDL_GetError());
 	return false;
 }
 
