@@ -556,6 +556,10 @@ private:
 	bool m_ctxReady = false;
 	bool m_gpuRecoveryPending = false;
 	bool m_adoptCurrentContext = false;
+	int m_recoveryGameW = 0, m_recoveryGameH = 0;
+	bool m_recoveryVirtualActive = false, m_recoveryGsr = false;
+	int m_recoveryVirtualW = 0, m_recoveryVirtualH = 0;
+	int m_recoveryRenderW = 0, m_recoveryRenderH = 0;
 	bool m_needsFullClear = false;
 	bool m_hasS3TC = false;
 	int m_fbWidth = 0;
