@@ -1,0 +1,15 @@
+[1/4] Building CXX object d3d8gles/CMakeFiles/d3d8gles.dir/src/gles_thread.cpp.o
+[2/4] Building CXX object d3d8gles/CMakeFiles/d3d8gles.dir/src/gles_dispatch.cpp.o
+[3/4] Building CXX object d3d8gles/CMakeFiles/d3d8gles.dir/src/d3d8gles.cpp.o
+In file included from /workspace/generals/Core/Libraries/Source/d3d8gles/src/d3d8gles.cpp:36:
+In file included from /workspace/gx-deps/dxvk/include/native/directx/d3d8.h:31:
+In file included from /workspace/generals/GeneralsMD/Code/CompatLib/Include/windows.h:28:
+In file included from /workspace/generals/GeneralsMD/Code/CompatLib/Include/windows_compat.h:219:
+/workspace/generals/GeneralsMD/Code/CompatLib/Include/file_compat.h:289:9: warning: 'INVALID_HANDLE_VALUE' macro redefined [-Wmacro-redefined]
+  289 | #define INVALID_HANDLE_VALUE ((void*)-1)
+      |         ^
+/workspace/generals/GeneralsMD/Code/CompatLib/Include/types_compat.h:78:9: note: previous definition is here
+   78 | #define INVALID_HANDLE_VALUE ((HANDLE)-1)
+      |         ^
+1 warning generated.
+[4/4] Linking CXX static library d3d8gles/libd3d8gles.a

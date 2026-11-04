@@ -3611,7 +3611,6 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 				submitted.rememberFull(vb->m_bits.data(), vb->m_bits.size(), valid);
 			}
 		} else {
-			const GxUploadTimer uploadTimer(GX_UPLOAD_VB_APPEND, vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin);
 			// GeneralsX @perf Android port 09/05/2026 This is the
 			// D3DLOCK_NOOVERWRITE case (the engine's ring buffer appending
 			// past offset 0). glBufferSubData here makes the driver
@@ -3627,11 +3626,29 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 			const GLsizeiptr len = (GLsizeiptr)(vb->m_gl.dirtyEnd - vb->m_gl.dirtyBegin);
 			if (vb->m_gl.pendingSync) {
 				// A plain lock (no NOOVERWRITE): synchronized, as D3D would be.
-				glBufferSubData(GL_COPY_WRITE_BUFFER, off, len, vb->m_bits.data() + vb->m_gl.dirtyBegin);
-				m_perfSyncUploads++;
-				if (s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT)
-					++s_gxSyncCallsByCategory[s_gxDrawCategory];
+				// GeneralsX @performance Codex 04/11/2026 Separate terrain edits
+				// need not serialize unchanged bytes between them. Retain every
+				// synchronized GL write and commit the snapshot only after capture.
+				GxBufferSnapshot::Range ranges[8] = {{vb->m_gl.dirtyBegin, vb->m_gl.dirtyEnd}};
+				size_t count = 1;
+				if (staticTerrain && submitted.ready(vb->m_bits.size()) && len >= 4096) {
+					const double compareStart = gxNowUs();
+					count = submitted.changedRanges(vb->m_bits.data(), vb->m_gl.dirtyBegin, vb->m_gl.dirtyEnd, ranges);
+					s_gxTerrainCompareUs += gxNowUs() - compareStart;
+					size_t sent = 0;
+					for (size_t i = 0; i < count; ++i) sent += ranges[i].end - ranges[i].begin;
+					s_gxTerrainAvoidedBytes += (size_t)len - sent;
+				}
+				for (size_t i = 0; i < count; ++i) {
+					const size_t bytes = ranges[i].end - ranges[i].begin;
+					const GxUploadTimer uploadTimer(GX_UPLOAD_VB_APPEND, bytes);
+					glBufferSubData(GL_COPY_WRITE_BUFFER, ranges[i].begin, bytes, vb->m_bits.data() + ranges[i].begin);
+					m_perfSyncUploads++;
+					if (s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT)
+						++s_gxSyncCallsByCategory[s_gxDrawCategory];
+				}
 			} else {
+				const GxUploadTimer uploadTimer(GX_UPLOAD_VB_APPEND, len);
 				// Map, copy and unmap on the GL thread (falling back to glBufferSubData when the
 				// driver refuses the mapping): see gxrt::bufferWrite.
 				gxrt::bufferWrite(GL_COPY_WRITE_BUFFER, off, len, vb->m_bits.data() + vb->m_gl.dirtyBegin,

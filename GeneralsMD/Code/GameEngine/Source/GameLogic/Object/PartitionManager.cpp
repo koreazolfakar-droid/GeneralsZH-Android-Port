@@ -1640,13 +1640,22 @@ ObjectShroudStatus PartitionData::getShroudedStatus(Int playerIndex)
 #endif
 		Int shroudedCells = 0;
 		Int foggedCells = 0;
+		Bool clearCellSeen = false;
 		CellAndObjectIntersection* coi = m_coiArray;
 		for (Int i = m_coiInUseCount; i; --i, ++coi)
 		{
-			if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_SHROUDED )
+			// GeneralsX @performance Codex 04/11/2026 This accessor is a pure
+			// cell lookup. Read it once; clear + non-clear proves PARTIAL_CLEAR,
+			// so the remaining cells cannot change any classification below.
+			const CellShroudStatus status = coi->getCell()->getShroudStatusForPlayer(playerIndex);
+			if( status == CELLSHROUD_SHROUDED )
 				++shroudedCells;
-			else if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_FOGGED )
+			else if( status == CELLSHROUD_FOGGED )
 				++foggedCells;
+			else
+				clearCellSeen = true;
+			if (clearCellSeen && shroudedCells + foggedCells != 0)
+				break;
 		}
 
 		if( m_coiInUseCount == 0 )

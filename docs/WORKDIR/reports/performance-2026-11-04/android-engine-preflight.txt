@@ -1,0 +1,8 @@
+ERROR: VCPKG_ROOT is unset or has no scripts/buildsystems/vcpkg.cmake.
+       git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh
+       (FULL clone — a shallow clone breaks manifest baselines)
+ERROR: 'meson' not found on PATH
+ERROR: glslangValidator not found (DXVK compiles its GLSL shaders with it).
+       apt install glslang-tools / brew install glslang
+ERROR: DXVK fork submodule missing. Run:
+       git -C /workspace/generals submodule update --init references/fbraz3-dxvk

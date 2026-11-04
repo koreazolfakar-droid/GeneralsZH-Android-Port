@@ -107,12 +107,16 @@ static void* d3d8gles_pfn_glMapBufferRange(GLenum target, GLintptr offset, GLsiz
  return refuse ? nullptr : gpu.data()+offset;
 }
 static void d3d8gles_pfn_glUnmapBuffer(GLenum) { ++unmaps; }
+static void d3d8gles_pfn_glBufferData(GLenum,GLsizeiptr length,const void* data,GLenum) {
+ gpu.assign(length,0); if(data)std::memcpy(gpu.data(),data,length);
+}
 static void d3d8gles_pfn_glBufferSubData(GLenum,GLintptr offset,GLsizeiptr length,const void* data) {
- ++fallbacks; std::memcpy(gpu.data()+offset,data,length);
+ ++fallbacks; if(length)std::memcpy(gpu.data()+offset,data,length);
 }
 struct UploadTimer {};
 '''
         code += extract(dispatch, 'void gxrt::bufferWrite(')
+        code += '\n' + extract(dispatch, 'GL_APICALL void GL_APIENTRY glBufferData(')
         code += '\n' + extract(dispatch, 'GL_APICALL void GL_APIENTRY glBufferSubData(')
         code += r'''
 using Int=int;
@@ -197,6 +201,29 @@ int main() {
   std::fill(cpu.begin(),cpu.end(),99);const unsigned old=fallbacks;
   gxrt::drain();assert(fallbacks==old+2 && gpu[16]==7);
  }
+ // Full/synchronized uploads must own bytes in FIFO order without a heap
+ // allocation for ordinary writes. Null allocation and oversized fallback too.
+ for(bool threaded:{false,true}) {
+  gxrt::g_active=threaded;allocs=frees=0;
+  std::vector<unsigned char> a(131072,17),b(131072,23);
+  glBufferData(7,a.size(),a.data(),0);
+  gxrt::post([]{assert(gpu.size()==131072&&gpu[4096]==17);});
+  glBufferSubData(7,4096,65536,b.data());
+  gxrt::post([]{assert(gpu[0]==17&&gpu[4096]==23&&gpu[69632]==17);});
+  std::fill(a.begin(),a.end(),99);std::fill(b.begin(),b.end(),99);
+  if(threaded)gxrt::drain();
+  assert(allocs==EXPECTED_BUFFER_ALLOCS&&frees==allocs);
+  std::printf("PASS: full/synchronized uploads threaded=%d heap allocations=%u/2\n",(int)threaded,allocs);
+  allocs=frees=0;
+  glBufferData(7,4096,nullptr,0);if(threaded)gxrt::drain();assert(gpu.size()==4096&&gpu[0]==0);
+  glBufferSubData(7,0,0,nullptr);if(threaded)gxrt::drain();
+  std::vector<unsigned char> oversized((1u<<20)+100,31);
+  glBufferData(7,oversized.size(),oversized.data(),0);
+  if(threaded){std::fill(oversized.begin(),oversized.end(),1);gxrt::drain();}
+  assert(gpu[0]==31&&gpu.back()==31);
+  assert(allocs==(threaded?1u:EXPECTED_IMMEDIATE_FULL_ALLOC)&&frees==allocs);
+ }
+ gxrt::g_active=true;
  for(int oy: {0,16,64})for(int ox:{0,16,64})
   for(int y=0;y<16;++y)for(int x=0;x<16;++x)
    for(int h=1;h<=16-y;++h)for(int w=1;w<=16-x;++w)
@@ -213,6 +240,9 @@ int main() {
  std::printf("PASS: production upload queue FIFO, lifetime, map fallback, large writes; ordinary allocations=%u/491; one-cell terrain upload=%zu bytes (actual full tile %zu bytes, vertex stride %zu)\n",ordinaryAllocs,narrow*sizeof(VERTEX_FORMAT),TILE_SIDE*TILE_SIDE*4*sizeof(VERTEX_FORMAT),sizeof(VERTEX_FORMAT));
 }
 '''
+        inline_full = 'postBytes' in extract(dispatch, 'GL_APICALL void GL_APIENTRY glBufferData(')
+        code = code.replace('EXPECTED_BUFFER_ALLOCS', '0' if inline_full else '2')
+        code = code.replace('EXPECTED_IMMEDIATE_FULL_ALLOC', '0' if inline_full else '1')
         code = code.replace('EXPECTED_ALLOCS', '0' if inline_upload else '491')
         code = code.replace('EXPECTED_IMMEDIATE_ALLOCS', '0' if inline_upload else '1')
         code = code.replace('EXPECTED_TERRAIN_VERTICES', '4' if narrow_terrain else str(tile_side * tile_side * 4))
@@ -294,6 +324,13 @@ int main(){
   const unsigned repeated=uploads-before;
   assert(repeated==EXPECTED_REPEATED_UPLOADS);
   printf("PASS: 132 unchanged full terrain tile updates: %u uploads, %u transferred bytes (host scenario, not FPS)\n",repeated,repeated*131072);
+  auto& sparse=tiles[1];sparse.m_bits[16]=9;sparse.m_bits[120000]=11;
+  sparse.m_gl.markRange(0,sparse.m_bits.size());sparse.m_gl.pendingSync=true;
+  unsigned sparseBefore=uploads;double avoidedBefore=s_gxTerrainAvoidedBytes;
+  p.ensureVBUploaded(&sparse);assert(gpu==sparse.m_bits && uploads==sparseBefore+EXPECTED_SPARSE_UPLOADS);
+  assert(s_gxTerrainAvoidedBytes-avoidedBefore==EXPECTED_SPARSE_AVOIDED);
+  // Restore the fake GL target to tiles[0] before exercising its version.
+  gpu=tiles[0].m_bits;
   auto&b=tiles[0];b.m_bits[128]=10;b.m_gl.markRange(0,b.m_bits.size());b.m_gl.pendingSync=true;
   before=uploads;unsigned syncBefore=p.m_perfSyncUploads;
   p.ensureVBUploaded(&b);assert(gpu==b.m_bits&&uploads==before+1&&p.m_perfSyncUploads==syncBefore+1);
@@ -306,6 +343,9 @@ int main(){
  puts("PASS: production static VB/IB reuse, dynamic synchronized/NOOVERWRITE/DISCARD bytes and range accounting");
 }
 '''
+        sparse_ranges = 'submitted.changedRanges' in pipeline
+        buffers = buffers.replace('EXPECTED_SPARSE_UPLOADS', '2' if sparse_ranges else '1')
+        buffers = buffers.replace('EXPECTED_SPARSE_AVOIDED', '131070' if sparse_ranges else '11087')
         buffers = buffers.replace('EXPECTED_REPEATED_UPLOADS', '0' if 'submitted.trim' in pipeline else '132')
         path.write_text(buffers)
         subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', '-O1', '-g', '-fsanitize=address,undefined',

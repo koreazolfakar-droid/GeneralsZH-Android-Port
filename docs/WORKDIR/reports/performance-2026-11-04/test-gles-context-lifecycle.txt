@@ -1,0 +1,11 @@
+PASS: production thread context ownership and command drain
+PASS: production thread context ownership and command drain
+PASS: direct-mode restoration rebinds original context
+PASS: real 16MiB ring wrap, 50MiB owned uploads in FIFO order; host ring wait 0.000ms (not device performance)
+PASS: replacement fails closed before further GL work
+PASS: release-failure fails closed before further GL work
+PASS: pause-main-failure fails closed before further GL work
+PASS: resume-detach-failure fails closed before further GL work
+PASS: unrecoverable fails closed before further GL work
+PASS: surface-detach-failure fails closed before further GL work
+PASS: surface-bind-failure fails closed before further GL work

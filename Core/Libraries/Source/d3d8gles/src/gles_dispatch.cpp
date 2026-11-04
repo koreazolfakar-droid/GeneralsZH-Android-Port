@@ -354,13 +354,24 @@ GL_APICALL void GL_APIENTRY glBlendFunc(GLenum sfactor, GLenum dfactor)
 GL_APICALL void GL_APIENTRY glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage)
 {
 	UploadTimer uploadTimer;
-	gxrt::post([target, size, usage, blob = gxrt::Blob<256>(data, (size_t)size)] { gxrt::WorkTimer t(gxrt::kWorkUpload); d3d8gles_pfn_glBufferData(target, size, blob.data(), usage); });
+	// GeneralsX @performance Codex 04/11/2026 Full terrain/dynamic uploads use
+	// the same owned ring payload as appends, avoiding cross-thread malloc/free.
+	// postBytes retains null allocation, immediate mode and oversized fallback.
+	gxrt::postBytes([target, size, usage](const void *bytes) {
+		gxrt::WorkTimer t(gxrt::kWorkUpload);
+		d3d8gles_pfn_glBufferData(target, size, bytes, usage);
+	}, data, (size_t)size);
 }
 
 GL_APICALL void GL_APIENTRY glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void *data)
 {
 	UploadTimer uploadTimer;
-	gxrt::post([target, offset, size, blob = gxrt::Blob<256>(data, (size_t)size)] { gxrt::WorkTimer t(gxrt::kWorkUpload); d3d8gles_pfn_glBufferSubData(target, offset, size, static_cast<decltype(data)>(blob.data())); });
+	// GeneralsX @performance Codex 04/11/2026 Keep the synchronized GL operation
+	// and exact FIFO order; only the command's byte ownership changes.
+	gxrt::postBytes([target, offset, size](const void *bytes) {
+		gxrt::WorkTimer t(gxrt::kWorkUpload);
+		d3d8gles_pfn_glBufferSubData(target, offset, size, bytes);
+	}, data, (size_t)size);
 }
 
 GL_APICALL void *GL_APIENTRY glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)

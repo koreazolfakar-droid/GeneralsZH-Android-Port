@@ -1,0 +1,7 @@
+host_fixture,path,bytes_per_iteration,uploads_per_iteration,cpu_ms_per_iteration
+static,baseline,0,0,1.749637
+static,candidate,0,0,1.751562
+moving-all-bytes,baseline,17301504,132,3.197562
+moving-all-bytes,candidate,17301504,132,3.082396
+sparse-two-edits,baseline,15838020,132,2.737158
+sparse-two-edits,candidate,264,264,2.352593

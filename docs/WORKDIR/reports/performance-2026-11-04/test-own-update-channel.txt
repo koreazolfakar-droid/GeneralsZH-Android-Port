@@ -1,0 +1,21 @@
+NOT TESTED locally: UpdateTrust JVM checks (javac absent)
+NOT TESTED locally: real baseline APK fixture absent
+PASS: own public P-256 validation
+PASS: private PEM rejected
+PASS: upstream identity rejected
+PASS: other EC curve rejected
+PASS: signed settings manifest verifies
+PASS: altered signed bytes rejected
+PASS: signed foreign channel rejected
+PASS: zero serial rejected
+PASS: boolean serial rejected
+PASS: path-like engine sequence rejected
+PASS: non-ELF engine rejected
+PASS: production secret signer: matching own identity, exact bytes and private-temp cleanup
+PASS: production secret signer: wrong secret identity refused and cleaned
+PASS: production signer missing secret fails closed
+PASS: production publisher initial signed branch and stale-serial rejection
+PASS: production publisher fast-forward retains previous history
+PASS: unexpected publication files rejected before push
+PASS: source guards: isolated channel, legacy preference preserved, retained signed metadata and downgrade protection
+PASS: 18 own-channel host checks

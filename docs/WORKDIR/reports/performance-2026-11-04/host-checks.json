@@ -1,0 +1,262 @@
+[
+  {
+    "test": "test-ai-script-loader-cleanup.py",
+    "status": "PASS",
+    "seconds": 0.22
+  },
+  {
+    "test": "test-android-validation-staging.py",
+    "status": "PASS",
+    "seconds": 0.08
+  },
+  {
+    "test": "test-asset-audio-reliability.py",
+    "status": "PASS",
+    "seconds": 0.86
+  },
+  {
+    "test": "test-asset-root-cache.py",
+    "status": "PASS",
+    "seconds": 1.19
+  },
+  {
+    "test": "test-battle-perf-window.py",
+    "status": "PASS",
+    "seconds": 1.11
+  },
+  {
+    "test": "test-engine-3277-hotfix.py",
+    "status": "PASS",
+    "seconds": 0.22
+  },
+  {
+    "test": "test-engine-build-number.py",
+    "status": "PASS",
+    "seconds": 0.16
+  },
+  {
+    "test": "test-engine-incremental-state.py",
+    "status": "PASS",
+    "seconds": 1.8
+  },
+  {
+    "test": "test-engine-native-version.py",
+    "status": "PASS",
+    "seconds": null,
+    "note": "Passed after user-local prerequisites were supplied."
+  },
+  {
+    "test": "test-engine-packaging.py",
+    "status": "PASS",
+    "seconds": 1.21
+  },
+  {
+    "test": "test-engine-security.py",
+    "status": "PASS",
+    "seconds": 3.37
+  },
+  {
+    "test": "test-ffmpeg-avio-size.py",
+    "status": "PASS",
+    "seconds": null,
+    "note": "Passed after user-local prerequisites were supplied."
+  },
+  {
+    "test": "test-gles-context-lifecycle.py",
+    "status": "PASS",
+    "seconds": 1.55
+  },
+  {
+    "test": "test-gles-egl-surface.py",
+    "status": "PASS",
+    "seconds": 0.07,
+    "note": "Initial header skip resolved: reran with NDK Khronos headers and --require-egl; real host software EGL/GLES pixel test passed."
+  },
+  {
+    "test": "test-gles-surface-restoration.py",
+    "status": "PASS",
+    "seconds": 2.7
+  },
+  {
+    "test": "test-gles-terrain-fused.py",
+    "status": "PASS",
+    "seconds": 0.81
+  },
+  {
+    "test": "test-gles-texture-state.py",
+    "status": "PASS",
+    "seconds": 1.46
+  },
+  {
+    "test": "test-gles-upload-regressions.py",
+    "status": "PASS",
+    "seconds": 10.6
+  },
+  {
+    "test": "test-large-battle-client-scale.py",
+    "status": "PASS",
+    "seconds": 0.11
+  },
+  {
+    "test": "test-mobile-all-faction-order-pages.py",
+    "status": "PASS",
+    "seconds": 0.1
+  },
+  {
+    "test": "test-mobile-command-overflow.py",
+    "status": "PASS",
+    "seconds": 0.11
+  },
+  {
+    "test": "test-mod-archive-loading.py",
+    "status": "PASS",
+    "seconds": 4.67
+  },
+  {
+    "test": "test-mod-localization.py",
+    "status": "PASS",
+    "seconds": 8.42
+  },
+  {
+    "test": "test-online-tls.py",
+    "status": "PASS",
+    "seconds": 2.76
+  },
+  {
+    "test": "test-own-update-channel.py",
+    "status": "PARTIAL",
+    "seconds": 2.27,
+    "note": "Publisher/signer guards passed; JVM UpdateTrust tests skipped (javac absent), real baseline APK fixture absent."
+  },
+  {
+    "test": "test-prepare-engine-run.py",
+    "status": "UNAVAILABLE",
+    "seconds": 0.13,
+    "note": "Verified 3339 native pair and Bootstrap 3333 APK fixtures absent; not a test pass."
+  },
+  {
+    "test": "test-prertt-regressions.py",
+    "status": "PASS",
+    "seconds": 14.72
+  },
+  {
+    "test": "test-production-stage-profile.py",
+    "status": "PASS",
+    "seconds": 0.38
+  },
+  {
+    "test": "test-projectile-impact-shroud.py",
+    "status": "PASS",
+    "seconds": 0.09
+  },
+  {
+    "test": "test-projectx-skirmish-audit.py",
+    "status": "PASS",
+    "seconds": 0.12
+  },
+  {
+    "test": "test-save-map-safety.py",
+    "status": "PASS",
+    "seconds": 0.41
+  },
+  {
+    "test": "test-sdl3-render-lifecycle.py",
+    "status": "PASS",
+    "seconds": 0.51
+  },
+  {
+    "test": "test-shader-cache-async.py",
+    "status": "PASS",
+    "seconds": 2.81
+  },
+  {
+    "test": "test-shroud-classification.py",
+    "status": "PASS",
+    "seconds": 1.24
+  },
+  {
+    "test": "test-shroud-dirty-rect.py",
+    "status": "PASS",
+    "seconds": 0.86
+  },
+  {
+    "test": "test-standalone-mod-overlay.py",
+    "status": "PASS",
+    "seconds": 4.32
+  },
+  {
+    "test": "test-teod-camera-scroll.py",
+    "status": "PASS",
+    "seconds": 1.46
+  },
+  {
+    "test": "test-terrain-invalidation.py",
+    "status": "PASS",
+    "seconds": 0.55
+  },
+  {
+    "test": "test-terrain-light-dirty.py",
+    "status": "PASS",
+    "seconds": 5.09
+  },
+  {
+    "test": "test-terrain-partial-region.py",
+    "status": "PASS",
+    "seconds": 0.79
+  },
+  {
+    "test": "test-terrain-snapshot-safety.py",
+    "status": "PASS",
+    "seconds": 1.28
+  },
+  {
+    "test": "test-universal-tactical-ai.py",
+    "status": "PASS",
+    "seconds": 15.22
+  },
+  {
+    "test": "test-upstream-142-port.py",
+    "status": "PASS",
+    "seconds": 0.05
+  },
+  {
+    "test": "test-vehicle-ai-v1.py",
+    "status": "PASS",
+    "seconds": 0.53
+  },
+  {
+    "test": "test-verified-ndk-pch-cache.py",
+    "status": "PASS",
+    "seconds": 0.79
+  },
+  {
+    "test": "test-verify-mod-media.py",
+    "status": "PASS",
+    "seconds": 0.13
+  },
+  {
+    "test": "test-volume-particle-equivalence.py",
+    "status": "PASS",
+    "seconds": 0.79
+  },
+  {
+    "test": "test_projectx_ai_regressions.py",
+    "status": "PASS"
+  },
+  {
+    "test": "smoke/test-mod-localization.py",
+    "status": "PASS"
+  },
+  {
+    "test": "test-engine-budget-v2.sh",
+    "status": "PASS"
+  },
+  {
+    "test": "test-mobile-resolution-policy.cpp",
+    "status": "PASS"
+  },
+  {
+    "test": "test-terrain-geometry-diff.cpp",
+    "status": "PASS"
+  }
+]

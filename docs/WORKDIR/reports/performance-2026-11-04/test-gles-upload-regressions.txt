@@ -1,0 +1,5 @@
+PASS: full/synchronized uploads threaded=0 heap allocations=0/2
+PASS: full/synchronized uploads threaded=1 heap allocations=0/2
+PASS: production upload queue FIFO, lifetime, map fallback, large writes; ordinary allocations=0/491; one-cell terrain upload=128 bytes (actual full tile 131072 bytes, vertex stride 32)
+PASS: 132 unchanged full terrain tile updates: 0 uploads, 0 transferred bytes (host scenario, not FPS)
+PASS: production static VB/IB reuse, dynamic synchronized/NOOVERWRITE/DISCARD bytes and range accounting

@@ -1,0 +1,4 @@
+Core/GameEngineDevice
+PASS: valid MP3 decodes without false concatenation warning; real concatenation still warns
+GeneralsMD/Code/GameEngineDevice
+PASS: valid MP3 decodes without false concatenation warning; real concatenation still warns

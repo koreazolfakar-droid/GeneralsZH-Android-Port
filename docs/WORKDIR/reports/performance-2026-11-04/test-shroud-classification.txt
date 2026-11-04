@@ -1,0 +1,8 @@
+host mixed-visibility fixture cells=100 queries=200 -> 2
+host mixed-visibility fixture cells=500 queries=1000 -> 2
+host mixed-visibility fixture cells=1376 queries=2752 -> 2
+PASS: 2519040 exhaustive production classifications and ghost/ever-seen/previous-state transitions
+host mixed-visibility fixture cells=100 queries=200 -> 2
+host mixed-visibility fixture cells=500 queries=1000 -> 2
+host mixed-visibility fixture cells=1376 queries=2752 -> 2
+PASS: 2519040 exhaustive production classifications and ghost/ever-seen/previous-state transitions

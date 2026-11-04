@@ -52,6 +52,8 @@ bool SDL_AddEventWatch(bool(*)(void*,SDL_Event*),void*);
 #include <thread>
 #include <cstdio>
 #include <string>
+#include <vector>
+#include <algorithm>
 static std::mutex ownerMutex;
 static SDL_ThreadID owner=0,mainThread=0;
 static thread_local SDL_GLContext current=nullptr;
@@ -88,6 +90,24 @@ int main(int argc,char**argv){
   puts("PASS: direct-mode restoration rebinds original context");return 0;
  }
  assert(gxrt::start(&window));
+ if(mode=="uploads"){
+  std::vector<unsigned char> payload(131072);
+  std::atomic<unsigned> completed{0};
+  for(unsigned i=0;i<400;++i){
+   std::fill(payload.begin(),payload.end(),i%251);
+   gxrt::postBytes([i,&completed](const void*data){
+    const auto*b=static_cast<const unsigned char*>(data);
+    for(unsigned k=0;k<131072;++k)assert(b[k]==i%251);
+    assert(completed.fetch_add(1)==i);
+   },payload.data(),payload.size());
+  }
+  std::fill(payload.begin(),payload.end(),255);gxrt::sync([]{});
+  assert(completed==400);auto stats=gxrt::takeStats();
+  assert(stats.commandBytes>=400.0*131072&&stats.commands>=400);
+  gxrt::stop();assert(current==original);
+  printf("PASS: real 16MiB ring wrap, 50MiB owned uploads in FIFO order; host ring wait %.3fms (not device performance)\n",stats.ringWaitUs/1000.0);
+  return 0;
+ }
  draw();gxrt::sync([]{});assert(calls==1&&SDL_GL_GetCurrentContext()==nullptr);
  if(mode=="surface-detach-failure")failDetach=1;
  if(mode=="surface-bind-failure")failWorkerBind=1;
@@ -125,7 +145,7 @@ int main(int argc,char**argv){
         subprocess.run([os.environ.get("CXX","c++"),"-std=c++17","-O1","-g","-pthread",
                         "-I",str(work),"-I",str(GLES/"include"),str(source),
                         str(GLES/"src/gles_thread.cpp"),"-o",str(exe)],check=True)
-        for mode in ("normal","fallback","direct"):
+        for mode in ("normal","fallback","direct","uploads"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode == 0, result.stderr
             print(result.stdout.strip())

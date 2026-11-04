@@ -1,0 +1,3 @@
+Host EGL 1.5, GLES renderer: llvmpipe (LLVM 19.1.7, 256 bits)
+PASS: real host EGL/GLES3 pixels, 12 recreated surfaces, preserved texture, full clears and contiguous UI regions
+Host software-driver validation only; Android SDL/EGL lifecycle and physical device remain unverified.
