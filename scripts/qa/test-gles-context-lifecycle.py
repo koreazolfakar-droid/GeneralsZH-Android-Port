@@ -34,6 +34,7 @@ struct SDL_Event {unsigned type;};
 #define SDLCALL
 constexpr unsigned SDL_EVENT_WILL_ENTER_BACKGROUND=1,SDL_EVENT_DID_ENTER_FOREGROUND=2;
 bool SDL_GL_MakeCurrent(SDL_Window*,SDL_GLContext);
+SDL_GLContext SDL_GL_CreateContext(SDL_Window*);
 SDL_GLContext SDL_GL_GetCurrentContext();
 SDL_ThreadID SDL_GetCurrentThreadID();
 const char*SDL_GetError();
@@ -62,6 +63,7 @@ static bool(*watch)(void*,SDL_Event*)=nullptr;
 SDL_ThreadID SDL_GetCurrentThreadID(){return std::hash<std::thread::id>{}(std::this_thread::get_id());}
 SDL_GLContext SDL_GL_GetCurrentContext(){return current;}
 const char*SDL_GetError(){return "injected context failure";}
+SDL_GLContext SDL_GL_CreateContext(SDL_Window*){return reinterpret_cast<SDL_GLContext>(3);}
 bool SDL_GL_MakeCurrent(SDL_Window*,SDL_GLContext ctx){
  std::lock_guard<std::mutex> lock(ownerMutex);
  const auto id=SDL_GetCurrentThreadID();
