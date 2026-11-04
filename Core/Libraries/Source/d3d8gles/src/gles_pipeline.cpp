@@ -412,13 +412,19 @@ bool WebGLPipeline::initContext(int w, int h, SDL_Window *window)
 	// GLES3/depth/stencil config live in SDL3Main.cpp, BEFORE
 	// SDL_CreateWindow -- SDL only applies them to windows created after the
 	// call, so they can't live here (this runs well after the window exists).
-	m_glContext = SDL_GL_CreateContext(window);
+	// During Android EGL recovery SDL itself owns the freshly restored context.
+	// Adopt that exact context rather than creating a second SDL GL context;
+	// CPU-backed D3D resources will be uploaded on their first use.
+	const bool adoptCurrent = m_adoptCurrentContext;
+	m_adoptCurrentContext = false;
+	m_glContext = adoptCurrent ? (void *)SDL_GL_GetCurrentContext() :
+		(void *)SDL_GL_CreateContext(window);
 	if (!m_glContext) {
-		fprintf(stderr, "[d3d8gles] FATAL: SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+		fprintf(stderr, "[d3d8gles] unable to create/adopt SDL GL context: %s\n", SDL_GetError());
 		return false;
 	}
-	if (!SDL_GL_MakeCurrent(window, (SDL_GLContext)m_glContext)) {
-		fprintf(stderr, "[d3d8gles] FATAL: SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+	if (!adoptCurrent && !SDL_GL_MakeCurrent(window, (SDL_GLContext)m_glContext)) {
+		fprintf(stderr, "[d3d8gles] SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
 		return false;
 	}
 	// GeneralsX @bugfix Android port 09/04/2026 Diagnostic: a real-device
@@ -817,15 +823,23 @@ void WebGLPipeline::setBackbufferSize(int w, int h)
 
 bool WebGLPipeline::refreshDrawable(bool restore)
 {
-	if (!m_ctxReady || !m_window) return true;
+	if (!m_window) return true;
+	// A failed recovery stays paused and retries with the same CPU-side state.
+	if (m_gpuRecoveryPending)
+		return restore && recoverLostContext();
+	if (!m_ctxReady) return true;
+
 	int w = 0, h = 0;
 	if (!SDL_GetWindowSizeInPixels(m_window, &w, &h) || w <= 0 || h <= 0)
 		return false;
 #if defined(__ANDROID__)
 	// Android's landscape Activity can briefly report the old portrait surface.
-	// Keep the last valid pixels and retry after the window settles.
 	if (m_fbWidth > m_fbHeight && w < h) return false;
 #endif
+	if (restore && (g_gpuResetPending.load(std::memory_order_acquire) ||
+	                gxrt::contextReplaced()))
+		return recoverLostContext();
+
 	if (restore) gxrt::ensureContext(m_window, m_glContext);
 	resize(w, h);
 	if (restore) restoreSurface();
@@ -844,6 +858,113 @@ void WebGLPipeline::restoreSurface()
 	m_haveLastVAOKey = false;
 	m_lastArrayBuffer = ~0u;
 	m_lastBoundTex[0] = m_lastBoundTex[1] = ~0u;
+}
+
+// Rebuild only after a REAL GL context loss. Surface-only rebind uses the
+// inexpensive restoreSurface() path above. Do not touch old GPU names in the
+// recreated context: names can be recycled and may now refer to other objects.
+bool WebGLPipeline::recoverLostContext()
+{
+	if (!m_window || !gxrt::prepareForContextRecovery())
+		return false; // transient EGL surface, retry at next SDL pump
+	if (SDL_GL_GetCurrentContext() == nullptr)
+		return false;
+
+	if (!m_gpuRecoveryPending) {
+		m_gpuRecoveryPending = true;
+		m_recoveryGameW = m_fbWidth;
+		m_recoveryGameH = m_fbHeight;
+		m_recoveryVirtualActive = m_vbActive;
+		m_recoveryVirtualW = m_vbW;
+		m_recoveryVirtualH = m_vbH;
+		m_recoveryRenderW = m_vbRW;
+		m_recoveryRenderH = m_vbRH;
+		m_recoveryGsr = m_vbGsr;
+		fprintf(stderr, "[d3d8gles] EGL context lost: reconstructing CPU-backed GPU resources\n");
+
+		gxrt::forgetLostContextFences();
+		forgetLostGpuObjectHandles();
+
+		for (int i = 0; i < m_programCount; ++i) {
+			delete m_programs[i].prog; // CPU-owned metadata; GL programs already gone
+			m_programs[i].prog = nullptr;
+		}
+		m_programCount = 0;
+		m_vaoCache.clear(); // stale VAO names; never delete on a fresh context
+		m_haveLastVAOKey = false;
+		m_haveFixedStateKey = false;
+		m_haveViewProjKey = m_haveTexMatKey = false;
+		m_haveMiscKey = m_haveMaterialKey = m_haveLightingKey = false;
+		m_lastProgram = 0;
+		m_lastArrayBuffer = ~0u;
+		m_lastBoundTex[0] = m_lastBoundTex[1] = ~0u;
+
+		m_curFBO = 0;
+		m_curRTWidth = m_curRTHeight = 0;
+		m_depthRB = 0;
+		m_depthRBW = m_depthRBH = 0;
+		m_depthRBGeneration = 0;
+		m_viewProjUBO = m_upVBO = m_upIBO = 0;
+		m_upRingVB = m_upRingIB = 0;
+		m_upRingVBOffset = m_upRingIBOffset = 0;
+		m_indexStream = 0;
+		m_indexStreamPtr = nullptr;
+		m_indexStreamOffset = 0;
+		m_indexStreamFailed = false;
+		m_vbFBO = m_vbTex = m_vbDepth = 0;
+		m_vbActive = m_vbUpscaled = m_vbBypass = m_vbSceneSeen = false;
+		m_presentPlainProg = m_presentGsrProg = m_presentVAO = 0;
+		m_presentPlainTex = m_presentGsrTex = m_presentGsrInfo = -1;
+		m_presentGsrTried = false;
+
+		// GL object functions and frame-timer queries belong to the old
+		// driver context. Resolve them again as part of initContext().
+		m_glDrawElementsBaseVertex = nullptr;
+		m_glStencilOpSeparate = nullptr;
+		m_glBufferStorage = nullptr;
+		m_glFenceSync = nullptr;
+		m_glClientWaitSync = nullptr;
+		m_glDeleteSync = nullptr;
+		m_glGetProgramBinary = nullptr;
+		m_glProgramBinary = nullptr;
+		m_glProgramParameteri = nullptr;
+		m_persistentOK = false;
+		m_programCacheDir.clear();
+		s_gpuTimer.ok = false;
+		s_gpuTimer.active = false;
+		s_gpuTimer.begin = nullptr;
+		s_gpuTimer.end = nullptr;
+		s_gpuTimer.get = nullptr;
+		for (int i = 0; i < GpuFrameTimer::kQueries; ++i) {
+			s_gpuTimer.queries[i] = 0;
+			s_gpuTimer.pending[i] = false;
+		}
+		s_gpuTimer.next = 0;
+		s_gpuTimer.gpuNs.store(0, std::memory_order_relaxed);
+		s_gpuTimer.frames.store(0, std::memory_order_relaxed);
+
+		m_ctxReady = false;
+		s_gxGlesReady = false;
+	}
+
+	m_adoptCurrentContext = true;
+	if (!initContext(m_recoveryGameW, m_recoveryGameH, m_window))
+		return false;
+	if (m_recoveryVirtualActive) {
+		// Recreate the scene texture, FBO, VAO and presentation programs. The
+		// intended game/render resolutions survive the context replacement.
+		if (!setVirtualBackbuffer(m_recoveryVirtualW, m_recoveryVirtualH,
+			                      m_recoveryRenderW, m_recoveryRenderH,
+			                      m_recoveryGsr))
+			fprintf(stderr, "[d3d8gles] EGL recovery: virtual target unavailable; using window\n");
+	}
+	gxrt::resumeAfterContextRecovery(m_window);
+	m_gpuRecoveryPending = false;
+	g_gpuResetPending.store(false, std::memory_order_release);
+	refreshDrawable(false);
+	restoreSurface();
+	fprintf(stderr, "[d3d8gles] EGL GPU reconstruction completed; full repaint requested\n");
+	return true;
 }
 
 // ---------------------------------------------------------------------------
