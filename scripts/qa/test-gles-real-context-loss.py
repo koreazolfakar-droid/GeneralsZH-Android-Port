@@ -119,8 +119,6 @@ int main() {
   glBindBuffer(GL_ARRAY_BUFFER,vb.name);
   glBufferData(GL_ARRAY_BUFFER,4,cpuVertices,GL_STATIC_DRAW);
   vb.dirty=false;vb.allocated=true;
-  unsigned char again[4]={};
-  glGetBufferSubData; // placeholder, replaced by actual portable map below
   void*ptr=glMapBufferRange(GL_ARRAY_BUFFER,0,4,GL_MAP_READ_BIT);
   assert(ptr&&std::memcmp(ptr,cpuVertices,4)==0);
   assert(glUnmapBuffer(GL_ARRAY_BUFFER));
@@ -134,7 +132,6 @@ int main() {
  puts("Host Mesa GLES3 only; no real Android screenshot/TEOD device check.");
 }
 '''
-    fixture = fixture.replace('  glGetBufferSubData; // placeholder, replaced by actual portable map below\n', '')
     with tempfile.TemporaryDirectory(prefix='gx-real-context-') as temp:
         source, binary = Path(temp)/'test.cpp', Path(temp)/'test'
         source.write_text(fixture)
