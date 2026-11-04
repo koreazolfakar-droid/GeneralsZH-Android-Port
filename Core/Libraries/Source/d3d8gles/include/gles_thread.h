@@ -175,6 +175,12 @@ bool start(SDL_Window *window);
 void stop();
 // Validate the original context on its GL owner after a surface transition.
 void ensureContext(SDL_Window *window, void *expectedContext);
+// Android EGL can replace the context on resume. Only the game/GL owner
+// uses these functions, while gameplay rendering is gated at the SDL pump.
+bool contextReplaced();
+bool prepareForContextRecovery();
+void forgetLostContextFences();
+void resumeAfterContextRecovery(SDL_Window *window);
 
 // The swap, queued behind the frame's GL calls. At most one frame is in flight: presenting
 // frame N+1 first waits for frame N's swap. swapInterval < 0 leaves vsync as it is.

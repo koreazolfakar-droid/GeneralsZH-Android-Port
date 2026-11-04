@@ -34,6 +34,7 @@ struct SDL_Event {unsigned type;};
 #define SDLCALL
 constexpr unsigned SDL_EVENT_WILL_ENTER_BACKGROUND=1,SDL_EVENT_DID_ENTER_FOREGROUND=2;
 bool SDL_GL_MakeCurrent(SDL_Window*,SDL_GLContext);
+SDL_GLContext SDL_GL_CreateContext(SDL_Window*);
 SDL_GLContext SDL_GL_GetCurrentContext();
 SDL_ThreadID SDL_GetCurrentThreadID();
 const char*SDL_GetError();
@@ -62,6 +63,7 @@ static bool(*watch)(void*,SDL_Event*)=nullptr;
 SDL_ThreadID SDL_GetCurrentThreadID(){return std::hash<std::thread::id>{}(std::this_thread::get_id());}
 SDL_GLContext SDL_GL_GetCurrentContext(){return current;}
 const char*SDL_GetError(){return "injected context failure";}
+SDL_GLContext SDL_GL_CreateContext(SDL_Window*){return reinterpret_cast<SDL_GLContext>(3);}
 bool SDL_GL_MakeCurrent(SDL_Window*,SDL_GLContext ctx){
  std::lock_guard<std::mutex> lock(ownerMutex);
  const auto id=SDL_GetCurrentThreadID();
@@ -103,6 +105,20 @@ int main(int argc,char**argv){
  if(mode=="fallback"||mode=="unrecoverable")failWorkerBind=1;
  if(mode=="unrecoverable")failMainBind=1;
  event(SDL_EVENT_DID_ENTER_FOREGROUND);
+ if(mode=="replacement"){
+  // A replacement is held on the engine thread until the GPU resource
+  // reconstruction step finishes. No old-context GL commands may run.
+  assert(gxrt::contextReplaced());
+  assert(!gxrt::running());
+  assert(gxrt::prepareForContextRecovery());
+  gxrt::forgetLostContextFences();
+  gxrt::resumeAfterContextRecovery(&window);
+  assert(!gxrt::contextReplaced()&&gxrt::running());
+  gxrt::stop();
+  assert(current==reinterpret_cast<SDL_GLContext>(2));
+  puts("PASS: replaced EGL context waits for reconstruction and safely resumes");
+  return 0;
+ }
  gxrt::ensureContext(&window,original);
  if(mode=="fallback"){
   assert(!gxrt::running()&&current==original);draw();assert(calls==2);
@@ -125,11 +141,11 @@ int main(int argc,char**argv){
         subprocess.run([os.environ.get("CXX","c++"),"-std=c++17","-O1","-g","-pthread",
                         "-I",str(work),"-I",str(GLES/"include"),str(source),
                         str(GLES/"src/gles_thread.cpp"),"-o",str(exe)],check=True)
-        for mode in ("normal","fallback","direct"):
+        for mode in ("normal","fallback","direct","replacement"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode == 0, result.stderr
             print(result.stdout.strip())
-        for mode in ("replacement","release-failure","pause-main-failure","resume-detach-failure","unrecoverable","surface-detach-failure","surface-bind-failure"):
+        for mode in ("release-failure","pause-main-failure","resume-detach-failure","unrecoverable","surface-detach-failure","surface-bind-failure"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode != 0, f"{mode}: unsafe continuation accepted"
             assert "context lifecycle failure" in result.stderr, result.stderr

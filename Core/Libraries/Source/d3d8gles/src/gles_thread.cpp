@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <mutex>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include <sys/resource.h>
@@ -60,6 +61,7 @@ uint64_t s_framesQueued = 0;
 
 SDL_Window *s_window = nullptr;
 SDL_GLContext s_context = nullptr;
+std::atomic<bool> s_contextReplaced{false};
 SDL_ThreadID s_mainThread = 0;
 bool s_watchInstalled = false;
 
@@ -83,6 +85,7 @@ PFN_ClientWaitSync s_clientWaitSync = nullptr;
 PFN_DeleteSync s_deleteSync = nullptr;
 std::mutex s_fenceMutex;
 std::vector<FenceProxy *> s_pendingFences; // issued, not yet seen signaled
+std::unordered_set<FenceProxy *> s_liveFences; // includes already signaled host wrappers
 
 void applySwapInterval(int requested)
 {
@@ -292,12 +295,26 @@ void takeFromMain()
 	if (g_active || !s_thread.joinable() || s_stop.load())
 		return;
 	const SDL_GLContext current = SDL_GL_GetCurrentContext();
-	if (current != nullptr && current != s_context)
-		contextFailure("SDL replaced context; device resource rebuild required");
+	if (current != nullptr && current != s_context) {
+		// SDL completed EGL context recreation on the event thread. Retain its
+		// current context on main; submitting GL through the old worker would
+		// use objects from the destroyed context. Rebuild before handoff.
+		s_context = current;
+		s_contextReplaced.store(true, std::memory_order_release);
+		s_swapInterval.invalidate();
+		fprintf(stderr, "[d3d8gles] Android EGL context replaced; deferring GPU reconstruction\n");
+		return;
+	}
 	// SDL may have failed its restore while the surface was unavailable. Try
 	// the preserved context once more now; its GPU resources are still valid.
-	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context))
-		contextFailure("restore original context on main thread");
+	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context)) {
+		// A destroyed EGL context cannot be rebound. Retain the foreground
+		// render gate; refreshDrawable will create/adopt a replacement instead
+		// of crashing before the repair code has a chance to run.
+		s_contextReplaced.store(true, std::memory_order_release);
+		fprintf(stderr, "[d3d8gles] EGL context could not be restored; deferring replacement\n");
+		return;
+	}
 	if (!SDL_GL_MakeCurrent(s_window, nullptr))
 		contextFailure("release main thread after resume");
 	s_swapInterval.invalidate();
@@ -514,6 +531,79 @@ void ensureContext(SDL_Window *window, void *expectedContext)
 	s_swapInterval.invalidate();
 }
 
+bool contextReplaced()
+{
+	return s_contextReplaced.load(std::memory_order_acquire);
+}
+
+bool prepareForContextRecovery()
+{
+	// Gameplay is gated. Flush any render thread commands before resetting
+	// GPU IDs; leave a newly created context (if already current) untouched.
+	if (g_active) {
+		bool released = false;
+		sync([&released] {
+			released = SDL_GL_MakeCurrent(s_window, nullptr);
+			if (released)
+				s_hasContext.store(false, std::memory_order_release);
+		});
+		if (!released) {
+			fprintf(stderr, "[d3d8gles] recovery: render-thread context release failed: %s\n", SDL_GetError());
+			return false;
+		}
+		g_active = false;
+	}
+	const SDL_GLContext current = SDL_GL_GetCurrentContext();
+	if (current) {
+		s_context = current;
+		return true;
+	}
+	// A device-reset signal may arrive while the render thread still owned
+	// its context; after detaching that worker, main has no current context.
+	// Try the preserved SDL context before deciding it has been destroyed.
+	if (s_context && SDL_GL_MakeCurrent(s_window, s_context))
+		return true;
+
+	// If EGL really destroyed it, create a fresh SDL-managed GLES context.
+	// The game is gated until this succeeds; never present an invalid frame.
+	SDL_GLContext replacement = SDL_GL_CreateContext(s_window);
+	if (replacement && SDL_GL_MakeCurrent(s_window, replacement)) {
+		s_context = replacement;
+		s_contextReplaced.store(true, std::memory_order_release);
+		fprintf(stderr, "[d3d8gles] recovery: created new GLES context after EGL loss\n");
+		return true;
+	}
+	fprintf(stderr, "[d3d8gles] recovery: EGL context not yet available: %s\n", SDL_GetError());
+	return false;
+}
+
+void forgetLostContextFences()
+{
+	// All producer commands were drained at pause. Pending GPU fences from
+	// the destroyed context cannot be queried or deleted in the new one.
+	std::lock_guard<std::mutex> lock(s_fenceMutex);
+	for (FenceProxy *f : s_liveFences) {
+		f->real = nullptr;
+		f->state.store(2, std::memory_order_release);
+	}
+	s_pendingFences.clear();
+	s_swapInterval.invalidate();
+}
+
+void resumeAfterContextRecovery(SDL_Window *window)
+{
+	s_window = window;
+	const SDL_GLContext current = SDL_GL_GetCurrentContext();
+	if (current == nullptr) {
+		fprintf(stderr, "[d3d8gles] recovery: no current context to hand back\n");
+		return;
+	}
+	s_context = current;
+	s_contextReplaced.store(false, std::memory_order_release);
+	if (s_thread.joinable() && !s_stop.load())
+		takeFromMain();
+}
+
 void present(SDL_Window *window, int swapInterval)
 {
 	if (!g_active) {
@@ -546,6 +636,10 @@ void setFenceProcs(PFN_FenceSync fence, PFN_ClientWaitSync wait, PFN_DeleteSync 
 GLsync fenceSync()
 {
 	FenceProxy *f = new FenceProxy;
+	{
+		std::lock_guard<std::mutex> lock(s_fenceMutex);
+		s_liveFences.insert(f);
+	}
 	post([f] {
 		f->real = s_fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 		f->state.store(1, std::memory_order_release);
@@ -598,6 +692,10 @@ void deleteSync(GLsync sync)
 		}
 		if (f->real)
 			s_deleteSync(f->real);
+		{
+			std::lock_guard<std::mutex> lock(s_fenceMutex);
+			s_liveFences.erase(f);
+		}
 		delete f;
 	});
 }

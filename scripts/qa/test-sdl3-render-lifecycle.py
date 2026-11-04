@@ -133,7 +133,9 @@ int main(){
  engine.update();assert(repairs==r+2);
  assert(renders==before+3);
  event(SDL_EVENT_RENDER_DEVICE_RESET);assert(deviceResets==1);
- puts("PASS: production SDL watcher/gate, first paused frame, retries, event coalescing, 100 switches");
+ assert(s_surfaceRestorePending);
+ engine.update();assert(!s_surfaceRestorePending&&repairs==r+3);
+ puts("PASS: production SDL watcher/gate, first paused frame, explicit GPU reset gating, retries, event coalescing, 100 switches");
 }
 '''
     with tempfile.TemporaryDirectory(prefix='gx-sdl-lifecycle-') as tmp:
@@ -144,29 +146,32 @@ int main(){
                         '-fsanitize=undefined', str(cpp), '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
         # Exercise the actual bridge too: inactive backends ignore SDL reset,
-        # while an initialized GLES device must stop before stale GPU-ID reuse.
+        # while GLES defers GPU reconstruction until the post-poll engine pass.
         device_source = (ROOT / 'Core/Libraries/Source/d3d8gles/src/d3d8gles.cpp').read_text()
         if not args.source_ref:
             bridge = extract(device_source, 'extern "C" void d3d8gles_context_lost()')
             bridge_cpp = Path(tmp) / 'device-reset.cpp'
             bridge_cpp.write_text(r'''
+#include <atomic>
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
+static std::atomic<bool> g_gpuResetPending{false};
 class WebGLPipeline {public:
  bool active=false;
  static WebGLPipeline*get(){static WebGLPipeline p;return &p;}
  bool ready(){return active;}
 };
 ''' + bridge + r'''
-int main(int argc,char**){WebGLPipeline::get()->active=argc>1;d3d8gles_context_lost();}
+int main(int argc,char**){WebGLPipeline::get()->active=argc>1;d3d8gles_context_lost();assert(g_gpuResetPending.load() == (argc>1));}
 ''')
             bridge_binary = Path(tmp) / 'device-reset'
             subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', str(bridge_cpp),
                             '-o', str(bridge_binary)], check=True)
             subprocess.run([str(bridge_binary)], check=True)
             lost = subprocess.run([str(bridge_binary), 'initialized'], capture_output=True, text=True)
-            assert lost.returncode != 0 and 'GPU resource rebuild required' in lost.stderr
-            print('PASS: production explicit context-loss signal blocks stale GPU IDs, inactive backend unaffected')
+            assert lost.returncode == 0 and 'GPU reconstruction queued' in lost.stderr
+            print('PASS: production explicit device-reset queues GPU reconstruction without abort')
 
 
 if __name__ == '__main__':

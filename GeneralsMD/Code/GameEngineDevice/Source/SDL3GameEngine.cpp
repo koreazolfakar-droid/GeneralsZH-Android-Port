@@ -216,6 +216,10 @@ static bool SDLCALL mobileLifecycleWatcher(void *userdata, SDL_Event *event)
 		// GeneralsX @bugfix Codex 04/11/2026 EGL may recycle a lost context's
 		// handle. SDL's explicit device-reset signal invalidates all GPU names.
 		case SDL_EVENT_RENDER_DEVICE_RESET:
+			// SDL may recycle the same EGL pointer after a real GPU reset.
+			// Block rendering until all CPU-backed GPU objects are reconstructed
+			// on the engine thread after SDL completes the event dispatch.
+			s_surfaceRestorePending.store(true);
 			d3d8gles_context_lost();
 			break;
 #endif
