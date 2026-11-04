@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <mutex>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include <sys/resource.h>
@@ -84,6 +85,7 @@ PFN_ClientWaitSync s_clientWaitSync = nullptr;
 PFN_DeleteSync s_deleteSync = nullptr;
 std::mutex s_fenceMutex;
 std::vector<FenceProxy *> s_pendingFences; // issued, not yet seen signaled
+std::unordered_set<FenceProxy *> s_liveFences; // includes already signaled host wrappers
 
 void applySwapInterval(int requested)
 {
@@ -560,7 +562,7 @@ void forgetLostContextFences()
 	// All producer commands were drained at pause. Pending GPU fences from
 	// the destroyed context cannot be queried or deleted in the new one.
 	std::lock_guard<std::mutex> lock(s_fenceMutex);
-	for (FenceProxy *f : s_pendingFences) {
+	for (FenceProxy *f : s_liveFences) {
 		f->real = nullptr;
 		f->state.store(2, std::memory_order_release);
 	}
@@ -614,6 +616,10 @@ void setFenceProcs(PFN_FenceSync fence, PFN_ClientWaitSync wait, PFN_DeleteSync 
 GLsync fenceSync()
 {
 	FenceProxy *f = new FenceProxy;
+	{
+		std::lock_guard<std::mutex> lock(s_fenceMutex);
+		s_liveFences.insert(f);
+	}
 	post([f] {
 		f->real = s_fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 		f->state.store(1, std::memory_order_release);
@@ -666,6 +672,10 @@ void deleteSync(GLsync sync)
 		}
 		if (f->real)
 			s_deleteSync(f->real);
+		{
+			std::lock_guard<std::mutex> lock(s_fenceMutex);
+			s_liveFences.erase(f);
+		}
 		delete f;
 	});
 }
