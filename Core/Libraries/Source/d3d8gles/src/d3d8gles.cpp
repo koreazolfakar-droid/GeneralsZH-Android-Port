@@ -40,6 +40,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 #if defined(__ANDROID__)
@@ -281,6 +282,11 @@ static void FormatLevelLayout(D3DFORMAT fmt, UINT width, UINT height, INT *pitch
 class WebGLDevice; // fwd
 class WebGLTexture; // fwd
 
+// Live D3D resources retain CPU shadow bytes across EGL context replacements.
+static std::unordered_set<GLTextureState *> g_liveTextureGLStates;
+static std::unordered_set<GLBufferState *> g_liveBufferGLStates;
+static void forgetLostGpuObjectHandles();
+
 // ---------------------------------------------------------------------------
 // Surface: system-memory image, texture level view, or render target.
 // Owns its bits unless it aliases a texture level (then 'owner' holds them).
@@ -457,10 +463,12 @@ public:
 		}
 		m_shapeKey = LiveTextureShapeKey{w, h, fmt};
 		g_liveTexturesByShape[m_shapeKey]++;
+		g_liveTextureGLStates.insert(&m_gl);
 	}
 
 	~WebGLTexture()
 	{
+		g_liveTextureGLStates.erase(&m_gl);
 		{
 			auto it = g_liveTexturesByShape.find(m_shapeKey);
 			if (it != g_liveTexturesByShape.end() && --it->second <= 0) {
@@ -816,6 +824,7 @@ public:
 		: m_device(dev), m_usage(usage), m_fvf(fvf), m_pool(pool)
 	{
 		m_bits.resize(length);
+		g_liveBufferGLStates.insert(&m_gl);
 	}
 
 	// GeneralsX @build Android port GLES experiment - same leak class as the
@@ -827,6 +836,7 @@ public:
 	// invalidateTextureBinding().
 	~WebGLVertexBuffer()
 	{
+		g_liveBufferGLStates.erase(&m_gl);
 		WebGLPipeline::get()->releaseBufferStorage(m_gl);
 	}
 
@@ -915,12 +925,14 @@ public:
 		: m_device(dev), m_usage(usage), m_format(fmt), m_pool(pool)
 	{
 		m_bits.resize(length);
+		g_liveBufferGLStates.insert(&m_gl);
 	}
 
 	// GeneralsX @build Android port GLES experiment - see
 	// ~WebGLVertexBuffer()'s comment; same missing-destructor leak, same fix.
 	~WebGLIndexBuffer()
 	{
+		g_liveBufferGLStates.erase(&m_gl);
 		WebGLPipeline::get()->releaseBufferStorage(m_gl);
 	}
 
@@ -2221,3 +2233,34 @@ extern "C" IDirect3D8 *WINAPI Direct3DCreate8_GLES(UINT sdkVersion)
 // The pipeline lives in the same translation unit so it can touch the device
 // and resource internals directly (see gles_pipeline.h for the interface).
 #include "gles_pipeline.cpp"
+
+// Invalidate GL IDs without ever deleting old-context names in the recreated
+// context. Objects retain CPU bytes; first draw re-uploads all data.
+// Called only after the command producer and worker have stopped old GPU work.
+static void forgetLostGpuObjectHandles()
+{
+	for (GLTextureState *gl : g_liveTextureGLStates)
+		*gl = GLTextureState{};
+
+	for (GLBufferState *gl : g_liveBufferGLStates) {
+		if (gl->persistent) {
+			PersistentBufferSet *copies = gl->persistent;
+			// gxrt::forgetLostContextFences() must run first. It clears the
+			// underlying GPU handles so this only frees host-side wrappers.
+			for (int i = 0; i < copies->count; ++i)
+				if (copies->fences[i]) gxrt::deleteSync(copies->fences[i]);
+			delete copies;  // mapped GPU pointers belong to the dead context
+			gl->persistent = nullptr;
+		}
+		gl->name = 0;
+		gl->dirty = true;
+		gl->dirtyBegin = (size_t)-1;
+		gl->dirtyEnd = 0;
+		gl->allocated = false;
+		gl->pendingDiscard = false;
+		gl->pendingSync = false;
+		gl->gpuRefEnd = 0;
+		// Preserve writtenEnd and CPU snapshot; allocated=false ensures
+		// the first new upload cannot incorrectly take the diff-only path.
+	}
+}
