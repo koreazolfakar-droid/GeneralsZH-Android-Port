@@ -1198,7 +1198,7 @@ public:
 		if (m_pp.BackBufferFormat == D3DFMT_UNKNOWN) m_pp.BackBufferFormat = D3DFMT_X8R8G8B8;
 		releaseBackBuffers();
 		createBackBuffers();
-		WebGLPipeline::get()->resize((int)m_pp.BackBufferWidth, (int)m_pp.BackBufferHeight);
+		WebGLPipeline::get()->setBackbufferSize((int)m_pp.BackBufferWidth, (int)m_pp.BackBufferHeight);
 		D3D8GLES_TRACE_CALL("Device::Reset %ux%u", m_pp.BackBufferWidth, m_pp.BackBufferHeight);
 		return D3D_OK;
 	}
@@ -2182,9 +2182,15 @@ extern "C" void d3d8gles_set_native_mode(int w, int h)
 // SDL_EVENT_WINDOW_RESIZED handler).
 extern "C" void d3d8gles_resize(int w, int h)
 {
-	if (w > 0 && h > 0) {
+	if (w > 0 && h > 0 && WebGLPipeline::get()->ready()) {
 		WebGLPipeline::get()->resize(w, h);
 	}
+}
+
+// GeneralsX @bugfix Codex 04/11/2026 Called after polling, never from an SDL watcher.
+extern "C" bool d3d8gles_restore_surface()
+{
+	return WebGLPipeline::get()->refreshDrawable(true);
 }
 
 // ---------------------------------------------------------------------------

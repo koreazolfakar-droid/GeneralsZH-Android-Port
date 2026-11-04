@@ -668,6 +668,17 @@ void DX8Wrapper::Pillarbox_Process_Resize()
 		}
 	}
 
+#if defined(__ANDROID__)
+	// GeneralsX @bugfix Codex 04/11/2026 EGL owns the physical surface. A size
+	// change only changes GLES raster/present mapping, not the D3D game size.
+	// Reset_Device would rebuild resources and disturb virtual backbuffer/UI state.
+	if (!d3d8gles_ShouldUseVulkanBackend()) {
+		if (physW > 0 && physH > 0 &&
+		    !(ResolutionWidth > ResolutionHeight && physW < physH))
+			d3d8gles_resize(physW, physH);
+		return;
+	}
+#endif
 	// Nothing to do if backbuffer already matches window
 	if ((int)_PresentParameters.BackBufferWidth == physW &&
 		(int)_PresentParameters.BackBufferHeight == physH) return;

@@ -67,6 +67,7 @@ std::atomic<uint64_t> s_workerBusyNs{0};
 std::atomic<uint64_t> s_workNs[kWorkKinds];
 Stats s_stats; // engine-thread fields only
 SwapIntervalCache s_swapInterval;
+int s_requestedSwapInterval = 1; // GL-owner thread only, survives surface handoff
 // GeneralsX @feature Codex 14/10/2026 Monotonic producer waits for preRTT
 // attribution. takeStats() must not reset this counter between phase snapshots.
 double s_producerWaitUsTotal=0;
@@ -85,6 +86,11 @@ std::vector<FenceProxy *> s_pendingFences; // issued, not yet seen signaled
 
 void applySwapInterval(int requested)
 {
+    // GeneralsX @bugfix Codex 04/11/2026 -1 means retain the desired policy,
+    // not skip reapplying it after Android replaces the EGL surface.
+    if (requested >= 0)
+        s_requestedSwapInterval = requested;
+    requested = s_requestedSwapInterval;
     // The SDL/EGL call is a driver operation, not a cheap setter. Cached only
     // after success, and invalidated on every context handoff or recreation.
     if (s_swapInterval.needsApply(requested) && SDL_GL_SetSwapInterval(requested))
@@ -155,6 +161,8 @@ bool fencesPending()
 	std::lock_guard<std::mutex> lock(s_fenceMutex);
 	return !s_pendingFences.empty();
 }
+
+[[noreturn]] void contextFailure(const char *stage);
 
 void workerMain()
 {
@@ -239,10 +247,21 @@ void workerMain()
 		}
 		s_workerBusyNs.fetch_add((uint64_t)(usSince(busyMark) * 1000.0), std::memory_order_relaxed);
 	}
-	if (s_hasContext.load())
-		SDL_GL_MakeCurrent(s_window, nullptr);
+	if (s_hasContext.load() && !SDL_GL_MakeCurrent(s_window, nullptr))
+		contextFailure("release worker on shutdown");
 	s_hasContext.store(false);
 	wakeMain();
+}
+
+// GeneralsX @bugfix Codex 04/11/2026 Never continue dispatching GL after a
+// failed handoff, or reuse the old GPU object IDs in SDL's replacement context.
+// A genuine context loss needs a complete D3D resource rebuild, which this
+// device does not currently implement. Fail explicitly rather than corrupting it.
+[[noreturn]] void contextFailure(const char *stage)
+{
+	fprintf(stderr, "[d3d8gles] FATAL context lifecycle failure (%s): %s\n", stage, SDL_GetError());
+	fflush(stderr);
+	std::abort();
 }
 
 // Hand the context back and forth around Android's pause/resume. SDL's backup (on pause) reads
@@ -254,35 +273,46 @@ void releaseToMain()
 {
 	if (!g_active)
 		return;
-	sync([] {
-		SDL_GL_MakeCurrent(s_window, nullptr);
-		s_hasContext.store(false);
+	bool released = false;
+	sync([&released] {
+		released = SDL_GL_MakeCurrent(s_window, nullptr);
+		if (released)
+			s_hasContext.store(false, std::memory_order_release);
 	});
+	if (!released)
+		contextFailure("release render thread before pause");
 	g_active = false;
 	s_swapInterval.invalidate();
-	SDL_GL_MakeCurrent(s_window, s_context);
+	if (!SDL_GL_MakeCurrent(s_window, s_context))
+		contextFailure("bind main thread before SDL context backup");
 }
 
 void takeFromMain()
 {
 	if (g_active || !s_thread.joinable() || s_stop.load())
 		return;
-	SDL_GLContext current = SDL_GL_GetCurrentContext();
-	if (current != nullptr)
-		s_context = current;
-	SDL_GL_MakeCurrent(s_window, nullptr);
+	const SDL_GLContext current = SDL_GL_GetCurrentContext();
+	if (current != nullptr && current != s_context)
+		contextFailure("SDL replaced context; device resource rebuild required");
+	// SDL may have failed its restore while the surface was unavailable. Try
+	// the preserved context once more now; its GPU resources are still valid.
+	if (current == nullptr && !SDL_GL_MakeCurrent(s_window, s_context))
+		contextFailure("restore original context on main thread");
+	if (!SDL_GL_MakeCurrent(s_window, nullptr))
+		contextFailure("release main thread after resume");
 	s_swapInterval.invalidate();
 	g_active = true;
 	bool ok = false;
 	sync([&ok] {
 		ok = SDL_GL_MakeCurrent(s_window, s_context);
-		s_hasContext.store(ok);
+		s_hasContext.store(ok, std::memory_order_release);
 	});
 	if (!ok) {
-		fprintf(stderr, "[d3d8gles] render thread: could not take the context back (%s); rendering on the main thread\n",
+		fprintf(stderr, "[d3d8gles] render thread: could not take the context back (%s); trying main thread\n",
 			SDL_GetError());
 		g_active = false;
-		SDL_GL_MakeCurrent(s_window, s_context);
+		if (!SDL_GL_MakeCurrent(s_window, s_context))
+			contextFailure("resume failed on render and main threads");
 	}
 }
 
@@ -421,19 +451,25 @@ bool start(SDL_Window *window)
 	if (s_ring == nullptr)
 		return false;
 
-	SDL_GL_MakeCurrent(window, nullptr);
+	if (!SDL_GL_MakeCurrent(window, nullptr))
+		return false; // Original context remains current on the engine thread.
 	s_stop.store(false);
 	s_thread = std::thread(workerMain);
 	double ignored = 0.0;
 	waitMain([] { return s_hasContext.load() || s_stop.load(); }, &ignored);
 	if (!s_hasContext.load()) {
 		s_thread.join();
-		SDL_GL_MakeCurrent(window, s_context);
+		if (!SDL_GL_MakeCurrent(window, s_context))
+			contextFailure("restore main thread after worker startup failure");
 		return false;
 	}
 	g_active = true;
 	if (!s_watchInstalled) {
-		SDL_AddEventWatch(lifecycleWatch, nullptr);
+		if (!SDL_AddEventWatch(lifecycleWatch, nullptr)) {
+			fprintf(stderr, "[d3d8gles] render thread: lifecycle watch unavailable; using main thread\n");
+			stop();
+			return false;
+		}
 		std::atexit(stopAtExit);
 		s_watchInstalled = true;
 	}
@@ -455,8 +491,23 @@ void stop()
 	}
 	s_thread.join();
 	s_swapInterval.invalidate();
-	if (s_window && s_context && SDL_GL_GetCurrentContext() == nullptr)
-		SDL_GL_MakeCurrent(s_window, s_context);
+	if (s_window && s_context && SDL_GL_GetCurrentContext() == nullptr &&
+	    !SDL_GL_MakeCurrent(s_window, s_context))
+		contextFailure("restore main thread on shutdown");
+}
+
+// GeneralsX @bugfix Codex 04/11/2026 Used by surface restoration even when
+// the render-thread optimization is disabled. Runs on the actual GL owner.
+void ensureContext(SDL_Window *window, void *expectedContext)
+{
+	sync([window, expectedContext] {
+		const SDL_GLContext current = SDL_GL_GetCurrentContext();
+		if (!expectedContext || (current && current != expectedContext))
+			contextFailure("restoration observed a replaced context");
+		if (!current && !SDL_GL_MakeCurrent(window, static_cast<SDL_GLContext>(expectedContext)))
+			contextFailure("restoration could not bind original context");
+	});
+	s_swapInterval.invalidate();
 }
 
 void present(SDL_Window *window, int swapInterval)

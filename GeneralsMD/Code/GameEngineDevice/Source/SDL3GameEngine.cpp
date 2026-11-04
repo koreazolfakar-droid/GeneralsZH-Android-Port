@@ -73,6 +73,7 @@
 // Forward-declared like W3DProjectedShadow.cpp does: d3d8gles.h is not on this target's include
 // path, and everything links into the same libmain.so. See gles_pipeline.cpp.
 extern "C" void d3d8gles_SetPresentUncapped(bool uncapped);
+extern "C" bool d3d8gles_restore_surface();
 #include <android/native_window.h>
 #include <dlfcn.h>
 
@@ -169,6 +170,10 @@ extern GameWindowManager *TheWindowManager;
 // multitasking a few times"). Pause whenever either is set.
 static std::atomic<bool> s_appBackgrounded{false};
 static std::atomic<bool> s_appInactive{false};
+#if defined(__ANDROID__)
+// Watchers only request repair; GL work happens after SDL has restored its context.
+static std::atomic<bool> s_surfaceRestorePending{false};
+#endif
 
 // GeneralsX @bugfix Android port 08/09/2026 Whether the background transition is what
 // silenced the audio, so the foreground transition resumes exactly that and nothing
@@ -177,7 +182,11 @@ static bool s_audioPausedByLifecycle = false;
 
 static inline bool mobileShouldPauseRendering()
 {
-	return s_appBackgrounded.load() || s_appInactive.load();
+	return s_appBackgrounded.load() || s_appInactive.load()
+#if defined(__ANDROID__)
+		|| s_surfaceRestorePending.load()
+#endif
+		;
 }
 
 // GeneralsX @build Android port ANGLE experiment - diagnostic logging for the
@@ -212,6 +221,9 @@ static bool SDLCALL mobileLifecycleWatcher(void *userdata, SDL_Event *event)
 			break;
 		case SDL_EVENT_DID_ENTER_FOREGROUND:
 			logMobileLifecycleEvent("DID_ENTER_FOREGROUND");
+#if defined(__ANDROID__)
+			s_surfaceRestorePending.store(true);
+#endif
 			s_appBackgrounded.store(false);
 			break;
 		// Resign/become active. On iOS, SDL maps applicationWillResignActive ->
@@ -258,6 +270,17 @@ static bool SDLCALL mobileLifecycleWatcher(void *userdata, SDL_Event *event)
 	}
 	return true;
 }
+
+#if defined(__ANDROID__)
+// GeneralsX @bugfix Codex 04/11/2026 Coalesce events only after SDL's EGL restore.
+static void serviceMobileSurfaceRestoration()
+{
+	// Invalid/transient drawables keep rendering gated and are retried next pump.
+	if (!s_appBackgrounded.load() && !s_appInactive.load() &&
+	    s_surfaceRestorePending.exchange(false) && !d3d8gles_restore_surface())
+		s_surfaceRestorePending.store(true);
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // Touch input (iOS + Android)
@@ -2345,21 +2368,15 @@ void SDL3GameEngine::update(void)
 	// CAMetalLayer/MoltenVK; Android: the ANativeWindow is torn down) and,
 	// across repeated suspend/switcher cycles, crashes the app. Keep polling so
 	// we still catch the resume events; just don't touch the GPU.
-	//
-	// GeneralsX @bugfix Android port 01/08/2026 Only start skipping from the
-	// SECOND consecutive paused update() onward. The very first call where we
-	// observe the transition still safely owns a valid ANativeWindow/swapchain
-	// (pollSDL3Events() just delivered the focus-lost/background event; the OS
-	// tears the surface down some time after that, not synchronously with it),
-	// so let this one call finish a completely normal update+render+present.
-	// Otherwise whatever GPU work was in flight the instant focus was lost is
-	// what stays on screen for as long as we're backgrounded -- and that's
-	// exactly what Android's task-switcher thumbnail and (on at least one
-	// real device, POCO/Snapdragon 8 Elite via HyperOS) its screenshot tool
-	// both read back. Real-device testing found the same "torn"-looking black
-	// patch in the same spot every single time in Recents and in screenshots,
-	// never during actual play -- consistent with the OS snapshotting a
-	// still-mid-render frame rather than a genuine capture-time race.
+
+#if defined(__ANDROID__)
+	// GeneralsX @bugfix Codex 04/11/2026 SDL has already detached EGL inside
+	// pollSDL3Events(). Even the first paused frame must not submit GL work.
+	if (mobileShouldPauseRendering()) {
+		SDL_Delay(50);
+		return;
+	}
+#else
 	static bool s_wasPausedLastFrame = false;
 	const bool pausedNow = mobileShouldPauseRendering();
 	if (pausedNow && s_wasPausedLastFrame) {
@@ -2367,6 +2384,7 @@ void SDL3GameEngine::update(void)
 		return;
 	}
 	s_wasPausedLastFrame = pausedNow;
+#endif
 #endif
 #if defined(__ANDROID__)
 	// GeneralsX @bugfix Android port 28/09/2026 Game speed above the screen's refresh rate. The
@@ -2640,6 +2658,9 @@ void SDL3GameEngine::pollSDL3Events(void)
 #endif
 
 			case SDL_EVENT_WINDOW_RESIZED:
+			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+			case SDL_EVENT_WINDOW_RESTORED:
+			case SDL_EVENT_WINDOW_EXPOSED:
 				handleWindowEvent(event.window);
 				break;
 
@@ -2652,6 +2673,7 @@ void SDL3GameEngine::pollSDL3Events(void)
 	}
 
 #if defined(__ANDROID__)
+	serviceMobileSurfaceRestoration();
 	// Whatever the EditText bar sent since the last frame, applied on this thread.
 	AndroidTextEditor::pump();
 #endif
@@ -2852,8 +2874,15 @@ void SDL3GameEngine::handleMouseWheelEvent(const SDL_MouseWheelEvent& event)
  */
 void SDL3GameEngine::handleWindowEvent(const SDL_WindowEvent& event)
 {
-	// TODO: Phase 2 - Handle window resize, notify graphics subsystem
-	// fprintf(stderr, "DEBUG: Window event (type=%d)\n", event.type);
+#if defined(__ANDROID__)
+	// GeneralsX @bugfix Codex 04/11/2026 Do not trust event.data1/data2: RESIZED
+	// carries window units, not drawable pixels. The post-poll repair re-queries
+	// SDL_GetWindowSizeInPixels and preserves game resolution/touch coordinates.
+	if (m_SDLWindow && event.windowID == SDL_GetWindowID(m_SDLWindow))
+		s_surfaceRestorePending.store(true);
+#else
+	(void)event;
+#endif
 }
 
 /**

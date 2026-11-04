@@ -173,6 +173,8 @@ inline void postBytes(F f, const void *data, size_t bytes)
 bool start(SDL_Window *window);
 // Drains the queue, stops the render thread and gives the context back to the engine's thread.
 void stop();
+// Validate the original context on its GL owner after a surface transition.
+void ensureContext(SDL_Window *window, void *expectedContext);
 
 // The swap, queued behind the frame's GL calls. At most one frame is in flight: presenting
 // frame N+1 first waits for frame N's swap. swapInterval < 0 leaves vsync as it is.

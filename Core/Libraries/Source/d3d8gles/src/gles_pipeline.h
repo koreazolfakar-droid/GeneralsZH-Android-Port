@@ -151,7 +151,11 @@ public:
 
 	// Context management. Returns false if GLES3 is unavailable.
 	bool initContext(int backbufferWidth, int backbufferHeight, SDL_Window *window);
-	void resize(int backbufferWidth, int backbufferHeight);
+	// Physical drawable size is independent of the game/backbuffer resolution.
+	void resize(int drawableWidth, int drawableHeight);
+	void setBackbufferSize(int w, int h);
+	bool refreshDrawable(bool restore);
+	void restoreSurface();
 	bool ready() const { return m_ctxReady; }
 
 	// D3D entry points (called from WebGLDevice with `this` device state).
@@ -549,6 +553,7 @@ private:
 	uint64_t computeProgramKey(WebGLDevice *dev, unsigned fvf) const;
 
 	bool m_ctxReady = false;
+	bool m_needsFullClear = false;
 	bool m_hasS3TC = false;
 	int m_fbWidth = 0;
 	int m_fbHeight = 0;

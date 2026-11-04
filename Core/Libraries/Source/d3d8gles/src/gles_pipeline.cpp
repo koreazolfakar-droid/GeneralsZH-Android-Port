@@ -398,7 +398,7 @@ WebGLPipeline *WebGLPipeline::get()
 bool WebGLPipeline::initContext(int w, int h, SDL_Window *window)
 {
 	if (m_ctxReady) {
-		resize(w, h);
+		setBackbufferSize(w, h);
 		return true;
 	}
 
@@ -538,6 +538,8 @@ bool WebGLPipeline::initContext(int w, int h, SDL_Window *window)
 
 	m_fbWidth = w;
 	m_fbHeight = h;
+	m_winW = w;
+	m_winH = h;
 	m_curRTWidth = w;
 	m_curRTHeight = h;
 
@@ -671,6 +673,7 @@ bool WebGLPipeline::initContext(int w, int h, SDL_Window *window)
 	}
 
 	m_ctxReady = true;
+	refreshDrawable(false);
 	s_gxGlesReady = true;
 	// GeneralsX @build Android port 09/05/2026 Report the DEFAULT framebuffer's
 	// actual bit depths, not the ones we asked SDL for. Stencil is the one that
@@ -785,27 +788,62 @@ void WebGLPipeline::loadOptimizationSwitches()
 	fprintf(stderr, "[d3d8gles] terrain snapshot reuse=%d\n", (int)m_opt.terrainReuse);
 }
 
+// GeneralsX @bugfix Codex 04/11/2026 Keep SDL/EGL pixels separate from D3D game pixels.
 void WebGLPipeline::resize(int w, int h)
 {
-	if (m_vbActive) {
-		// The virtual backbuffer keeps the game's size; only the stretch's target changes.
-		if (w != m_winW || h != m_winH)
-			fprintf(stderr, "[d3d8gles] window resized to %dx%d (virtual backbuffer stays %dx%d)\n", w, h, m_vbW, m_vbH);
-		m_winW = w;
-		m_winH = h;
-		return;
-	}
-	if (w == m_fbWidth && h == m_fbHeight) return;
-	// The native window surface already tracks the real size on its own
-	// (unlike a browser canvas, which needed an explicit element-size call);
-	// nothing to resize here beyond our own bookkeeping.
+	if (w <= 0 || h <= 0 || (w == m_winW && h == m_winH)) return;
+	m_winW = w;
+	m_winH = h;
+	m_needsFullClear = true;
+	// targetRect maps the existing game viewport into these new physical pixels.
+	// No device Reset, virtual target allocation, texture upload or UI relayout.
+	m_haveFixedStateKey = false;
+	fprintf(stderr, "[d3d8gles-lifecycle] drawable=%dx%d game=%dx%d virtual=%d\n",
+		w, h, m_fbWidth, m_fbHeight, (int)m_vbActive);
+}
+
+void WebGLPipeline::setBackbufferSize(int w, int h)
+{
+	if (w <= 0 || h <= 0) return;
 	m_fbWidth = w;
 	m_fbHeight = h;
 	if (m_curFBO == 0) {
 		m_curRTWidth = w;
 		m_curRTHeight = h;
 	}
-	fprintf(stderr, "[d3d8gles] window resized to %dx%d\n", w, h);
+	m_haveFixedStateKey = false;
+	refreshDrawable(false);
+}
+
+bool WebGLPipeline::refreshDrawable(bool restore)
+{
+	if (!m_ctxReady || !m_window) return true;
+	int w = 0, h = 0;
+	if (!SDL_GetWindowSizeInPixels(m_window, &w, &h) || w <= 0 || h <= 0)
+		return false;
+#if defined(__ANDROID__)
+	// Android's landscape Activity can briefly report the old portrait surface.
+	// Keep the last valid pixels and retry after the window settles.
+	if (m_fbWidth > m_fbHeight && w < h) return false;
+#endif
+	if (restore) gxrt::ensureContext(m_window, m_glContext);
+	resize(w, h);
+	if (restore) restoreSurface();
+	return true;
+}
+
+void WebGLPipeline::restoreSurface()
+{
+	m_needsFullClear = true;
+	// SDL's EGL backup/restore runs outside the renderer. Drain the old surface's
+	// work before rebinding, and force the next draw to apply viewport and masks.
+	gxrt::sync([] {});
+	glBindFramebuffer(GL_FRAMEBUFFER, m_curFBO);
+	m_lastProgram = 0;
+	m_haveFixedStateKey = false;
+	m_haveLastVAOKey = false;
+	m_lastArrayBuffer = ~0u;
+	m_lastBoundTex[0] = m_lastBoundTex[1] = ~0u;
 }
 
 // ---------------------------------------------------------------------------
@@ -2931,6 +2969,15 @@ void WebGLPipeline::targetRect(const D3DVIEWPORT8 &vp, GLint *x, GLint *y, GLsiz
 		y1 = (int)(((int64_t)y1 * m_vbRH + m_vbH / 2) / m_vbH);
 		rtH = m_vbRH;
 	}
+	if (m_curFBO == 0 && m_fbWidth > 0 && m_fbHeight > 0) {
+		// Game/UI/touch coordinates remain in the D3D resolution. Only raster
+		// coordinates change when Android replaces a differently sized surface.
+		x0 = (int)(((int64_t)x0 * m_winW + m_fbWidth / 2) / m_fbWidth);
+		x1 = (int)(((int64_t)x1 * m_winW + m_fbWidth / 2) / m_fbWidth);
+		y0 = (int)(((int64_t)y0 * m_winH + m_fbHeight / 2) / m_fbHeight);
+		y1 = (int)(((int64_t)y1 * m_winH + m_fbHeight / 2) / m_fbHeight);
+		rtH = m_winH;
+	}
 	*x = (GLint)x0;
 	*y = (GLint)(rtH - y1);
 	*w = (GLsizei)(x1 - x0);
@@ -2945,8 +2992,6 @@ bool WebGLPipeline::setVirtualBackbuffer(int w, int h, int renderW, int renderH,
 			m_vbActive = false;
 			m_vbUpscaled = false;
 			m_vbBypass = false;
-			m_fbWidth = m_winW;
-			m_fbHeight = m_winH;
 			if (m_curFBO == m_vbFBO) {
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				m_curFBO = 0;
@@ -2961,10 +3006,6 @@ bool WebGLPipeline::setVirtualBackbuffer(int w, int h, int renderW, int renderH,
 	if (renderW <= 0 || renderH <= 0 || renderW > w || renderH > h) {
 		renderW = w;
 		renderH = h;
-	}
-	if (!m_vbActive) {
-		m_winW = m_fbWidth;
-		m_winH = m_fbHeight;
 	}
 	if (m_vbActive && w == m_vbW && h == m_vbH && renderW == m_vbRW && renderH == m_vbRH && gsr == m_vbGsr)
 		return true;
@@ -3934,8 +3975,17 @@ void WebGLPipeline::clear(WebGLDevice *dev, unsigned flags, uint32_t argb, float
 
 	// D3D clears the viewport region only.
 	const D3DVIEWPORT8 &vp = effectiveViewport(dev);
-	const bool full = (vp.X == 0 && vp.Y == 0 &&
+	const bool restoredBackbuffer = m_needsFullClear &&
+		(m_curFBO == 0 || (m_vbActive && m_curFBO == m_vbFBO));
+	if (restoredBackbuffer) {
+		// EGL does not preserve a recreated surface's contents. Clear every
+		// region once, then let this complete frame redraw the battlefield/HUD.
+		flags |= D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL;
+		m_needsFullClear = false;
+	}
+	const bool full = restoredBackbuffer || (vp.X == 0 && vp.Y == 0 &&
 	                   (int)vp.Width == m_curRTWidth && (int)vp.Height == m_curRTHeight);
+	if (full) glDisable(GL_SCISSOR_TEST);
 	if (!full) {
 		glEnable(GL_SCISSOR_TEST);
 		// Same D3D-top-to-GL-bottom Y conversion as applyFixedState's
