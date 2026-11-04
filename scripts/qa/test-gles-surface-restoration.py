@@ -34,6 +34,7 @@ def main():
                 if args.source_ref else (ROOT / path).read_text())
     code = r'''
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -52,9 +53,11 @@ struct SDL_Window{};static SDL_Window window;
 static int drawableW=2340,drawableH=1080,queries=0;static bool queryOK=true;
 static bool SDL_GetWindowSizeInPixels(SDL_Window*w,int*x,int*y){assert(w==&window);++queries;*x=drawableW;*y=drawableH;return queryOK;}
 static const char*SDL_GetError(){return "injected query failure";}
+static std::atomic<bool> g_gpuResetPending{false};
 namespace gxrt {
 static bool queued=false;static unsigned drains=0;static std::vector<std::function<void()>> commands;
 static void ensureContext(SDL_Window*w,void*){assert(w==&window);}
+static bool contextReplaced(){return false;}
 static void drain(){++drains;auto pending=std::move(commands);commands.clear();for(auto&f:pending)f();}
 template<class F>void post(F f){if(queued)commands.push_back(f);else f();}
 template<class F>void sync(F f){drain();f();}
@@ -109,7 +112,8 @@ static int glGetUniformLocation(unsigned,const char*){return 1;}
 struct D3DVIEWPORT8 {DWORD X=0,Y=0,Width=0,Height=0;float MinZ=0,MaxZ=1;};
 class WebGLDevice {public:D3DVIEWPORT8 viewport{0,900,2340,180,0,1};const D3DVIEWPORT8&getViewport(){return viewport;}};
 class WebGLPipeline {public:
- SDL_Window*m_window=&window;void*m_glContext=nullptr;bool m_ctxReady=true;
+ SDL_Window*m_window=&window;void*m_glContext=nullptr;bool m_ctxReady=true,m_gpuRecoveryPending=false;
+ bool recoverLostContext(){return false;}
  bool m_vbActive=false,m_vbGsr=false,m_vbUpscaled=false,m_vbBypass=false,m_vbSceneSeen=false;
  int m_winW=2340,m_winH=1080,m_vbW=2340,m_vbH=1080,m_vbRW=1170,m_vbRH=540;
  int m_fbWidth=2340,m_fbHeight=1080,m_curRTWidth=2340,m_curRTHeight=1080;
