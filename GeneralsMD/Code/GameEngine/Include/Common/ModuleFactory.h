@@ -91,12 +91,15 @@ protected:
 	class ModuleTemplate
 	{
 	public:
-		ModuleTemplate() : m_createProc(nullptr), m_createDataProc(nullptr), m_whichInterfaces(0)
+		ModuleTemplate() : m_createProc(nullptr), m_createDataProc(nullptr), m_type(MODULETYPE_BEHAVIOR), m_whichInterfaces(0)
 		{
 		}
 
 		NewModuleProc m_createProc;					///< creation method
 		NewModuleDataProc m_createDataProc;	///< creation method
+		// GeneralsX @performance Codex 04/11/2026 Validate cached data against the requested registration.
+		AsciiString m_name;
+		ModuleType m_type;
 		Int m_whichInterfaces;
 	};
 
@@ -118,6 +121,9 @@ protected:
 
 	ModuleTemplateMap			m_moduleTemplateMap;
 	ModuleDataList				m_moduleDataList;
+	// GeneralsX @performance Codex 04/11/2026 Factory-owned data keeps cache keys alive until teardown.
+	typedef std::hash_map<const ModuleData*, const ModuleTemplate*, rts::hash<const ModuleData*>, rts::equal_to<const ModuleData*> > ModuleDataTemplateMap;
+	ModuleDataTemplateMap m_moduleDataTemplateMap;
 
 };
 

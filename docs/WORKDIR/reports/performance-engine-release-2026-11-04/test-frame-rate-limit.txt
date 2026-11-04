@@ -1,0 +1,4 @@
+posix
+PASS: production limiter cadence, stalls, uncapped, rate changes and POSIX EINTR
+win32
+PASS: production limiter cadence, stalls, uncapped, rate changes and POSIX EINTR

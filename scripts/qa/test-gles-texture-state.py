@@ -171,7 +171,7 @@ int main(){
         (work / 'GLES3').mkdir()
         (work / 'GLES3/gl3.h').write_text('''#pragma once
 #include <cstdint>
-using GLint=int;using GLenum=unsigned;using GLbitfield=unsigned;using GLuint64=unsigned long long;using GLsync=void*;
+using GLint=int;using GLuint=unsigned;using GLenum=unsigned;using GLbitfield=unsigned;using GLuint64=unsigned long long;using GLsync=void*;
 using GLintptr=long;using GLsizeiptr=long;
 #define GL_APIENTRY
 #define GL_APICALL

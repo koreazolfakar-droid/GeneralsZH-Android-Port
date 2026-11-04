@@ -1,0 +1,5 @@
+PASS: exact ordered triangles, partial final groups and 16-bit bounds for 1..128 tiles
+PASS: production allocation/alias references, per-tile offsets, hidden draws, final groups and idempotent cleanup
+PASS: production allocation/alias references, per-tile offsets, hidden draws, final groups and idempotent cleanup
+PASS: production allocation/alias references, per-tile offsets, hidden draws, final groups and idempotent cleanup
+PASS: production allocation/alias references, per-tile offsets, hidden draws, final groups and idempotent cleanup

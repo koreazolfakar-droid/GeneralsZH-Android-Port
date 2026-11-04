@@ -31,6 +31,9 @@ public:
 private:
 	Int64 m_freq;
 	Int64 m_start;
+	// Scheduled endpoint, independent of the last actual wake time.
+	Int64 m_deadline;
+	UnsignedInt m_lastMaxFps;
 };
 
 

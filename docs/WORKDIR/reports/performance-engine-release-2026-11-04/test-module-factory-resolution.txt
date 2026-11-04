@@ -1,0 +1,7 @@
+baseline
+1000000 production newModule calls: 93087 us, 1000000 name lookups
+optimized
+1000000 production newModule calls: 30749 us, 0 name lookups
+sanitized
+1000000 production newModule calls: 713471 us, 0 name lookups
+PASS: parsed/manual/null/foreign data, name/type mismatches, missing names, registration updates and creation order

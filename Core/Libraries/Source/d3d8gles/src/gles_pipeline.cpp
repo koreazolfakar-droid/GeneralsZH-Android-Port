@@ -1526,32 +1526,28 @@ WebGLPipeline::ProgramInfo *WebGLPipeline::getProgram(WebGLDevice *dev, unsigned
 
 	if (info->prog) {
 		GLuint p = info->prog;
-		info->uWorld = glGetUniformLocation(p, "uWorld");
-		// GeneralsX @build Android port GLES experiment 08/30/2026 Bind this
-		// program's ViewProjBlock to the shared UBO binding point once,
-		// here at link time -- not per-draw. A program whose xyzrhw (2D)
-		// vertex path never references uView/uProj (see the xyzrhw branch
-		// just above, which only uses uYFlip/uViewportPos) has the whole
-		// block optimized out entirely, so blockIdx is GL_INVALID_INDEX
-		// there -- expected, not an error.
-		{
-			GLuint blockIdx = glGetUniformBlockIndex(p, "ViewProjBlock");
-			if (blockIdx != GL_INVALID_INDEX) {
-				glUniformBlockBinding(p, blockIdx, kViewProjUBOBinding);
-			}
-		}
-		info->uViewportPos = glGetUniformLocation(p, "uViewportPos");
-		info->uYFlip = glGetUniformLocation(p, "uYFlip");
-		info->uTex0 = glGetUniformLocation(p, "uTex0");
-		info->uTex1 = glGetUniformLocation(p, "uTex1");
-		info->uTexMat0 = glGetUniformLocation(p, "uTexMat0");
-		info->uTexMat1 = glGetUniformLocation(p, "uTexMat1");
-		info->uTFactor = glGetUniformLocation(p, "uTFactor");
-		info->uAlphaRef = glGetUniformLocation(p, "uAlphaRef");
-		info->uFogColor = glGetUniformLocation(p, "uFogColor");
-		info->uFogParams = glGetUniformLocation(p, "uFogParams");
-		info->uMat = glGetUniformLocation(p, "uMat[0]");
-		info->uLit = glGetUniformLocation(p, "uLit[0]");
+		// GeneralsX @performance Codex 04/11/2026 Preserve every binding, but
+		// resolve the linked program in one ordered render-thread round trip.
+		const char *names[] = {"uWorld", "uViewportPos", "uYFlip", "uTex0", "uTex1", "uTexMat0", "uTexMat1", "uTFactor", "uAlphaRef", "uFogColor", "uFogParams", "uMat[0]", "uLit[0]"};
+		GLint locations[sizeof(names) / sizeof(names[0])];
+		GLuint blockIdx = GL_INVALID_INDEX;
+		gxrt::getProgramBindings(p, names, locations, sizeof(names) / sizeof(names[0]), "ViewProjBlock", &blockIdx);
+		// The xyzrhw path can optimize the entire view/projection block out.
+		if (blockIdx != GL_INVALID_INDEX)
+			glUniformBlockBinding(p, blockIdx, kViewProjUBOBinding);
+		info->uWorld = locations[0];
+		info->uViewportPos = locations[1];
+		info->uYFlip = locations[2];
+		info->uTex0 = locations[3];
+		info->uTex1 = locations[4];
+		info->uTexMat0 = locations[5];
+		info->uTexMat1 = locations[6];
+		info->uTFactor = locations[7];
+		info->uAlphaRef = locations[8];
+		info->uFogColor = locations[9];
+		info->uFogParams = locations[10];
+		info->uMat = locations[11];
+		info->uLit = locations[12];
 	}
 	info->stageTci[0] = st[0].tci;
 	info->stageTci[1] = st[1].tci;

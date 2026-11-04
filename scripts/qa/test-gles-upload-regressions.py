@@ -63,7 +63,7 @@ def main():
         (work / 'GLES3').mkdir()
         (work / 'GLES3/gl3.h').write_text('''#pragma once
 #include <cstdint>
-typedef int GLint; typedef unsigned GLenum; typedef unsigned GLbitfield; typedef unsigned long long GLuint64;
+typedef int GLint; typedef unsigned GLuint; typedef unsigned GLenum; typedef unsigned GLbitfield; typedef unsigned long long GLuint64;
 typedef void* GLsync; typedef long GLintptr; typedef long GLsizeiptr;
 #define GL_APIENTRY
 #define GL_APICALL

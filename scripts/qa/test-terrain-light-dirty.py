@@ -72,6 +72,7 @@ struct DX8VertexBufferClass {
     code+=gles.extract(source,'struct GxTerrainLightingWriter')+';\n'
     code+=r'''
 struct HeightMapRenderObjClass {
+ int testVertexOffset=0; int getTerrainVertexOffset(const VERTEX_FORMAT*)const{return testVertexOffset;}
  bool m_vertexBufferTiles=true;FakeMap map;FakeMap*m_map=&map;
  unsigned calculations=0;
  int m_x=65,m_y=65,m_originX=0,m_originY=0;
@@ -115,6 +116,37 @@ int main(){
   map.updateVBForLight(&vb,mirror.data(),0,0,32,32,0,0,lights,1);
   assert(vb.locks==1);pool->forget(&vb);assert(pool->bytes==0); // early fallback stays safe
  }
+ {
+  DX8VertexBufferClass shared;shared.vertices.resize(4*HEIGHTMAP_VERTEX_NUM);
+  std::vector<VERTEX_FORMAT> mirror(4*HEIGHTMAP_VERTEX_NUM);
+  for(int tile=0;tile<4;++tile) {
+   unsigned off=tile*HEIGHTMAP_VERTEX_NUM;
+   pool->create(&shared,HEIGHTMAP_VERTEX_NUM,off);
+   auto*c=pool->find(&shared,off);assert(c);
+   for(unsigned i=0;i<HEIGHTMAP_VERTEX_NUM;++i) {
+    auto&v=mirror[off+i];v.x=float(i%128);v.y=float(i/128);v.z=3;v.diffuse=0x7f102030+tile;
+    shared.vertices[off+i]=v;
+   }
+   c->remember(0,mirror.data()+off,HEIGHTMAP_VERTEX_NUM);c->initialized=true;
+  }
+  for(int mode=0;mode<2;++mode)for(int tile=0;tile<4;++tile) {
+   const unsigned off=tile*HEIGHTMAP_VERTEX_NUM;
+   DX8VertexBufferClass old;
+   std::vector<VERTEX_FORMAT> original(mirror.begin()+off,mirror.begin()+off+HEIGHTMAP_VERTEX_NUM);
+   std::copy(shared.vertices.begin()+off,shared.vertices.begin()+off+HEIGHTMAP_VERTEX_NUM,old.vertices.begin());
+   auto before=shared.vertices;
+   HeightMapRenderObjClass a,b;a.testVertexOffset=off;
+   W3DDynamicLight light;W3DDynamicLight*lights[]={&light};
+   // Missing state models partial edges/cache-budget exhaustion.
+   if(mode)pool->forget(&shared,off);
+   if(!mode){a.updateVBForLight(&shared,mirror.data()+off,0,0,32,32,0,0,lights,1);b.legacyLight(&old,original.data(),0,0,32,32,0,0,lights,1);}
+   else {a.updateVBForLightOptimized(&shared,mirror.data()+off,0,0,32,32,0,0,lights,1);b.legacyOptimized(&old,original.data(),0,0,32,32,0,0,lights,1);}
+   assert(memcmp(shared.vertices.data()+off,old.vertices.data(),HEIGHTMAP_VERTEX_NUM*sizeof(VERTEX_FORMAT))==0);
+   assert(memcmp(shared.vertices.data(),before.data(),off*sizeof(VERTEX_FORMAT))==0);
+   assert(memcmp(shared.vertices.data()+off+HEIGHTMAP_VERTEX_NUM,before.data()+off+HEIGHTMAP_VERTEX_NUM,(shared.vertices.size()-off-HEIGHTMAP_VERTEX_NUM)*sizeof(VERTEX_FORMAT))==0);
+  }
+  assert(pool->bytes==0 && pool->tiles.empty());
+ }
  unsigned optimized=0;
  for(int mode=0;mode<2;++mode){
   DX8VertexBufferClass current,old;std::vector<VERTEX_FORMAT> mirror(HEIGHTMAP_VERTEX_NUM),original(HEIGHTMAP_VERTEX_NUM);pool->create(&current,HEIGHTMAP_VERTEX_NUM);
@@ -154,8 +186,8 @@ int main(){
 '''
     # Enforce all actual tile-geometry lifecycle writers participate, not only adapters.
     assert 'litColors->remember(offset,pCurVertices,4)' in gles.extract(source,'Int HeightMapRenderObjClass::updateVB(')
-    assert 'gxTerrainLightPool()->forget(m_vertexBufferTiles[i])' in source
-    assert 'gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM)' in source
+    assert 'gxTerrainLightPool()->forget(m_vertexBufferTiles[i],getTerrainVertexOffset(' in source
+    assert 'gxTerrainLightPool()->create(m_vertexBufferTiles[i],HEIGHTMAP_VERTEX_NUM,getTerrainVertexOffset(' in source
     assert 'litColors->initialized=true' in gles.extract(source,'Int HeightMapRenderObjClass::updateVB(')
     with tempfile.TemporaryDirectory(prefix='gx-light-dirty-') as temp:
         p=Path(temp)/'test.cpp';p.write_text(code);exe=Path(temp)/'test'

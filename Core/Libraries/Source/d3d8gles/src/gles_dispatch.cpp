@@ -301,6 +301,19 @@ void gxrt::bufferWrite(GLenum target, GLintptr offset, GLsizeiptr length, const 
 	}, data, (size_t)length);
 }
 
+// GeneralsX @performance Codex 04/11/2026 Program initialization previously
+// drained/woke the render thread separately for every uniform and block query.
+// Query raw entry points on the GL owner once, behind all prior link commands.
+void gxrt::getProgramBindings(GLuint program, const char *const *names, GLint *locations,
+                             size_t count, const char *blockName, GLuint *blockIndex)
+{
+	gxrt::sync([&] {
+		for (size_t i = 0; i < count; ++i)
+			locations[i] = d3d8gles_pfn_glGetUniformLocation(program, names[i]);
+		*blockIndex = d3d8gles_pfn_glGetUniformBlockIndex(program, blockName);
+	});
+}
+
 extern "C" {
 
 GL_APICALL void GL_APIENTRY glActiveTexture(GLenum texture)

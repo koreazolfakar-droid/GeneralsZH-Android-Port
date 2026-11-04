@@ -185,6 +185,11 @@ void present(SDL_Window *window, int swapInterval);
 // that point in the command stream is the one written.
 void bufferWrite(GLenum target, GLintptr offset, GLsizeiptr length, const void *data, GLbitfield access);
 
+// Query a newly linked program in one FIFO round trip. Results remain owned by
+// the caller and are complete before return, including inactive (-1) uniforms.
+void getProgramBindings(GLuint program, const char *const *names, GLint *locations,
+                        size_t count, const char *blockName, GLuint *blockIndex);
+
 // glGetError for code already running on the GL thread (inside a posted command), where the
 // ordinary entry point would queue behind itself.
 GLenum rawGetError();

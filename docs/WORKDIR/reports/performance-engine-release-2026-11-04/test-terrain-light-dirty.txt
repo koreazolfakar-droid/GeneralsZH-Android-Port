@@ -1,0 +1,1 @@
+PASS: 140 repeated unchanged terrain lighting calls: zero dirty locks; exact 3481 bytes/calculation count for both paths, moving/disabled lights, alpha, geometry/camera edits, pointer reuse, fallback and 8MiB cap/release

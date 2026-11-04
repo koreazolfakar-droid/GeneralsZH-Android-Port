@@ -18,110 +18,92 @@
 
 #include "PreRTS.h"
 #include "Common/FrameRateLimit.h"
+#include <algorithm>
 
 // GeneralsX @build BenderAI 12/02/2026 Platform-specific high-resolution timing
 #ifndef _WIN32
 #include <time.h>    // clock_gettime, nanosleep
-#include <unistd.h>  // usleep (fallback)
+#include <errno.h>
 #endif
+
+// GeneralsX @bugfix Codex 04/11/2026 Keep a scheduled deadline across small
+// scheduler oversleeps, but rebase after a missed frame or a limiter change.
+// Only render pacing changes: elapsed time remains the actual wall interval.
+static Int64 frameRateLimitTick()
+{
+#ifdef _WIN32
+	LARGE_INTEGER tick;
+	QueryPerformanceCounter(&tick);
+	return tick.QuadPart;
+#else
+	struct timespec tick;
+	clock_gettime(CLOCK_MONOTONIC, &tick);
+	return static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
+#endif
+}
 
 FrameRateLimit::FrameRateLimit()
 {
 #ifdef _WIN32
 	LARGE_INTEGER freq;
-	LARGE_INTEGER start;
 	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&start);
 	m_freq = freq.QuadPart;
-	m_start = start.QuadPart;
 #else
-	// Linux: Use CLOCK_MONOTONIC for high-resolution timing
-	struct timespec start;
-	clock_gettime(CLOCK_MONOTONIC, &start);
 	m_freq = 1000000000; // nanoseconds per second
-	m_start = static_cast<Int64>(start.tv_sec) * 1000000000 + start.tv_nsec;
 #endif
+	m_start = frameRateLimitTick();
+	m_deadline = m_start;
+	m_lastMaxFps = 0;
 }
 
 Real FrameRateLimit::wait(UnsignedInt maxFps)
 {
 	PROFILER_SECTION;
+	Int64 tick = frameRateLimitTick();
 
-	// GeneralsX @bugfix BenderAI 11/05/2026 Validate FPS limit to prevent division by zero and underflow
-	// Skip limiting if maxFps is 0 or extremely high (uncapped mode)
-	if (maxFps == 0 || maxFps > 1000000)
+	// Include the preset sentinel itself. Uncapped frames never sleep/spin.
+	if (maxFps == 0 || maxFps >= RenderFpsPreset::UncappedFpsValue)
 	{
-		// Uncapped or invalid: just return elapsed time without limiting
+		const Real elapsed = static_cast<Real>(static_cast<double>(tick - m_start) / m_freq);
+		m_start = m_deadline = tick;
+		m_lastMaxFps = 0;
+		return elapsed;
+	}
+
+	const Int64 period = std::max<Int64>(1, m_freq / maxFps);
+	const Int64 deadline = (m_lastMaxFps == maxFps ? m_deadline : m_start) + period;
 #ifdef _WIN32
-		LARGE_INTEGER tick;
-		QueryPerformanceCounter(&tick);
-		double elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
-		m_start = tick.QuadPart;
-		return (Real)elapsedSeconds;
-#else
-		struct timespec tick;
-		clock_gettime(CLOCK_MONOTONIC, &tick);
-		Int64 tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-		double elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
-		m_start = tickValue;
-		return static_cast<Real>(elapsedSeconds);
-#endif
-	}
-
-#ifdef _WIN32
-	LARGE_INTEGER tick;
-	QueryPerformanceCounter(&tick);
-	double elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
-	const double targetSeconds = 1.0 / maxFps;
-	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; // leave ~2ms for spin wait
-
+	const double sleepSeconds = static_cast<double>(deadline - tick) / m_freq - 0.002;
 	if (sleepSeconds > 0.0)
-	{
-		// Non busy wait with Munkee sleep
-		DWORD dwMilliseconds = static_cast<DWORD>(sleepSeconds * 1000);
-		Sleep(dwMilliseconds);
-	}
-
-	// Busy wait for remaining time
-	do
-	{
-		QueryPerformanceCounter(&tick);
-		elapsedSeconds = static_cast<double>(tick.QuadPart - m_start) / m_freq;
-	}
-	while (elapsedSeconds < targetSeconds);
-
-	m_start = tick.QuadPart;
-	return (Real)elapsedSeconds;
+		Sleep(static_cast<DWORD>(sleepSeconds * 1000));
 #else
-	// Linux: Use CLOCK_MONOTONIC for high-resolution timing
-	struct timespec tick;
-	clock_gettime(CLOCK_MONOTONIC, &tick);
-	Int64 tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-	double elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
-	const double targetSeconds = 1.0 / maxFps;
-	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; // leave ~2ms for spin wait
-
-	if (sleepSeconds > 0.0)
+	// GeneralsX @performance Codex 04/11/2026 Leave only 0.2 ms to spin on
+	// high-resolution POSIX timers. Recompute after an interrupted sleep so a
+	// signal cannot turn the rest of a whole frame into a CPU-burning wait.
+	const Int64 spinTicks = m_freq / 5000;
+	while (deadline - tick > spinTicks)
 	{
-		// Non busy wait with nanosleep
+		const Int64 sleepTicks = deadline - tick - spinTicks;
 		struct timespec sleepTime;
-		sleepTime.tv_sec = static_cast<time_t>(sleepSeconds);
-		sleepTime.tv_nsec = static_cast<long>((sleepSeconds - sleepTime.tv_sec) * 1000000000);
-		nanosleep(&sleepTime, nullptr);
+		sleepTime.tv_sec = static_cast<time_t>(sleepTicks / m_freq);
+		sleepTime.tv_nsec = static_cast<long>((sleepTicks % m_freq) * 1000000000 / m_freq);
+		const int result = nanosleep(&sleepTime, nullptr);
+		if (result != 0 && errno != EINTR)
+			break;
+		tick = frameRateLimitTick();
 	}
-
-	// Busy wait for remaining time
-	do
-	{
-		clock_gettime(CLOCK_MONOTONIC, &tick);
-		tickValue = static_cast<Int64>(tick.tv_sec) * 1000000000 + tick.tv_nsec;
-		elapsedSeconds = static_cast<double>(tickValue - m_start) / static_cast<double>(m_freq);
-	}
-	while (elapsedSeconds < targetSeconds);
-
-	m_start = tickValue;
-	return static_cast<Real>(elapsedSeconds);
 #endif
+
+	while (tick < deadline)
+		tick = frameRateLimitTick();
+
+	const Real elapsed = static_cast<Real>(static_cast<double>(tick - m_start) / m_freq);
+	m_start = tick;
+	// Do not replay missed render deadlines after loading/backgrounding or a
+	// slow frame. Small scheduler jitter is corrected by the following wait.
+	m_deadline = tick - deadline >= period ? tick : deadline;
+	m_lastMaxFps = maxFps;
+	return elapsed;
 }
 
 

@@ -1,0 +1,1 @@
+PASS: production uniform/block results including absent bindings; one ordered round trip for all queries

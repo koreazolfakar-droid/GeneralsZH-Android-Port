@@ -38,6 +38,12 @@
 #include "W3DDevice/GameClient/BaseHeightMap.h"
 
 
+// GeneralsX @performance Codex 04/11/2026 Keep legacy normals/software T&L paths intact.
+#if defined(__ANDROID__) && !defined(USE_NORMALS) && !defined(PRE_TRANSFORM_VERTEX)
+#define GX_TERRAIN_DRAW_BATCHING 1
+#include "GXTerrainDrawBatch.h"
+#endif
+
 // Adjust the triangles to make cliff sides most attractive.  jba.
 #define FLIP_TRIANGLES 1
 
@@ -112,6 +118,9 @@ protected:
 	Int	m_numBlockColumnsInLastVB;///<a VB tile may be partially filled, this indicates how many 2x2 vertex blocks are filled.
 	Int	m_numBlockRowsInLastVB;///<a VB tile may be partially filled, this indicates how many 2x2 vertex blocks are filled.
 
+	// GeneralsX @performance Codex 04/11/2026 Per-tile ranges in shared static VBs.
+	Int getTerrainVertexOffset(const VERTEX_FORMAT *data) const;
+	Bool drawTerrainBatches();
 	DX8VertexBufferClass *getVertexBufferTile(Int x, Int y);
 	VERTEX_FORMAT *getVertexBufferBackup(Int x, Int y);
 	UnsignedInt doTheDynamicLight(VERTEX_FORMAT *vb, VERTEX_FORMAT *vbMirror, Vector3*light, Vector3*normal, W3DDynamicLight *pLights[], Int numLights);

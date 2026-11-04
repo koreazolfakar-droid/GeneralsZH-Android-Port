@@ -1,0 +1,26 @@
+test_actual_native_stamp_required (__main__.Recovery.test_actual_native_stamp_required) ... ok
+test_archive_traversal_rejected_before_writes (__main__.Recovery.test_archive_traversal_rejected_before_writes) ... ok
+test_corrupt_archive_stops_before_writes (__main__.Recovery.test_corrupt_archive_stops_before_writes) ... ok
+test_escaping_links_rejected_before_writes (__main__.Recovery.test_escaping_links_rejected_before_writes) ... ok
+test_internal_absolute_symlink_restores_same_target (__main__.Recovery.test_internal_absolute_symlink_restores_same_target) ... ok
+test_invalid_exact_timestamp_rejected_before_writes (__main__.Recovery.test_invalid_exact_timestamp_rejected_before_writes) ... ok
+test_missing_ninja_and_objects (__main__.Recovery.test_missing_ninja_and_objects) ... ok
+test_mtime_restore_requires_identical_bytes (__main__.Recovery.test_mtime_restore_requires_identical_bytes) ... ok
+test_nonancestor_and_shallow_history_rejected (__main__.Recovery.test_nonancestor_and_shallow_history_rejected) ... fatal: Not a valid commit name 0000000000000000000000000000000000000000
+ok
+test_output_nanoseconds_survive_backup_restore (__main__.Recovery.test_output_nanoseconds_survive_backup_restore) ... ok
+test_populated_directory_is_preserved (__main__.Recovery.test_populated_directory_is_preserved) ... ok
+test_roundtrip_all_components_and_links (__main__.Recovery.test_roundtrip_all_components_and_links) ... ok
+test_sequence_must_match_complete_history (__main__.Recovery.test_sequence_must_match_complete_history) ... ok
+test_unknown_archive_component_rejected (__main__.Recovery.test_unknown_archive_component_rejected) ... ok
+test_workspace_and_toolchain_mismatch (__main__.Recovery.test_workspace_and_toolchain_mismatch) ... ok
+test_wrong_variant_and_changed_objects (__main__.Recovery.test_wrong_variant_and_changed_objects) ... ok
+test_external_dependency_compile_guard (__main__.Workflow.test_external_dependency_compile_guard) ... ok
+test_retained_host_tools_can_be_backed_up_again (__main__.Workflow.test_retained_host_tools_can_be_backed_up_again) ... ok
+test_retry_accounting_and_hit_is_not_recompile (__main__.Workflow.test_retry_accounting_and_hit_is_not_recompile) ... ok
+test_workflow_structure_and_shell_syntax (__main__.Workflow.test_workflow_structure_and_shell_syntax) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 2.365s
+
+OK

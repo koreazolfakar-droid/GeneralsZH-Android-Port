@@ -299,6 +299,7 @@ ModuleFactory::ModuleFactory()
 //-------------------------------------------------------------------------------------------------
 ModuleFactory::~ModuleFactory()
 {
+	m_moduleDataTemplateMap.clear();
 	m_moduleTemplateMap.clear();
 
 	for (ModuleDataList::iterator i = m_moduleDataList.begin(); i != m_moduleDataList.end(); ++i)
@@ -587,6 +588,8 @@ ModuleData* ModuleFactory::newModuleDataFromINI(INI* ini, const AsciiString& nam
 	{
 		ModuleData* md = (*moduleTemplate->m_createDataProc)(ini);
 		md->setModuleTagNameKey( NAMEKEY( moduleTag ) );
+		// GeneralsX @performance Codex 04/11/2026 ModuleData shares this stable map entry across instances.
+		m_moduleDataTemplateMap[md] = moduleTemplate;
 		m_moduleDataList.push_back(md);
 		return md;
 	}
@@ -633,7 +636,19 @@ Module *ModuleFactory::newModule( Thing *thing, const AsciiString& name, const M
 		DEBUG_CRASH(("attempting to create module with empty name"));
 		return nullptr;
 	}
-	const ModuleTemplate* mt = findModuleTemplate(name, type);
+	// GeneralsX @performance Codex 04/11/2026 Avoid rehashing/relooking up every object's INI modules.
+	// std::map entries remain stable when registrations are inserted or updated.
+	// Preserve the original lookup for foreign/manual data and mismatched names/types.
+	const ModuleTemplate* mt = nullptr;
+	ModuleDataTemplateMap::const_iterator cachedIt = m_moduleDataTemplateMap.find(moduleData);
+	if (cachedIt != m_moduleDataTemplateMap.end())
+	{
+		const ModuleTemplate* cached = cachedIt->second;
+		if (cached && cached->m_type == type && cached->m_name == name)
+			mt = cached;
+	}
+	if (!mt)
+		mt = findModuleTemplate(name, type);
 	if (mt)
 	{
 		Module* mod = (*mt->m_createProc)( thing, moduleData );
@@ -690,6 +705,9 @@ void ModuleFactory::addModuleInternal( NewModuleProc proc, NewModuleDataProc dat
 {
 	NameKeyType namekey = makeDecoratedNameKey(name, type);
 	ModuleTemplate& mtm = m_moduleTemplateMap[namekey];	// this creates it if it does not exist already
+	// GeneralsX @performance Codex 04/11/2026 Keep identity beside the stable cached registration.
+	mtm.m_name = name;
+	mtm.m_type = type;
 	mtm.m_createProc = proc;
 	mtm.m_createDataProc = dataproc;
 	mtm.m_whichInterfaces = whichIntf;
