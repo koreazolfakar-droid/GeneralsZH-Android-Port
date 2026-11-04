@@ -155,6 +155,7 @@ public:
 	void resize(int drawableWidth, int drawableHeight);
 	void setBackbufferSize(int w, int h);
 	bool refreshDrawable(bool restore);
+	bool recoverLostContext(); // Android-only lost GPU objects, CPU D3D shadow survives
 	void restoreSurface();
 	bool ready() const { return m_ctxReady; }
 
@@ -553,6 +554,8 @@ private:
 	uint64_t computeProgramKey(WebGLDevice *dev, unsigned fvf) const;
 
 	bool m_ctxReady = false;
+	bool m_gpuRecoveryPending = false;
+	bool m_adoptCurrentContext = false;
 	bool m_needsFullClear = false;
 	bool m_hasS3TC = false;
 	int m_fbWidth = 0;
