@@ -1,0 +1,192 @@
+# One-time fail-closed engine-only OTA for the verified GLES terrain-fusion build.
+# No APK build, no game-data changes, no signing-key changes.
+name: Publish verified performance engine OTA (2026-11-05 once)
+
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths: [.github/workflows/publish-performance-20261105-ota-once.yml]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'koreazolfakar-droid/GeneralsZH-Android-Port'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 155
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: a892c63a0cee78ae84c751b05a06913294cfcf3e
+      NATIVE_RUN: '41933560548'
+      BASELINE_RUN: '37422581004'
+    steps:
+      - name: Checkout exact engine source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Await exact 30/60 Hz Android build and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 500); do
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NATIVE_RUN" --jq '[.status, (.conclusion // "pending")] | join("|")')"
+            if [ "$status" = 'completed|success' ]; then
+              jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NATIVE_RUN/jobs?per_page=100")"
+              test "$(jq -r '[.jobs[] | select(.name=="engine-incremental" and .conclusion=="success")] | length' <<< "$jobs")" = 1
+              exit 0
+            fi
+            if [[ "$status" == completed\|* ]]; then echo 'Native validation failed; no OTA'; exit 1; fi
+            sleep 15
+          done
+          echo 'Native validation timed out; no OTA'
+          exit 1
+
+      - name: Verify immutable build provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse "$GITHUB_SHA^")" = "$SOURCE_COMMIT"
+          test "$(git diff --name-only "$SOURCE_COMMIT" "$GITHUB_SHA")" = '.github/workflows/publish-performance-20261105-ota-once.yml'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev/mobile-v4" --jq .object.sha)" = "$GITHUB_SHA"
+          python3 - "$NATIVE_RUN" "$SOURCE_COMMIT" <<'PY'
+          import json, os, subprocess, sys
+          run_id, source = sys.argv[1:]
+          r = json.loads(subprocess.check_output([
+              'gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{run_id}'], text=True))
+          assert r['status'] == 'completed' and r['conclusion'] == 'success', r
+          assert r['event']=='push' and r['path']=='.github/workflows/qa-native-asset-audio.yml',r
+          assert r['head_sha']==source and r['head_branch']=='dev/mobile-v4',r
+          assert r['head_branch'] == 'dev/mobile-v4', r
+          print('PASS: successful workflow-dispatched dual-engine build', run_id,
+                'workflow_sha', r['head_sha'], 'engine_source_pending_report', source)
+          PY
+
+      - name: Preserve the current signed OTA baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" \
+            --jq .content | base64 --decode > "$RUNNER_TEMP/prior-manifest.json"
+          mkdir -p prior-check
+          cp "$RUNNER_TEMP/prior-manifest.json" prior-check/manifest.json
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json.sig?ref=updates" --jq .content | base64 --decode > prior-check/manifest.json.sig
+          python3 - <<'PY'
+          import importlib.util
+          spec=importlib.util.spec_from_file_location('artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec); spec.loader.exec_module(a)
+          p=a.verify_manifest('prior-check','android/app/src/main/assets/update-public.pem')
+          assert p['serial']==31 and p['engine']['seq']==3659
+          assert p['engine']['source_commit']=='474b7c0fb484b9b0c2ce22f6c2f991fb7c167554'
+          assert set(p['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: previous signed OTA serial 31 engine 3659')
+          PY
+
+      - name: Download verified dual-engine report and bootstrap baseline
+        uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: ${{ env.NATIVE_RUN }}
+          github-token: ${{ github.token }}
+          path: engine-build
+
+      - name: Download pinned bootstrap APK baseline
+        uses: actions/download-artifact@v5
+        with:
+          name: Bootstrap-1.4.3-Engine3333-debug.apk
+          run-id: ${{ env.BASELINE_RUN }}
+          github-token: ${{ github.token }}
+          path: bootstrap-baseline
+
+      - name: Prepare exact engine-only OTA payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$SOURCE_COMMIT" \
+            --out prepared-update --serial 32 \
+            --note 'Engine-only performance: four-tile terrain batching, corrected frame pacing, reduced module creation lookups, and batched GLES program queries. Preserves 30/60Hz and gameplay. Physical-device FPS and Vanilla/TEOD visual validation remain unverified. No APK.'
+          python3 - <<'PY'
+          import json, os
+          m = json.load(open('prepared-update/manifest.json'))
+          r = json.load(open('engine-build/result.json'))
+          assert r['build'] == 'PASS' and r['new_apk_required'] is False
+          assert m['serial']==32 and m['engine']['seq']>3659
+          assert m['serial']==32
+          assert m['engine']['source_commit'] == os.environ['SOURCE_COMMIT']
+          assert set(m['engine']['files']) == {'libmain.so', 'libmain60.so'}
+          print('PASS: prepared dual-engine OTA candidate', m['engine']['seq'], 'serial', m['serial'])
+          PY
+
+      - name: Prevent concurrent manifest overwrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" \
+            --jq .content | base64 --decode > "$RUNNER_TEMP/pre-sign-manifest.json"
+          cmp "$RUNNER_TEMP/prior-manifest.json" "$RUNNER_TEMP/pre-sign-manifest.json"
+
+      - name: Sign manifest with the repository secret
+        shell: bash
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$UPDATE_SIGNING_KEY"
+          bash scripts/update/sign-manifest.sh prepared-update
+
+      - name: Publish signed payload to the existing updates branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+
+      - name: Verify live signature and both engine downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published-check
+          for file in manifest.json manifest.json.sig; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/$file?ref=updates" \
+              --jq .content | base64 --decode > "published-check/$file"
+          done
+          python3 - <<'PY'
+          import gzip, hashlib, importlib.util, json, os, pathlib, time, urllib.request
+          spec = importlib.util.spec_from_file_location('artifacts', 'scripts/update/update-artifacts.py')
+          a = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(a)
+          m = a.verify_manifest('published-check', 'android/app/src/main/assets/update-public.pem')
+          assert m['engine']['source_commit'] == os.environ['SOURCE_COMMIT']
+          assert set(m['engine']['files']) == {'libmain.so', 'libmain60.so'}
+          for name, row in m['engine']['files'].items():
+              data = None
+              for attempt in range(5):
+                  try:
+                      with urllib.request.urlopen(row['url'], timeout=90) as response:
+                          data = gzip.decompress(response.read())
+                      break
+                  except Exception:
+                      if attempt == 4:
+                          raise
+                      time.sleep(6)
+              assert len(data) == row['size']
+              assert hashlib.sha256(data).hexdigest() == row['sha256']
+              a.native_stamp(data, os.environ['SOURCE_COMMIT'], m['engine']['seq'])
+          print('PASS: VERIFIED SIGNED DUAL-ENGINE OTA', m['engine']['seq'], 'serial', m['serial'])
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write(f"### VERIFIED SIGNED DUAL-ENGINE OTA PUBLISHED\nEngine {m['engine']['seq']}; serial {m['serial']}; source {os.environ['SOURCE_COMMIT']}\n")
+          PY
