@@ -36,6 +36,7 @@
 #include <d3d8.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -285,6 +286,7 @@ class WebGLTexture; // fwd
 // Live D3D resources retain CPU shadow bytes across EGL context replacements.
 static std::unordered_set<GLTextureState *> g_liveTextureGLStates;
 static std::unordered_set<GLBufferState *> g_liveBufferGLStates;
+static std::atomic<bool> g_gpuResetPending{false};
 static void forgetLostGpuObjectHandles();
 
 // ---------------------------------------------------------------------------
@@ -2208,10 +2210,12 @@ extern "C" bool d3d8gles_restore_surface()
 // recycles a lost context's handle. Never reuse that context's cached GPU IDs.
 extern "C" void d3d8gles_context_lost()
 {
+	// SDL sends this event while pumping; GL may still be owned by another
+	// thread. Request recovery on the engine thread AFTER all SDL events,
+	// when the current EGL drawable is valid. Never destroy/recreate GL here.
 	if (WebGLPipeline::get()->ready()) {
-		fprintf(stderr, "[d3d8gles] FATAL: SDL renderer device reset; GPU resource rebuild required\n");
-		fflush(stderr);
-		std::abort();
+		g_gpuResetPending.store(true, std::memory_order_release);
+		fprintf(stderr, "[d3d8gles] device reset: GPU reconstruction queued\n");
 	}
 }
 
