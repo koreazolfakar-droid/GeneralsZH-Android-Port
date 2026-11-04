@@ -26,7 +26,9 @@ def main():
     source = (ROOT / 'GeneralsMD/Code/GameEngine/Source/Common/Thing/ModuleFactory.cpp').read_text()
     header = (ROOT / 'GeneralsMD/Code/GameEngine/Include/Common/ModuleFactory.h').read_text()
     data_header = (ROOT / 'GeneralsMD/Code/GameEngine/Include/Common/Module.h').read_text()
-    methods = '\n'.join(block(source, signature) for signature in [
+    cache = source.split('// GX_MODULE_FACTORY_CACHE_BEGIN', 1)[1].split('// GX_MODULE_FACTORY_CACHE_END', 1)[0]
+    methods = cache + '\n' + '\n'.join(block(source, signature) for signature in [
+        'ModuleFactory::~ModuleFactory()',
         'ModuleData* ModuleFactory::newModuleDataFromINI(',
         '/*static*/ NameKeyType ModuleFactory::makeDecoratedNameKey(',
         'const ModuleFactory::ModuleTemplate* ModuleFactory::findModuleTemplate(',
@@ -81,9 +83,7 @@ public:
     using ModuleDataList = std::vector<const ModuleData*>;
     ModuleTemplateMap m_moduleTemplateMap;
     ModuleDataList m_moduleDataList;
-    using ModuleDataTemplateMap = std::unordered_map<const ModuleData*, const ModuleTemplate*>;
-    ModuleDataTemplateMap m_moduleDataTemplateMap;
-    ~ModuleFactory() { for (auto* d : m_moduleDataList) delete d; }
+    ~ModuleFactory();
     ModuleData* newModuleDataFromINI(INI*, const AsciiString&, ModuleType, const AsciiString&);
     static NameKeyType makeDecoratedNameKey(const AsciiString&, ModuleType);
     const ModuleTemplate* findModuleTemplate(const AsciiString&, ModuleType);

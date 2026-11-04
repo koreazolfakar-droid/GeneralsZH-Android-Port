@@ -24,10 +24,12 @@ does not invalidate the map entry. The factory owns both data and registrations
 for its lifetime; neither is reset during a match.
 
 The table adds an entry per **shared INI ModuleData**, not per object or module
-instance. Registrations additionally retain their name and type. Cache entry
-allocations happen at INI loading. There is no new per-instance allocation,
-preload or asynchronous creation. `Module.h`, `ModuleData` layout and all object
-module layouts remain unchanged; only factory implementation/layout changes.
+instance. Cache entries retain the owner, registration pointer, name and type.
+Cache entry allocations happen at INI loading. There is no new per-instance
+allocation, preload or asynchronous creation. `Module.h`, `ModuleData`,
+`ModuleFactory.h`, and all object/module layouts remain unchanged: the cache
+lives only inside `ModuleFactory.cpp`. Factory destruction removes every
+owned key before destroying data, preventing stale-pointer reuse.
 
 ## Focused host validation
 
@@ -67,3 +69,13 @@ their original synchronous order. No Android native compilation, full-engine
 runtime, replay, Vanilla/TEOD device scenario or device timing was performed by
 this focused validation. The parent task handles wider build checks. No APK,
 commit, push or OTA publication was performed here.
+
+## 2026-11-05 — incremental-build guard follow-up
+
+The first Android incremental build on `72ceeb82` passed focused host tests but
+stopped at `INCREMENTAL REUSE GUARD: excessive compile plan 326` (maximum 200).
+Most affected translation units included the changed `ModuleFactory.h`.
+Restoring the header bytes to the verified baseline and keeping the cache in the
+`.cpp` translation unit preserves the optimization without modifying the
+public class layout. The native release remains gated on same-source 30/60 Hz
+build success, unchanged dependency fingerprints and signed OTA verification.

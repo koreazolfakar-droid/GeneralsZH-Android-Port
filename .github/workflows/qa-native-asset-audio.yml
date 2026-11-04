@@ -14,6 +14,8 @@ on:
     branches: [dev/mobile-v4]
     paths:
       - 'Core/**'
+      - 'GeneralsMD/**'
+      - 'scripts/qa/**'
       - '.github/workflows/qa-native-asset-audio.yml'
 
 permissions:
@@ -52,6 +54,8 @@ jobs:
           path: _baseline-tools
           clean: false
           persist-credentials: false
+      - name: Reserve disk for verified engine state
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_OS python3 "$GX_BASELINE_TOOLS/runner_space.py" --apply
       - name: Resolve complete source history and compatible cache namespace
         id: source
         run: |

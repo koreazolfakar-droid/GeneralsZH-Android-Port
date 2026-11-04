@@ -40,6 +40,22 @@
 #include "Common/Module.h"
 #include "Common/ModuleFactory.h"
 #include "Common/NameKeyGenerator.h"
+#include <unordered_map>
+
+// GX_MODULE_FACTORY_CACHE_BEGIN
+// GeneralsX @performance 05/11/2026 Store the INI registration cache only
+// in this translation unit. ModuleFactory.h and its object layout stay unchanged.
+// The stable std::map registration pointer remains valid until factory teardown.
+namespace {
+struct GxCachedModuleRegistration {
+    const ModuleFactory* owner;
+    const void* registration;
+    AsciiString name;
+    ModuleType type;
+};
+std::unordered_map<const ModuleData*, GxCachedModuleRegistration> gxModuleRegistrationCache;
+} // namespace
+// GX_MODULE_FACTORY_CACHE_END
 
 // behavior includes
 #include "GameLogic/Module/AutoHealBehavior.h"
@@ -299,7 +315,9 @@ ModuleFactory::ModuleFactory()
 //-------------------------------------------------------------------------------------------------
 ModuleFactory::~ModuleFactory()
 {
-	m_moduleDataTemplateMap.clear();
+	// Remove every entry owned by this factory before any ModuleData can be reused.
+	for (const ModuleData* data : m_moduleDataList)
+		gxModuleRegistrationCache.erase(data);
 	m_moduleTemplateMap.clear();
 
 	for (ModuleDataList::iterator i = m_moduleDataList.begin(); i != m_moduleDataList.end(); ++i)
@@ -589,7 +607,7 @@ ModuleData* ModuleFactory::newModuleDataFromINI(INI* ini, const AsciiString& nam
 		ModuleData* md = (*moduleTemplate->m_createDataProc)(ini);
 		md->setModuleTagNameKey( NAMEKEY( moduleTag ) );
 		// GeneralsX @performance Codex 04/11/2026 ModuleData shares this stable map entry across instances.
-		m_moduleDataTemplateMap[md] = moduleTemplate;
+		gxModuleRegistrationCache[md] = GxCachedModuleRegistration{this, moduleTemplate, name, type};
 		m_moduleDataList.push_back(md);
 		return md;
 	}
@@ -640,12 +658,12 @@ Module *ModuleFactory::newModule( Thing *thing, const AsciiString& name, const M
 	// std::map entries remain stable when registrations are inserted or updated.
 	// Preserve the original lookup for foreign/manual data and mismatched names/types.
 	const ModuleTemplate* mt = nullptr;
-	ModuleDataTemplateMap::const_iterator cachedIt = m_moduleDataTemplateMap.find(moduleData);
-	if (cachedIt != m_moduleDataTemplateMap.end())
+	auto cachedIt = gxModuleRegistrationCache.find(moduleData);
+	if (cachedIt != gxModuleRegistrationCache.end())
 	{
-		const ModuleTemplate* cached = cachedIt->second;
-		if (cached && cached->m_type == type && cached->m_name == name)
-			mt = cached;
+		const GxCachedModuleRegistration& cached = cachedIt->second;
+		if (cached.owner == this && cached.type == type && cached.name == name)
+			mt = static_cast<const ModuleTemplate*>(cached.registration);
 	}
 	if (!mt)
 		mt = findModuleTemplate(name, type);
@@ -705,9 +723,6 @@ void ModuleFactory::addModuleInternal( NewModuleProc proc, NewModuleDataProc dat
 {
 	NameKeyType namekey = makeDecoratedNameKey(name, type);
 	ModuleTemplate& mtm = m_moduleTemplateMap[namekey];	// this creates it if it does not exist already
-	// GeneralsX @performance Codex 04/11/2026 Keep identity beside the stable cached registration.
-	mtm.m_name = name;
-	mtm.m_type = type;
 	mtm.m_createProc = proc;
 	mtm.m_createDataProc = dataproc;
 	mtm.m_whichInterfaces = whichIntf;
