@@ -103,6 +103,20 @@ int main(int argc,char**argv){
  if(mode=="fallback"||mode=="unrecoverable")failWorkerBind=1;
  if(mode=="unrecoverable")failMainBind=1;
  event(SDL_EVENT_DID_ENTER_FOREGROUND);
+ if(mode=="replacement"){
+  // A replacement is held on the engine thread until the GPU resource
+  // reconstruction step finishes. No old-context GL commands may run.
+  assert(gxrt::contextReplaced());
+  assert(!gxrt::running());
+  assert(gxrt::prepareForContextRecovery());
+  gxrt::forgetLostContextFences();
+  gxrt::resumeAfterContextRecovery(&window);
+  assert(!gxrt::contextReplaced()&&gxrt::running());
+  gxrt::stop();
+  assert(current==reinterpret_cast<SDL_GLContext>(2));
+  puts("PASS: replaced EGL context waits for reconstruction and safely resumes");
+  return 0;
+ }
  gxrt::ensureContext(&window,original);
  if(mode=="fallback"){
   assert(!gxrt::running()&&current==original);draw();assert(calls==2);
@@ -125,11 +139,11 @@ int main(int argc,char**argv){
         subprocess.run([os.environ.get("CXX","c++"),"-std=c++17","-O1","-g","-pthread",
                         "-I",str(work),"-I",str(GLES/"include"),str(source),
                         str(GLES/"src/gles_thread.cpp"),"-o",str(exe)],check=True)
-        for mode in ("normal","fallback","direct"):
+        for mode in ("normal","fallback","direct","replacement"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode == 0, result.stderr
             print(result.stdout.strip())
-        for mode in ("replacement","release-failure","pause-main-failure","resume-detach-failure","unrecoverable","surface-detach-failure","surface-bind-failure"):
+        for mode in ("release-failure","pause-main-failure","resume-detach-failure","unrecoverable","surface-detach-failure","surface-bind-failure"):
             result=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=20)
             assert result.returncode != 0, f"{mode}: unsafe continuation accepted"
             assert "context lifecycle failure" in result.stderr, result.stderr
