@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "6bff919d00d430ffc8326c35b7bd567c773361438a71719ad8bc1443c0059187",
-        "size": 42339104,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3659/libmain.so.gz"
+        "sha256": "74dfc303bc0e468ec353c9608d7616455d36bacbdb721513d8e2ef5e557a1c56",
+        "size": 42351808,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3667/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "9096d0e7795fcd7a15cfeeb4c6ffe0312d6e7cb2530b0cad6a413bc9a2acfbbd",
-        "size": 42347440,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3659/libmain60.so.gz"
+        "sha256": "6c2fd2d63c090059998ea5f594ca5d7a41372b081f80f24725e100fa056ab4d7",
+        "size": 42356048,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3667/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3659,
-    "source_commit": "474b7c0fb484b9b0c2ce22f6c2f991fb7c167554"
+    "seq": 3667,
+    "source_commit": "a892c63a0cee78ae84c751b05a06913294cfcf3e"
   },
-  "note": "Engine asset/audio reliability: accept available music tracks; invalidate missing-file cache after asset-root changes; FFmpeg/OpenAL error cleanup and malformed-stream validation. Host/Android 30+60Hz build and automated regressions passed. TEOD missing texture content and physical-device visuals/audio remain unverified. Engine-only OTA, no APK.",
-  "published": "2026-11-03",
+  "note": "Engine-only performance: four-tile terrain batching, corrected frame pacing, reduced module creation lookups, and batched GLES program queries. Preserves 30/60Hz and gameplay. Physical-device FPS and Vanilla/TEOD visual validation remain unverified. No APK.",
+  "published": "2026-11-04",
   "schema": 1,
-  "serial": 31
+  "serial": 32
 }
