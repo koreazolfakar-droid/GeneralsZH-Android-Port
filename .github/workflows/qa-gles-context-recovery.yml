@@ -1,0 +1,39 @@
+name: GLES Context Restoration QA
+
+on:
+  pull_request:
+    branches: [dev/mobile-v4]
+    paths:
+      - 'Core/Libraries/Source/d3d8gles/**'
+      - 'GeneralsMD/Code/GameEngineDevice/Source/SDL3GameEngine.cpp'
+      - 'scripts/qa/test-gles-*'
+      - 'scripts/qa/test-sdl3-render-lifecycle.py'
+      - '.github/workflows/qa-gles-context-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  context-lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host EGL/GLES libraries and headers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++ libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dri
+      - name: SDL GL worker ownership and EGL replacement
+        run: python3 scripts/qa/test-gles-context-lifecycle.py
+      - name: SDL app gate, device-reset coalescing and window lifecycle
+        run: python3 scripts/qa/test-sdl3-render-lifecycle.py
+      - name: Production GLES surface and viewport restoration
+        run: python3 scripts/qa/test-gles-surface-restoration.py
+      - name: Software EGL real pixel validation
+        run: python3 scripts/qa/test-gles-egl-surface.py --require-egl
+      - name: Existing upload and texture regression suites
+        run: |
+          python3 scripts/qa/test-gles-upload-regressions.py
+          python3 scripts/qa/test-gles-texture-state.py
+          python3 scripts/qa/test-gles-terrain-fused.py
