@@ -3572,10 +3572,34 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 		// GeneralsX @performance Codex 14/10/2026 Dynamic terrain lighting may
 		// mark a whole static tile dirty without changing any of its bytes.
 		// Compare against the last QUEUED version; never mutate GPU memory or
-		// weaken a plain D3D lock's synchronization contract. DISCARD/allocation
-		// still take the original full path and preserve older sorted ranges.
+		// weaken a plain D3D lock's synchronization contract. Changed DISCARDs
+		// and allocations take the full path and preserve older sorted ranges.
 		const bool staticTerrain = m_opt.terrainReuse && !(vb->m_usage & D3DUSAGE_DYNAMIC) && s_gxDrawCategory == GX_DRAWCAT_TERRAIN;
 		GxBufferSnapshot &submitted = vb->m_gl.submittedTerrain;
+		// GeneralsX @performance Codex 05/11/2026 DISCARD need not rename
+		// storage when EVERY byte a full upload would initialize is already
+		// identical. Compare the complete initialized prefix, not just the
+		// lock range: sorted draws may still reference its older vertices.
+		// Unknown tails and changed bytes retain the original full upload.
+		// The snapshot describes captured FIFO commands, never GPU completion.
+		if (staticTerrain && vb->m_gl.allocated && vb->m_gl.pendingDiscard &&
+		    submitted.ready(vb->m_bits.size())) {
+			const double compareStart = gxNowUs();
+			const size_t valid = (vb->m_gl.writtenEnd > 0 && vb->m_gl.writtenEnd < vb->m_bits.size())
+				? vb->m_gl.writtenEnd : vb->m_bits.size();
+			size_t begin = 0, end = valid;
+			submitted.trim(vb->m_bits.data(), begin, end);
+			s_gxTerrainCompareUs += gxNowUs() - compareStart;
+			s_gxTerrainAttemptBytes += valid;
+			++s_gxTerrainCompared;
+			if (begin == end) {
+				s_gxTerrainAvoidedBytes += valid;
+				++s_gxTerrainUnchanged;
+				vb->m_gl.dirty = vb->m_gl.pendingDiscard = vb->m_gl.pendingSync = false;
+				vb->m_gl.clearRange();
+				return;
+			}
+		}
 		if (s_gxDrawCategory == GX_DRAWCAT_TERRAIN) {
 			if (!m_opt.terrainReuse) ++s_gxTerrainReuseMissReasons[0];
 			else if (vb->m_usage & D3DUSAGE_DYNAMIC) ++s_gxTerrainReuseMissReasons[1];

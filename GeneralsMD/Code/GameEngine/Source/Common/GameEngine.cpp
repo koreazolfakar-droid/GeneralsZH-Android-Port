@@ -1228,7 +1228,7 @@ extern NGMPGame* TheNGMPGame;
 // Logic frames keep their ordering, but replay/save compatibility must be validated on device.
 static UnsignedInt s_gxCatchUpSteps = 0;
 
-static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point frameWorkStart)
+static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point frameWorkStart, Bool regularLogicUpdated)
 {
 	static std::chrono::steady_clock::time_point s_last;
 	static double s_debt = 0.0;
@@ -1243,17 +1243,6 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 #else
 	const Int normalFps = BaseFps;
 #endif
-	// GeneralsX @bugfix Android port 03/10/2026 Only a game the player is playing: skirmish or
-	// campaign. A replay plays at its own speed, and catching up inside playback broke the replay
-	// check -- Global_War2.rep, which matched the PC on all 1946 checkpoints on 29/09, mismatched
-	// from the first one on the 02/10 builds (the recorded 60 fps limit is doubled for the 60 Hz
-	// engine, which is above normal, so playback qualified).
-	const Bool playingAGame = (TheGameLogic->isInSkirmishGame() || TheGameLogic->isInSinglePlayerGame())
-		&& !TheGameLogic->isInReplayGame() && (TheRecorder == nullptr || !TheRecorder->isPlaybackMode());
-// GeneralsX @performance Codex 05/11/2026 The normal Android engine
-	// still runs exactly one simulation tick per rendered frame. Recover the
-	// missing ticks on GPU-limited battles; leave explicit slow-speed settings,
-	// replay playback and deterministic network lockstep alone.
 	const Bool fasterSpeed = TheFramePacer->isActualFramesPerSecondLimitEnabled()
 		&& TheFramePacer->getActualFramesPerSecondLimit() > normalFps;
 #if defined(__ANDROID__)
@@ -1263,11 +1252,24 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 #else
 	const Bool normalFloor = FALSE;
 #endif
-	const Bool applies = TheNetwork == nullptr && playingAGame && TheGameLogic->isInGame() && !TheGameLogic->isGamePaused()
-		&& TheShell != nullptr && !TheShell->isShellActive()
-		&& !TheFramePacer->isTimeFrozen() && !TheFramePacer->isGameHalted()
-		&& (fasterSpeed || normalFloor);
-	if (!applies)
+	// GeneralsX @bugfix Android port 03/10/2026 Only a game the player is playing: skirmish or
+	// campaign. A replay plays at its own speed, and catching up inside playback broke the replay
+	// check -- Global_War2.rep, which matched the PC on all 1946 checkpoints on 29/09, mismatched
+	// from the first one on the 02/10 builds (the recorded 60 fps limit is doubled for the 60 Hz
+	// engine, which is above normal, so playback qualified).
+	// GeneralsX @bugfix Codex 05/11/2026 Logic/message callbacks can end a
+	// match or enter another scheduling mode between extra ticks. Re-evaluate
+	// eligibility at each boundary; never synthesize a tick after the primary
+	// scheduler declined one. No object/save/replay layout changes.
+	const auto applies = [&]() -> Bool {
+		const Bool playingAGame = (TheGameLogic->isInSkirmishGame() || TheGameLogic->isInSinglePlayerGame())
+			&& !TheGameLogic->isInReplayGame() && (TheRecorder == nullptr || !TheRecorder->isPlaybackMode());
+		return regularLogicUpdated && TheNetwork == nullptr && playingAGame && TheGameLogic->isInGame() && !TheGameLogic->isGamePaused()
+			&& TheShell != nullptr && !TheShell->isShellActive()
+			&& !TheFramePacer->isTimeFrozen() && !TheFramePacer->isGameHalted()
+			&& (fasterSpeed || normalFloor);
+	};
+	if (!applies())
 	{
 		s_debt = 0.0;
 		return;
@@ -1301,13 +1303,13 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
     const std::chrono::steady_clock::time_point until = now + std::chrono::milliseconds(8);
 #endif
 	Int extra = 0;
-	while (s_debt >= 1.0 && extra < 3 && std::chrono::steady_clock::now() < until)
+	while (s_debt >= 1.0 && extra < 3 && std::chrono::steady_clock::now() < until && applies())
 	{
 		// The same steps as a regular frame's logic update (canUpdateGameLogic's preUpdate
 		// clears the per-render-frame flag and applies a scheduled pause).
 		TheMessageStream->propagateMessages();
 		TheGameLogic->preUpdate();
-		if (TheGameLogic->isGamePaused())
+		if (!applies() || std::chrono::steady_clock::now() >= until)
 			break;
 		TheGameLogic->UPDATE();
 		TheGameClient->step();
@@ -1566,9 +1568,11 @@ void GameEngine::update()
 
 		// TheSuperHackers @info Ignores frozen time because the script engine needs updating in the logic update regardless.
 		double logicUs = 0.0, stepUs = 0.0;
+		Bool regularLogicUpdated = FALSE;
 		if (canUpdateGameLogic(FramePacer::IgnoreFrozenTime))
 		{
 			TheGameLogic->UPDATE();
+			regularLogicUpdated = TRUE;
 			if (gxPerfTrace) gxT5 = std::chrono::steady_clock::now();
 
 			if (!TheFramePacer->isTimeFrozen())
@@ -1585,7 +1589,7 @@ void GameEngine::update()
 		}
 
 		const auto gxCatchBegin = gxPerfTrace ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point();
-		gxCatchUpSpedUpLogic(gxFrameWorkStart);
+		gxCatchUpSpedUpLogic(gxFrameWorkStart, regularLogicUpdated);
 		const double gxExtraLogicUs = gxPerfTrace ? std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-gxCatchBegin).count() : 0.0;
 
 		// GeneralsX @feature Android port 23/09/2026 Replay check: fast-forward extra

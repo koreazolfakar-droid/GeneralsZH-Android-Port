@@ -15,7 +15,7 @@ from pathlib import Path
 engine=Path('GeneralsMD/Code/GameEngine/Source/Common/GameEngine.cpp').read_text()
 thread=Path('Core/Libraries/Source/d3d8gles/src/gles_thread.cpp').read_text()
 assert 'GXCatchUpBudget::remainingMs(spentMs, normalFps)' in engine
-assert 'gxCatchUpSpedUpLogic(gxFrameWorkStart)' in engine
+assert 'gxCatchUpSpedUpLogic(gxFrameWorkStart, regularLogicUpdated)' in engine
 assert 's_debt = 0.0; // avoid carrying a backlog' in engine
 assert 'GXCatchUpBudget::needsNormalSpeedFloor' in engine
 assert 'GXCatchUpBudget::accrueNormalDebt(s_debt, dt, normalFps)' in engine
