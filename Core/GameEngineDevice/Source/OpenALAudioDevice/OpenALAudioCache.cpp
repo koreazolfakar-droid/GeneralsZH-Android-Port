@@ -305,9 +305,18 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	// The built-in WAV reader first; FFmpeg only for what it does not handle.
 	Bool decodedNatively = FALSE;
 	{
-		std::vector<uint8_t> bytes(fileSize);
-		if (fileSize > 0 && file->read(bytes.data(), (Int)fileSize) == (Int)fileSize) {
-			decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+		// GeneralsX @performance Codex 05/11/2026 Avoid reading an entire
+		// non-WAV asset merely to discover that FFmpeg must read it again.
+		// Failed or unsupported probes still seek and use the existing fallback.
+		uint8_t header[12];
+		const bool wavHeader = fileSize >= sizeof(header) &&
+			file->read(header, sizeof(header)) == (Int)sizeof(header) &&
+			memcmp(header, "RIFF", 4) == 0 && memcmp(header + 8, "WAVE", 4) == 0;
+		if (wavHeader) {
+			file->seek(0, File::START);
+			std::vector<uint8_t> bytes(fileSize);
+			if (file->read(bytes.data(), (Int)fileSize) == (Int)fileSize)
+				decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
 		}
 	}
 	if (decodedNatively) {
