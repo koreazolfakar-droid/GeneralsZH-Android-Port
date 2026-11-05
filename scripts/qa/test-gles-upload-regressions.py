@@ -267,6 +267,7 @@ constexpr unsigned D3DUSAGE_DYNAMIC=1,GL_COPY_WRITE_BUFFER=1,GL_DYNAMIC_DRAW=2,G
 constexpr int GX_DRAWCAT_TERRAIN=4;
 static double s_gxTerrainCompareUs=0,s_gxTerrainAttemptBytes=0,s_gxTerrainAvoidedBytes=0;
 static unsigned s_gxTerrainCompared=0,s_gxTerrainUnchanged=0;
+static unsigned s_gxVBFullReasons[3]={},s_gxTerrainReuseMissReasons[6]={};
 static double gxNowUs(){return 0;}
 constexpr int GX_UPLOAD_IB_FULL=1,GX_UPLOAD_VB_FULL=2,GX_UPLOAD_IB_APPEND=3,GX_UPLOAD_VB_APPEND=4,GX_DRAWCAT_COUNT=7;
 static int s_gxDrawCategory=0;static unsigned s_gxSyncCallsByCategory[7]={};
