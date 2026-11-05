@@ -68,6 +68,9 @@ Bool OpenALAudioFileCache::decodeFFmpeg(OpenAudioFile* file)
 	while (file->m_ffmpegFile->decodePacket()) {
 	}
 
+	// GeneralsX @performance Codex 05/11/2026 Record submitted PCM bytes
+	// separately from the legacy encoded-file cache budget.
+	file->m_decodedBytes = audioData.size();
 	// Fill the buffer with the audio data
 	alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(file->m_ffmpegFile->getNumChannels(), file->m_ffmpegFile->getBytesPerSample() * 8),
 		audioData.data(), audioData.size(), file->m_ffmpegFile->getSampleRate());
@@ -191,12 +194,14 @@ Bool OpenALAudioFileCache::decodeWavNative(const uint8_t* data, size_t size, Ope
 	if (format == WAVE_FORMAT_PCM && (bits == 8 || bits == 16)) {
 		const size_t frameBytes = channels * (bits / 8);
 		samplesSize -= samplesSize % frameBytes;
+		file->m_decodedBytes = samplesSize;
 		alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(channels, bits), samples, (ALsizei)samplesSize, rate);
 		file->m_totalSamples = (int)(samplesSize / frameBytes);
 	} else if (format == WAVE_FORMAT_IMA_ADPCM && bits == 4 && blockAlign > 0) {
 		std::vector<int16_t> pcm;
 		if (!decodeImaAdpcm(samples, samplesSize, channels, blockAlign, pcm))
 			return FALSE;
+		file->m_decodedBytes = pcm.size() * sizeof(int16_t);
 		alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(channels, 16), pcm.data(),
 			(ALsizei)(pcm.size() * sizeof(int16_t)), rate);
 		file->m_totalSamples = (int)(pcm.size() / channels);
@@ -395,6 +400,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	openedAudioFile.m_openCount = 1;
 	openedAudioFile.m_lastUse = ++m_useClock;
 	m_openFiles[strToFind] = openedAudioFile;
+	m_currentlyDecodedSize += openedAudioFile.m_decodedBytes;
 	return openedAudioFile.m_buffer;
 }
 
@@ -529,6 +535,9 @@ Bool OpenALAudioFileCache::freeEnoughSpaceForSample(const OpenAudioFile& sampleT
 	for (ait = filesToClose.begin(); ait != filesToClose.end(); ++ait) {
 		OpenFilesHashIt itToErase = m_openFiles.find(*ait);
 		if (itToErase != m_openFiles.end()) {
+			if (itToErase->second.m_openCount > 0)
+				++m_stats.evictedActive;
+			m_currentlyDecodedSize -= itToErase->second.m_decodedBytes;
 			releaseOpenAudioFile(&itToErase->second);
 			m_currentlyUsedSize -= itToErase->second.m_fileSize;
 			m_openFiles.erase(itToErase);

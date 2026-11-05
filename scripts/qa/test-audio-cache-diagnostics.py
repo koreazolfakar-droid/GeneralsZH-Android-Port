@@ -16,14 +16,15 @@ code=r'''
 using UnsignedInt=unsigned;
 ''' + stats + r'''
 struct AudioPerf {unsigned frames=60,requests=10; double baseMs=1,requestsMs=2,playingMs=3,streamsMs=4,fadeStopMs=5,worstFrameMs=6;};
-struct Cache {unsigned getCurrentlyUsedSize(){return 1024;}unsigned getMaxSize(){return 2048;}unsigned getEntryCount(){return 3;}} cache,*m_audioCache=&cache;
+struct Cache {unsigned getCurrentlyUsedSize(){return 1024;}unsigned getMaxSize(){return 2048;}unsigned getEntryCount(){return 3;} unsigned long long getCurrentlyDecodedSize(){return 4096;}} cache,*m_audioCache=&cache;
 std::vector<int> m_playingSounds(1),m_playing3DSounds(2),m_playingStreams(3);
+unsigned gxAudioTakeStarvedObservations(){return 5;}
 char output[2048];
 #define GX_PERF_TRACE(...) std::snprintf(output,sizeof(output),__VA_ARGS__)
 int main(){AudioPerf p; OpenALAudioCacheStats c; c.misses=4;c.nativeWav=1;c.missing=2;c.ffmpegDecoded=1;const double n=p.frames;
 ''' + call + r'''
  assert(std::strstr(output,"hits=0 misses=4 (native wav 1)"));
- assert(std::strstr(output,"missing=2 ffmpeg=1 decode-failed=0"));
+ assert(std::strstr(output,"missing=2 ffmpeg=1 decode-failed=0 active-evictions=0 cached-pcm=4KB stream-starved=5"));
  std::puts("PASS: audio log retains legacy fields and separates missing/fallback failures"); }
 '''
 code=code.replace('#include <cstdio>', '#include <cassert>\n#include <cstdio>')

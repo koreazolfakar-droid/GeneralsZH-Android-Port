@@ -557,6 +557,8 @@ void OpenALAudioManager::reset()
 // phone -- a third of the frame -- with no way to tell which of these steps it was. One
 // [GX-PERF-AUDIO] line per second, only with the perf trace on; the timing itself is a few
 // clock reads per frame.
+extern "C" unsigned gxAudioTakeStarvedObservations();
+
 namespace {
 struct AudioPerf
 {
@@ -616,12 +618,13 @@ void OpenALAudioManager::update()
 	const double n = (double)p.frames;
 	GX_PERF_TRACE("[GX-PERF-AUDIO] frames=%u ms/frame: base=%.2f requests=%.2f playing=%.2f (streams=%.2f) fade+stop=%.2f worst=%.2f | "
 		"requests=%u cache: hits=%u misses=%u (native wav %u) decode=%.1fms (open %.1f, max %.1f) evicted=%u dropped=%u used=%uKB/%uKB entries=%u | "
-		"sources 2d=%u 3d=%u streams=%u | missing=%u ffmpeg=%u decode-failed=%u\n",
+		"sources 2d=%u 3d=%u streams=%u | missing=%u ffmpeg=%u decode-failed=%u active-evictions=%u cached-pcm=%lluKB stream-starved=%u\n",
 		p.frames, p.baseMs / n, p.requestsMs / n, p.playingMs / n, p.streamsMs / n, p.fadeStopMs / n, p.worstFrameMs,
 		p.requests, c.hits, c.misses, c.nativeWav, c.decodeMs, c.openMs, c.decodeMaxMs, c.evicted, c.dropped,
 		m_audioCache->getCurrentlyUsedSize() / 1024, m_audioCache->getMaxSize() / 1024, m_audioCache->getEntryCount(),
 		(unsigned)m_playingSounds.size(), (unsigned)m_playing3DSounds.size(), (unsigned)m_playingStreams.size(),
-		c.missing, c.ffmpegDecoded, c.decodeFailed);
+		c.missing, c.ffmpegDecoded, c.decodeFailed, c.evictedActive,
+		(unsigned long long)(m_audioCache->getCurrentlyDecodedSize() / 1024), gxAudioTakeStarvedObservations());
 	c = OpenALAudioCacheStats();
 	p = AudioPerf();
 }
