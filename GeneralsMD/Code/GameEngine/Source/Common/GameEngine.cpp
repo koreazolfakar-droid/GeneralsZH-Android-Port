@@ -1222,9 +1222,10 @@ extern NGMPGame* TheNGMPGame;
 // slider asks for more than normal speed and drawing falls behind it, the logic catches up with
 // extra frames within the same rendered frame -- up to three, within 8 ms, so drawing never stops,
 // and debt beyond that is dropped rather than carried (the game is then slower than asked, never
-// stuck catching up). Offline only (no TheNetwork), never at normal speed or below, where the
-// original "slower frames, slower game" behaviour stays. The logic frames are the same ones in
-// the same order, only grouped differently between draws: replays and saves are unaffected.
+// stuck catching up). On Android a second, bounded mode also maintains at least the normal
+// simulation cadence when rendering falls below it, without changing slower-speed slider modes.
+// Offline skirmish/campaign only: network, replays, pause and time-scale modes stay unchanged.
+// Logic frames keep their ordering, but replay/save compatibility must be validated on device.
 static UnsignedInt s_gxCatchUpSteps = 0;
 
 static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point frameWorkStart)
@@ -1249,11 +1250,23 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 	// engine, which is above normal, so playback qualified).
 	const Bool playingAGame = (TheGameLogic->isInSkirmishGame() || TheGameLogic->isInSinglePlayerGame())
 		&& !TheGameLogic->isInReplayGame() && (TheRecorder == nullptr || !TheRecorder->isPlaybackMode());
+// GeneralsX @performance Codex 05/11/2026 The normal Android engine
+	// still runs exactly one simulation tick per rendered frame. Recover the
+	// missing ticks on GPU-limited battles; leave explicit slow-speed settings,
+	// replay playback and deterministic network lockstep alone.
+	const Bool fasterSpeed = TheFramePacer->isActualFramesPerSecondLimitEnabled()
+		&& TheFramePacer->getActualFramesPerSecondLimit() > normalFps;
+#if defined(__ANDROID__)
+	const Bool normalFloor = GXCatchUpBudget::needsNormalSpeedFloor(
+		TheFramePacer->getFramesPerSecondLimit(), normalFps,
+		TheFramePacer->isLogicTimeScaleEnabled());
+#else
+	const Bool normalFloor = FALSE;
+#endif
 	const Bool applies = TheNetwork == nullptr && playingAGame && TheGameLogic->isInGame() && !TheGameLogic->isGamePaused()
 		&& TheShell != nullptr && !TheShell->isShellActive()
 		&& !TheFramePacer->isTimeFrozen() && !TheFramePacer->isGameHalted()
-		&& TheFramePacer->isActualFramesPerSecondLimitEnabled()
-		&& TheFramePacer->getActualFramesPerSecondLimit() > normalFps;
+		&& (fasterSpeed || normalFloor);
 	if (!applies)
 	{
 		s_debt = 0.0;
@@ -1262,16 +1275,22 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 
 	// This frame's own logic step already ran (canUpdateRegularGameLogic is true on every frame
 	// while the logic time scale is off, as it is offline).
-	s_debt += dt * TheFramePacer->getActualFramesPerSecondLimit() - 1.0;
 #if defined(__ANDROID__)
-    // A slow TEOD frame must not schedule extra full AI/pathfinding ticks merely
-    // because it ran slowly. Spend only the CPU time left by rendering + the
-    // mandatory simulation step. This preserves normal-speed game logic and
-    // multiplayer/replay scheduling, and keeps faster-speed catch-up when cheap.
+	if (normalFloor && !fasterSpeed)
+		s_debt = GXCatchUpBudget::accrueNormalDebt(s_debt, dt, normalFps);
+	else
+#endif
+		s_debt += dt * TheFramePacer->getActualFramesPerSecondLimit() - 1.0;
+#if defined(__ANDROID__)
+    // Faster-than-normal play may use only spare CPU time. Normal-speed
+    // recovery must also work when GPU submission already consumed the frame
+    // budget; reserve up to 6 ms, at most three additional ordered ticks.
     const double spentMs = std::chrono::duration<double, std::milli>(now - frameWorkStart).count();
-    const double extraBudgetMs = GXCatchUpBudget::remainingMs(spentMs, normalFps);
+    const double extraBudgetMs = fasterSpeed
+        ? GXCatchUpBudget::remainingMs(spentMs, normalFps)
+        : GXCatchUpBudget::normalSpeedBudgetMs(normalFps);
     if (extraBudgetMs <= 0.0) {
-        s_debt = 0.0; // never carry a high-speed backlog into the next frame
+        s_debt = 0.0; // avoid carrying a backlog when no recovery is possible
         return;
     }
     const std::chrono::steady_clock::time_point until =
