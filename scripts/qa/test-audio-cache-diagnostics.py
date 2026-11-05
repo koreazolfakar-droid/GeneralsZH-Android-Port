@@ -20,10 +20,10 @@ struct Cache {unsigned getCurrentlyUsedSize(){return 1024;}unsigned getMaxSize()
 std::vector<int> m_playingSounds(1),m_playing3DSounds(2),m_playingStreams(3);
 char output[2048];
 #define GX_PERF_TRACE(...) std::snprintf(output,sizeof(output),__VA_ARGS__)
-int main(){AudioPerf p; OpenALAudioCacheStats c; c.misses=4;c.nativeWav=1;const double n=p.frames;
+int main(){AudioPerf p; OpenALAudioCacheStats c; c.misses=4;c.nativeWav=1;c.missing=2;c.ffmpegDecoded=1;const double n=p.frames;
 ''' + call + r'''
  assert(std::strstr(output,"hits=0 misses=4 (native wav 1)"));
- assert(std::strstr(output,"missing=0 ffmpeg=0 decode-failed=0"));
+ assert(std::strstr(output,"missing=2 ffmpeg=1 decode-failed=0"));
  std::puts("PASS: audio log retains legacy fields and separates missing/fallback failures"); }
 '''
 code=code.replace('#include <cstdio>', '#include <cassert>\n#include <cstdio>')
