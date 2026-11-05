@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "74dfc303bc0e468ec353c9608d7616455d36bacbdb721513d8e2ef5e557a1c56",
-        "size": 42351808,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3667/libmain.so.gz"
+        "sha256": "8e4625bd46b0f8ba593d3bcc83f4da8c213cb10bbe80e6b5739c6702be65f16a",
+        "size": 42351856,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3679/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "6c2fd2d63c090059998ea5f594ca5d7a41372b081f80f24725e100fa056ab4d7",
-        "size": 42356048,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3667/libmain60.so.gz"
+        "sha256": "599a84d7cfec9c6b70ec19f2e6f9c6f11e536393de8c077cde7c72d4d7379f7f",
+        "size": 42356160,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3679/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3667,
-    "source_commit": "a892c63a0cee78ae84c751b05a06913294cfcf3e"
+    "seq": 3679,
+    "source_commit": "fb163bbb0ed998e41ecf3b7f0b7bed8426cac534"
   },
-  "note": "Engine-only performance: four-tile terrain batching, corrected frame pacing, reduced module creation lookups, and batched GLES program queries. Preserves 30/60Hz and gameplay. Physical-device FPS and Vanilla/TEOD visual validation remain unverified. No APK.",
-  "published": "2026-11-04",
+  "note": "Engine 3679 performance fixes: offline catch-up deadline safeguards, redundant static-terrain GPU upload elimination, and render-thread lost-wakeup synchronization fix. Full source/host/Android 30Hz and 60Hz CI validation passed; physical Samsung/Mali gameplay, Vanilla/TEOD, saves, replay, multiplayer and on-device FPS remain unverified. Engine-only OTA, NO APK; previous 3667 payloads preserved for rollback.",
+  "published": "2026-11-05",
   "schema": 1,
-  "serial": 32
+  "serial": 33
 }
