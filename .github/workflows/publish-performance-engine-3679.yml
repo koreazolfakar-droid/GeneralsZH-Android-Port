@@ -1,0 +1,181 @@
+name: Publish verified engine 3679 performance OTA (one time)
+
+# Engine-only publication of exact already-tested Android 30/60Hz libraries.
+# Downloads an existing RELEASED bootstrap APK solely to verify runtime trust
+# and library fingerprints; does not build, alter or distribute an APK.
+on:
+  push:
+    branches: [dev/mobile-v4]
+    paths:
+      - .github/workflows/publish-performance-engine-3679.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: own-engine-update-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'koreazolfakar-droid/GeneralsZH-Android-Port'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: fb163bbb0ed998e41ecf3b7f0b7bed8426cac534
+      ENGINE_RUN: '41980929537'
+      MERGE_COMMIT: aeba2f7f02e96f2aa97bbd988fa60a24b8b3ad61
+      PREVIOUS_SOURCE: a892c63a0cee78ae84c751b05a06913294cfcf3e
+      EXPECT_30_SHA: 8e4625bd46b0f8ba593d3bcc83f4da8c213cb10bbe80e6b5739c6702be65f16a
+      EXPECT_60_SHA: 599a84d7cfec9c6b70ec19f2e6f9c6f11e536393de8c077cde7c72d4d7379f7f
+
+    steps:
+      - name: Checkout exact publication commit and complete source history
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Verify merged tested source, immutable CI and prior signed channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev/mobile-v4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$MERGE_COMMIT"
+          test "$(git rev-parse --is-shallow-repository)" = false
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          test "$(gh api "repos/$GITHUB_REPOSITORY/branches/dev/mobile-v4" --jq .commit.sha)" = "$GITHUB_SHA"
+          test "$(git diff --name-only "$SOURCE" HEAD)" = '.github/workflows/publish-performance-engine-3679.yml'
+          test "$(git rev-list --count "$SOURCE")" = 3679
+          gh api "repos/$GITHUB_REPOSITORY/pulls/45" > "$RUNNER_TEMP/pr.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ENGINE_RUN" > "$RUNNER_TEMP/build.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/prior.json"
+          python3 - <<'PY'
+          import json,os
+          folder=os.environ['RUNNER_TEMP']
+          pr=json.load(open(folder+'/pr.json'))
+          run=json.load(open(folder+'/build.json'))
+          previous=json.load(open(folder+'/prior.json'))
+          assert pr['merged'] and pr['merge_commit_sha']==os.environ['MERGE_COMMIT']
+          assert pr['head']['sha']==os.environ['SOURCE']
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['event']=='pull_request' and run['head_sha']==os.environ['SOURCE']
+          assert run['path']=='.github/workflows/qa-native-asset-audio.yml'
+          assert run['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY']
+          assert previous['engine']['seq']==3667 and previous['serial']==32
+          assert previous['engine']['source_commit']==os.environ['PREVIOUS_SOURCE']
+          assert set(previous['engine']['files'])=={'libmain.so','libmain60.so'}
+          print('PASS: exact tested merged source and unchanged prior OTA manifest')
+          PY
+
+      - name: Download existing exact-source dual Android engine build
+        uses: actions/download-artifact@v5
+        with:
+          name: engine-incremental-report
+          run-id: 41980929537
+          github-token: ${{ github.token }}
+          path: engine-build
+
+      - name: Retrieve existing signed-bootstrap baseline from GitHub Release (NO APK BUILD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bootstrap-baseline
+          gh release download bootstrap-1.4.3-engine3333 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk' \
+            --dir bootstrap-baseline
+          echo 'd6eb3862e5b87672488b4cabc39414d99871a29651f045fc8be2f61747234125  bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk' | sha256sum -c -
+
+      - name: Validate final prebuilt libraries and prepare serial 33 OTA payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update/prepare-engine-run.py \
+            --report-dir engine-build \
+            --baseline-apk bootstrap-baseline/GeneralsZH-Bootstrap-1.4.3-Engine3333-debug.apk \
+            --expected-source "$SOURCE" \
+            --out prepared-update \
+            --serial 33 \
+            --note 'Engine 3679 performance fixes: offline catch-up deadline safeguards, redundant static-terrain GPU upload elimination, and render-thread lost-wakeup synchronization fix. Full source/host/Android 30Hz and 60Hz CI validation passed; physical Samsung/Mali gameplay, Vanilla/TEOD, saves, replay, multiplayer and on-device FPS remain unverified. Engine-only OTA, NO APK; previous 3667 payloads preserved for rollback.'
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          r=json.loads(Path('engine-build/result.json').read_text())
+          m=json.loads(Path('prepared-update/manifest.json').read_text())
+          assert r['build']=='PASS' and r['source_head']==os.environ['SOURCE']
+          assert r['dependency_compatibility']=='PASS' and r['new_apk_required'] is False
+          assert r['resolved_engine_sequence']==3679
+          assert set(r['variants'])=={'30','60'}
+          assert all(v['source_sha']==os.environ['SOURCE'] and v['engine_sequence']==3679
+                     for v in r['variants'].values())
+          assert hashlib.sha256(Path('engine-build/libmain.so').read_bytes()).hexdigest()==os.environ['EXPECT_30_SHA']
+          assert hashlib.sha256(Path('engine-build/libmain60.so').read_bytes()).hexdigest()==os.environ['EXPECT_60_SHA']
+          assert m['serial']==33 and m['engine']['seq']==3679
+          assert m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          assert m['engine']['files']['libmain.so']['sha256']==os.environ['EXPECT_30_SHA']
+          assert m['engine']['files']['libmain60.so']['sha256']==os.environ['EXPECT_60_SHA']
+          print('PASS: verified exact tested 30/60Hz engine 3679 with no APK dependency changes')
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/contents/manifest.json?ref=updates" --jq .content | base64 --decode > "$RUNNER_TEMP/current.json"
+          cmp "$RUNNER_TEMP/prior.json" "$RUNNER_TEMP/current.json"
+
+      - name: Sign and verify OTA manifest with existing private identity
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/update/sign-manifest.sh prepared-update
+
+      - name: Publish only signed and verified native engine binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          bash scripts/update/push-updates-branch.sh prepared-update
+
+      - name: Independently verify live signature, source and both raw download hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published-check
+          for name in manifest.json manifest.json.sig; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/$name?ref=updates" \
+              --jq .content | base64 --decode > "published-check/$name"
+          done
+          python3 - <<'PY'
+          import gzip,hashlib,importlib.util,json,os,time,urllib.request
+          spec=importlib.util.spec_from_file_location('update_artifacts','scripts/update/update-artifacts.py')
+          a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+          m=a.verify_manifest('published-check','android/app/src/main/assets/update-public.pem')
+          assert m['serial']==33 and m['engine']['seq']==3679
+          assert m['engine']['source_commit']==os.environ['SOURCE']
+          assert set(m['engine']['files'])=={'libmain.so','libmain60.so'}
+          for name,expected in [('libmain.so',os.environ['EXPECT_30_SHA']),('libmain60.so',os.environ['EXPECT_60_SHA'])]:
+            row=m['engine']['files'][name]
+            assert row['sha256']==expected
+            for attempt in range(10):
+              try:
+                with urllib.request.urlopen(row['url'],timeout=90) as response:
+                  payload=gzip.decompress(response.read())
+                break
+              except Exception:
+                if attempt==9: raise
+                time.sleep(8)
+            assert len(payload)==row['size']
+            assert hashlib.sha256(payload).hexdigest()==expected
+            a.native_stamp(payload,os.environ['SOURCE'],3679)
+            print('PASS: live signed OTA binary',name,expected)
+          print('PASS: SIGNED ENGINE-ONLY OTA PUBLISHED version=3679 serial=33')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+            f.write('### SIGNED ENGINE-ONLY OTA PUBLISHED AND VERIFIED\n')
+            f.write('Engine 3679, serial 33; source '+os.environ['SOURCE']+'\n')
+            f.write('No APK built or deployed. Device rendering/gameplay and activation remain unverified.\n')
+          PY
