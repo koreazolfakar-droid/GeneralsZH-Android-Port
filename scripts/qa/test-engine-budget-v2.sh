@@ -16,7 +16,12 @@ engine=Path('GeneralsMD/Code/GameEngine/Source/Common/GameEngine.cpp').read_text
 thread=Path('Core/Libraries/Source/d3d8gles/src/gles_thread.cpp').read_text()
 assert 'GXCatchUpBudget::remainingMs(spentMs, normalFps)' in engine
 assert 'gxCatchUpSpedUpLogic(gxFrameWorkStart)' in engine
-assert 's_debt = 0.0; // never carry a high-speed backlog' in engine
+assert 's_debt = 0.0; // avoid carrying a backlog' in engine
+assert 'GXCatchUpBudget::needsNormalSpeedFloor' in engine
+assert 'GXCatchUpBudget::accrueNormalDebt(s_debt, dt, normalFps)' in engine
+assert 'TheNetwork == nullptr && playingAGame' in engine
+assert '!TheGameLogic->isInReplayGame()' in engine
+assert 'GXCatchUpBudget::normalSpeedBudgetMs(normalFps)' in engine
 assert 'gxrt::SwapIntervalCache' not in thread  # same-namespace class, no duplicate wrapper
 assert thread.count('applySwapInterval(swapInterval);') == 2
 assert thread.count('s_swapInterval.invalidate();') >= 3
