@@ -1243,6 +1243,9 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 #else
 	const Int normalFps = BaseFps;
 #endif
+	const Int configuredFps = TheFramePacer->getFramesPerSecondLimit();
+	const Bool logicScaleEnabled = TheFramePacer->isLogicTimeScaleEnabled();
+	const Bool limitEnabled = TheFramePacer->isActualFramesPerSecondLimitEnabled();
 	const Bool fasterSpeed = TheFramePacer->isActualFramesPerSecondLimitEnabled()
 		&& TheFramePacer->getActualFramesPerSecondLimit() > normalFps;
 #if defined(__ANDROID__)
@@ -1267,6 +1270,12 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 		return regularLogicUpdated && TheNetwork == nullptr && playingAGame && TheGameLogic->isInGame() && !TheGameLogic->isGamePaused()
 			&& TheShell != nullptr && !TheShell->isShellActive()
 			&& !TheFramePacer->isTimeFrozen() && !TheFramePacer->isGameHalted()
+			// Scripts can freeze time or change pacing during UPDATE(), before
+			// the next regular canUpdateGameLogic refreshes FramePacer flags.
+			&& !GameEngine::isTimeFrozen()
+			&& TheFramePacer->getFramesPerSecondLimit() == configuredFps
+			&& TheFramePacer->isLogicTimeScaleEnabled() == logicScaleEnabled
+			&& TheFramePacer->isActualFramesPerSecondLimitEnabled() == limitEnabled
 			&& (fasterSpeed || normalFloor);
 	};
 	if (!applies())
@@ -1312,7 +1321,8 @@ static void gxCatchUpSpedUpLogic(const std::chrono::steady_clock::time_point fra
 		if (!applies() || std::chrono::steady_clock::now() >= until)
 			break;
 		TheGameLogic->UPDATE();
-		TheGameClient->step();
+		if (!GameEngine::isTimeFrozen())
+			TheGameClient->step();
 		s_debt -= 1.0;
 		++extra;
 		++s_gxCatchUpSteps;

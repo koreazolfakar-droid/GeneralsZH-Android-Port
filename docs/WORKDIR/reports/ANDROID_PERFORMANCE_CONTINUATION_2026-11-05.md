@@ -15,6 +15,8 @@ repeating its normal-speed debt recovery and upload attribution changes.
 2. Catch-up eligibility was sampled only once per rendered frame. End-game,
    network/replay and shell/freeze transitions inside callbacks could admit
    additional ticks. Eligibility now runs at each boundary and after messages.
+   Fresh script freezes and speed/time-scale/limiter changes stop recovery even
+   before cached FramePacer state is refreshed.
    Catch-up also requires a completed primary logic update. Recheck the deadline
    after messages so expensive message handling cannot admit a late logic tick.
    Step count remains at most three extra ticks, elapsed input at most 100ms,
@@ -41,9 +43,13 @@ headers and `--require-egl` passed with Mesa llvmpipe EGL 1.5. It verifies 12
 surface recreations, preserved textures, complete clears and contiguous UI
 pixels. This is a host software renderer, not an Android/Mali device test.
 
-Local logs are in `/workspace/validation-final/`. JVM/update-baseline fixture
-verification and final exact-source native build are being completed separately;
-require their actual results before release. No APK is built by these changes.
+Local logs are in `/workspace/validation-final/`. Production UpdateTrust JVM
+validation passed eight crypto checks with a user-local JDK. The own-channel
+suite passed 22 host checks using the unchanged downloaded Bootstrap 3333 APK.
+The final exact-source native build must still be inspected before release.
+The superseded 3677 native run was canceled during runner cleanup before
+compilation after additional mode-transition cases required a source correction.
+No APK is built by these changes.
 
 ## Measurements and provenance
 

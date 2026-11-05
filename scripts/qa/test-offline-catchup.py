@@ -51,13 +51,15 @@ struct Shell {bool active=false;bool isShellActive(){return active;}} shell,*The
 struct Client {unsigned steps=0;void step(){++steps;}} client,*TheGameClient=&client;
 void *TheNetwork=nullptr;
 struct Messages {std::function<void()> action;void propagateMessages(){if(action)action();}} messages,*TheMessageStream=&messages;
+struct GameEngine {static bool scriptFrozen;static bool isTimeFrozen(){return scriptFrozen;}};
+bool GameEngine::scriptFrozen=false;
 static UnsignedInt s_gxCatchUpSteps=0;
 '''
 code += function.replace('std::chrono::steady_clock', 'TestClock')
 code += '\nstatic void run(bool regular=true){ (void)regular; '+call+'; }\n'
 code += r'''
 static void reset(){
- logic=Logic{};pacer=Pacer{};shell=Shell{};recorder=Recorder{};client=Client{};messages=Messages{};TheNetwork=nullptr;
+ GameEngine::scriptFrozen=false;logic=Logic{};pacer=Pacer{};shell=Shell{};recorder=Recorder{};client=Client{};messages=Messages{};TheNetwork=nullptr;
  logic.paused=true;run();logic.paused=false; // reset the production static debt/clock
 }
 int main(){
@@ -75,7 +77,7 @@ int main(){
  }
  reset();TestClock::add(10);run();assert(logic.updates<=3); // resume/stall step cap
  reset();logic.cost=0.010;TestClock::add(0.1);run();assert(logic.updates==1); // 6ms admission budget
- for(int transition=0;transition<6;++transition){
+ for(int transition=0;transition<9;++transition){
   reset();
   logic.action=[&]{
    if(transition==0)logic.game=false;
@@ -84,6 +86,9 @@ int main(){
    if(transition==3)pacer.frozen=true;
    if(transition==4)shell.active=true;
    if(transition==5)logic.replay=true;
+   if(transition==6)pacer.scaled=true;
+   if(transition==7)pacer.fps=TEST_HZ/2;
+   if(transition==8)GameEngine::scriptFrozen=true;
   };
   TestClock::add(0.1);run();assert(logic.updates==1&&client.steps<=1);
  }
