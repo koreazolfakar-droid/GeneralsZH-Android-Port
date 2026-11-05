@@ -313,9 +313,10 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 			file->read(header, sizeof(header)) == (Int)sizeof(header) &&
 			memcmp(header, "RIFF", 4) == 0 && memcmp(header + 8, "WAVE", 4) == 0;
 		if (wavHeader) {
-			file->seek(0, File::START);
 			std::vector<uint8_t> bytes(fileSize);
-			if (file->read(bytes.data(), (Int)fileSize) == (Int)fileSize)
+			memcpy(bytes.data(), header, sizeof(header));
+			const Int remaining = (Int)(fileSize - sizeof(header));
+			if (remaining == 0 || file->read(bytes.data() + sizeof(header), remaining) == remaining)
 				decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
 		}
 	}

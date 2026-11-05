@@ -20,7 +20,7 @@ struct OpenAudioFile {};
 struct Tester { bool decodeWavNative(const uint8_t* p,size_t n,OpenAudioFile*){return n>=12 && !memcmp(p,"RIFF",4) && !memcmp(p+8,"WAVE",4);} bool probe(File* file){unsigned fileSize=file->data.size();OpenAudioFile openedAudioFile;
 ''' + section + r'''
  return decodedNatively; }};
-int main(){Tester t;File mp3;mp3.data.assign(65536,42);assert(!t.probe(&mp3));assert(mp3.readBytes<=12);File wav;wav.data.assign(4096,0);memcpy(wav.data.data(),"RIFF",4);memcpy(wav.data.data()+8,"WAVE",4);assert(t.probe(&wav));assert(wav.readBytes<=wav.data.size()+12);File shortFile;shortFile.data.assign(4,0);assert(!t.probe(&shortFile));assert(shortFile.readBytes<=12);}
+int main(){Tester t;File mp3;mp3.data.assign(65536,42);assert(!t.probe(&mp3));assert(mp3.readBytes<=12);File wav;wav.data.assign(4096,0);memcpy(wav.data.data(),"RIFF",4);memcpy(wav.data.data()+8,"WAVE",4);assert(t.probe(&wav));assert(wav.readBytes==wav.data.size());File shortFile;shortFile.data.assign(4,0);assert(!t.probe(&shortFile));assert(shortFile.readBytes<=12);}
 '''
 with tempfile.TemporaryDirectory() as tmp:
  p=Path(tmp)/'test.cpp';p.write_text(code);exe=Path(tmp)/'test'
