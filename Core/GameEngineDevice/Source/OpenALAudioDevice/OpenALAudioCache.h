@@ -85,6 +85,10 @@ struct OpenALAudioCacheStats
 	UnsignedInt evicted = 0;      ///< entries freed to make room
 	UnsignedInt dropped = 0;      ///< decoded but no room could be made: thrown away, sound not played
 	UnsignedInt nativeWav = 0;    ///< misses decoded by the built-in WAV reader rather than FFmpeg
+	// GeneralsX @performance Codex 05/11/2026 Distinguish failed lookups from FFmpeg work.
+	UnsignedInt missing = 0;
+	UnsignedInt ffmpegDecoded = 0;
+	UnsignedInt decodeFailed = 0;
 };
 
 struct OpenFileInfo

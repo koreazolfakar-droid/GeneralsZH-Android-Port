@@ -10,7 +10,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-REQUIRED_TESTS = ('test-audio-native-probe.py','test-engine-budget-v2.py','test-offline-catchup.py','test-performance-release-gates.py','test-engine-runner-space.py','test-terrain-draw-batching.py','test-frame-rate-limit.py','test-module-factory-resolution.py','test-gles-program-bindings.py','test-shroud-classification.py','test-gles-context-lifecycle.py','test-gles-surface-restoration.py','test-sdl3-render-lifecycle.py',
+REQUIRED_TESTS = ('test-audio-cache-diagnostics.py','test-audio-native-probe.py','test-engine-budget-v2.py','test-offline-catchup.py','test-performance-release-gates.py','test-engine-runner-space.py','test-terrain-draw-batching.py','test-frame-rate-limit.py','test-module-factory-resolution.py','test-gles-program-bindings.py','test-shroud-classification.py','test-gles-context-lifecycle.py','test-gles-surface-restoration.py','test-sdl3-render-lifecycle.py',
                   'test-mod-localization.py', 'smoke/test-mod-localization.py',
                   'test-standalone-mod-overlay.py', 'test-mod-archive-loading.py',
                   'test-gles-upload-regressions.py', 'test-battle-perf-window.py',

@@ -292,6 +292,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	File* file = TheFileSystem->openFile(strToFind.str());
 	m_stats.openMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - missStart).count();
 	if (!file) {
+		++m_stats.missing;
 		DEBUG_ASSERTLOG(strToFind.isEmpty(), ("Missing Audio File: '%s'\n", strToFind.str()));
 		return 0;
 	}
@@ -329,6 +330,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 
 		// This transfer ownership of file
 		if (!openedAudioFile.m_ffmpegFile->open(file)) {
+			++m_stats.decodeFailed;
 			releaseOpenAudioFile(&openedAudioFile);
 			return 0;
 		}
@@ -342,10 +344,12 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 		}
 
 		if (!decodeFFmpeg(&openedAudioFile)) {
+			++m_stats.decodeFailed;
 			releaseOpenAudioFile(&openedAudioFile);
 			return 0;
 		}
 
+		++m_stats.ffmpegDecoded;
 		openedAudioFile.m_ffmpegFile->close();
 	}
 
