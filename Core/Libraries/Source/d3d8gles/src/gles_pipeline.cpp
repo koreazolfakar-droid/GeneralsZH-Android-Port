@@ -3354,6 +3354,12 @@ extern "C" void d3d8gles_RecordTerrainPasses(int passes, int tilesPerPass)
 static unsigned s_gxUploadCount[GX_UPLOAD_KIND_COUNT] = {};
 static double s_gxTerrainCompareUs = 0.0, s_gxTerrainAttemptBytes = 0.0, s_gxTerrainAvoidedBytes = 0.0;
 static unsigned s_gxTerrainCompared = 0, s_gxTerrainUnchanged = 0;
+// GeneralsX @performance Codex 05/11/2026 Attribute full VBO churn
+// before modifying D3D8 DISCARD/NOOVERWRITE synchronization.
+static double s_gxVBFullBytesByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxVBFullCallsByCategory[GX_DRAWCAT_COUNT] = {};
+static unsigned s_gxVBFullReasons[3] = {}; // discard, first allocation, no-range
+static unsigned s_gxTerrainReuseMissReasons[6] = {}; // off, dynamic, no-storage, no-range, discard, no-snapshot
 static double s_gxVBAppendBytesByCategory[GX_DRAWCAT_COUNT] = {};
 static unsigned s_gxVBAppendCallsByCategory[GX_DRAWCAT_COUNT] = {};
 static unsigned s_gxSyncCallsByCategory[GX_DRAWCAT_COUNT] = {};
@@ -3369,9 +3375,14 @@ struct GxUploadTimer
 		++s_gxUploadCount[k];
 		// Classify the upload against the surrounding engine pass (best-effort: uploads
 		// performed before a pass is tagged remain in OTHER).
-		if (k == GX_UPLOAD_VB_APPEND && s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT) {
-			s_gxVBAppendBytesByCategory[s_gxDrawCategory] += (double)bytes;
-			++s_gxVBAppendCallsByCategory[s_gxDrawCategory];
+		if (s_gxDrawCategory >= 0 && s_gxDrawCategory < GX_DRAWCAT_COUNT) {
+			if (k == GX_UPLOAD_VB_APPEND) {
+				s_gxVBAppendBytesByCategory[s_gxDrawCategory] += (double)bytes;
+				++s_gxVBAppendCallsByCategory[s_gxDrawCategory];
+			} else if (k == GX_UPLOAD_VB_FULL) {
+				s_gxVBFullBytesByCategory[s_gxDrawCategory] += (double)bytes;
+				++s_gxVBFullCallsByCategory[s_gxDrawCategory];
+			}
 		}
 
 	}
@@ -3565,6 +3576,14 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 		// still take the original full path and preserve older sorted ranges.
 		const bool staticTerrain = m_opt.terrainReuse && !(vb->m_usage & D3DUSAGE_DYNAMIC) && s_gxDrawCategory == GX_DRAWCAT_TERRAIN;
 		GxBufferSnapshot &submitted = vb->m_gl.submittedTerrain;
+		if (s_gxDrawCategory == GX_DRAWCAT_TERRAIN) {
+			if (!m_opt.terrainReuse) ++s_gxTerrainReuseMissReasons[0];
+			else if (vb->m_usage & D3DUSAGE_DYNAMIC) ++s_gxTerrainReuseMissReasons[1];
+			else if (!vb->m_gl.allocated) ++s_gxTerrainReuseMissReasons[2];
+			else if (!haveRange) ++s_gxTerrainReuseMissReasons[3];
+			else if (vb->m_gl.pendingDiscard) ++s_gxTerrainReuseMissReasons[4];
+			else if (!submitted.ready(vb->m_bits.size())) ++s_gxTerrainReuseMissReasons[5];
+		}
 		if (m_opt.terrainReuse && !(vb->m_usage & D3DUSAGE_DYNAMIC) && vb->m_gl.allocated && haveRange &&
 		    !vb->m_gl.pendingDiscard && submitted.ready(vb->m_bits.size())) {
 			const double compareStart = gxNowUs();
@@ -3599,6 +3618,9 @@ void WebGLPipeline::ensureVBUploaded(WebGLVertexBuffer *vb)
 		// cheap.
 		const bool fullUpload = !vb->m_gl.allocated || !haveRange || vb->m_gl.pendingDiscard;
 		if (fullUpload) {
+			if (vb->m_gl.pendingDiscard) ++s_gxVBFullReasons[0];
+			else if (!vb->m_gl.allocated) ++s_gxVBFullReasons[1];
+			else ++s_gxVBFullReasons[2];
 			// First use, or an update with no recorded range: full upload,
 			// which also (re)allocates the GL storage.
 			fullBufferUpload(vb->m_gl, vb->m_bits.data(), vb->m_bits.size(), GX_UPLOAD_VB_FULL);
@@ -4412,6 +4434,25 @@ void WebGLPipeline::present()
 						s_gxSyncCallsByCategory[cat] = 0;
 					}
 					fprintf(stderr, "\n");
+				}
+
+				{
+					const char *names[GX_DRAWCAT_COUNT] = {"other","models","particles","ui","terrain","shadows","skin"};
+					fprintf(stderr,"[d3d8gles] perf-upload-full-source:");
+					for (int cat=0; cat<GX_DRAWCAT_COUNT; ++cat) {
+						fprintf(stderr," %s=%.0fKB/%.1f-calls", names[cat],
+							s_gxVBFullBytesByCategory[cat]/1024.0/f, s_gxVBFullCallsByCategory[cat]/f);
+						s_gxVBFullBytesByCategory[cat]=0.0;
+						s_gxVBFullCallsByCategory[cat]=0;
+					}
+					fprintf(stderr," reasons discard=%.1f first=%.1f no-range=%.1f/frame\n",
+						s_gxVBFullReasons[0]/f,s_gxVBFullReasons[1]/f,s_gxVBFullReasons[2]/f);
+					for(unsigned &reason: s_gxVBFullReasons) reason=0;
+					fprintf(stderr,"[d3d8gles] perf-terrain-reuse-misses: off=%.1f dynamic=%.1f no-storage=%.1f no-range=%.1f discard=%.1f no-snapshot=%.1f/frame\n",
+						s_gxTerrainReuseMissReasons[0]/f,s_gxTerrainReuseMissReasons[1]/f,
+						s_gxTerrainReuseMissReasons[2]/f,s_gxTerrainReuseMissReasons[3]/f,
+						s_gxTerrainReuseMissReasons[4]/f,s_gxTerrainReuseMissReasons[5]/f);
+					for(unsigned &reason: s_gxTerrainReuseMissReasons) reason=0;
 				}
 				for (int i = 0; i < GX_DRAWCAT_COUNT; i++) s_gxDrawUsByCategory[i] = 0.0;
 				s_gxDrawCallUs = 0.0;
