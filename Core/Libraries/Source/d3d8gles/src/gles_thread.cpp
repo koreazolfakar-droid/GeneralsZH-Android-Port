@@ -53,7 +53,6 @@ std::atomic<bool> s_workerSleeping{false};
 // Engine thread waiting on s_doneCv for a sync call, a swap or ring space.
 std::mutex s_doneMutex;
 std::condition_variable s_doneCv;
-std::atomic<bool> s_mainWaiting{false};
 
 std::atomic<uint64_t> s_framesPresented{0};
 uint64_t s_framesQueued = 0;
@@ -99,10 +98,14 @@ void applySwapInterval(int requested)
 
 void wakeMain()
 {
-	if (s_mainWaiting.load(std::memory_order_seq_cst)) {
-		std::lock_guard<std::mutex> lock(s_doneMutex);
-		s_doneCv.notify_all();
-	}
+	// GeneralsX @bugfix Codex 05/11/2026 Completion predicates are published
+	// with release stores outside this mutex. A conditional waiting-flag load
+	// can observe false before that publication is visible to the waiter,
+	// losing its only wakeup. Always enter the predicate waiter's mutex: either
+	// it observes the publication after acquiring it, or it is already waiting
+	// and receives this notification. No GL work or GPU wait runs under it.
+	std::lock_guard<std::mutex> lock(s_doneMutex);
+	s_doneCv.notify_all();
 }
 
 void wakeWorker()
@@ -129,13 +132,11 @@ void waitMain(P pred, double *accumUs)
 		}
 	}
 	std::unique_lock<std::mutex> lock(s_doneMutex);
-	s_mainWaiting.store(true, std::memory_order_seq_cst);
 	// The producer and worker both synchronize through s_doneMutex when
 	// sleeping/notifying. Predicate waiting eliminates 2ms polling wakeups
 	// (and needless CPU/thermal pressure) without delaying a completed swap,
 	// synchronous GL query, or command-ring space notification.
 	s_doneCv.wait(lock, pred);
-	s_mainWaiting.store(false, std::memory_order_seq_cst);
 	const double waited=usSince(t0);
 	*accumUs += waited; s_producerWaitUsTotal+=waited;
 }

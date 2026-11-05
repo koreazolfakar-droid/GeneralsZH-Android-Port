@@ -27,6 +27,16 @@ repeating its normal-speed debt recovery and upload attribution changes.
    of missing, failed or unrun evidence. Engine-only commit markers now suppress
    APK build jobs on performance branches as well as the development branch.
 
+4. CI exposed the existing `waitMain` completion race: a release-published
+   predicate and a conditional waiting-flag check can both miss the other
+   thread's state. The sleeping producer then has no future notification.
+   Original production fixture stalled with only its main thread left and
+   exceeded 45 seconds at 100,000 races. Always take the condition-variable
+   mutex before notification; remove the now-unused waiting flag. The repaired
+   fixture finishes 100,000 races in 2.77 seconds and passes ThreadSanitizer.
+   Increase the standard UBSan race fixture to 10,000 iterations. No GL calls,
+   GPU waits or command execution run under that mutex.
+
 ## Host validation
 
 44 relevant scripts returned zero, including terrain batching/lighting/snapshot,
@@ -47,8 +57,11 @@ Local logs are in `/workspace/validation-final/`. Production UpdateTrust JVM
 validation passed eight crypto checks with a user-local JDK. The own-channel
 suite passed 22 host checks using the unchanged downloaded Bootstrap 3333 APK.
 The final exact-source native build must still be inspected before release.
-The superseded 3677 native run was canceled during runner cleanup before
-compilation after additional mode-transition cases required a source correction.
+Superseded 3677/3678 native runs were canceled before compilation when additional
+mode-transition cases and the independently reproduced waiter race required
+source corrections. Universal tactical AI QA on 3678 failed in the existing
+TEOD waiter fixture with a 15-second timeout; that failure led to the waiter fix.
+All affected render-thread/lifecycle/upload/timing checks pass after the repair.
 No APK is built by these changes.
 
 ## Measurements and provenance
@@ -85,3 +98,21 @@ required evidence. The live baseline inspected this session is engine 3667,
 serial 32, source a892c63a0cee78ae84c751b05a06913294cfcf3e. Preserve its signed
 manifest and payloads. No signing identity, updater, APK or production update
 branch changes are part of this continuation.
+
+## Exact continuation file set
+
+- `.github/engine-baseline/build.py`
+- `.github/workflows/build-android.yml`
+- `Core/Libraries/Source/d3d8gles/src/gles_pipeline.cpp`
+- `Core/Libraries/Source/d3d8gles/src/gles_thread.cpp`
+- `GeneralsMD/Code/GameEngine/Source/Common/GameEngine.cpp`
+- `docs/DEV_BLOG/2026-11-DIARY.md`
+- `docs/WORKDIR/planning/PLAN-20261105_ENGINE_PERFORMANCE_CONTINUATION.md`
+- `docs/WORKDIR/reports/ANDROID_PERFORMANCE_CONTINUATION_2026-11-05.md`
+- `scripts/qa/test-engine-budget-v2.py`
+- `scripts/qa/test-engine-budget-v2.sh`
+- `scripts/qa/test-gles-upload-regressions.py`
+- `scripts/qa/test-offline-catchup.py`
+- `scripts/qa/test-performance-release-gates.py`
+- `scripts/qa/test-teod-camera-scroll.py`
+- `scripts/update/prepare-engine-run.py`
