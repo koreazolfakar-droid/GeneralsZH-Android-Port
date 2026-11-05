@@ -306,21 +306,36 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	// The built-in WAV reader first; FFmpeg only for what it does not handle.
 	Bool decodedNatively = FALSE;
 	{
-		// GeneralsX @performance Codex 05/11/2026 Avoid reading an entire
-		// non-WAV asset merely to discover that FFmpeg must read it again.
-		// Failed or unsupported probes still seek and use the existing fallback.
-		uint8_t header[12];
-		const bool wavHeader = fileSize >= sizeof(header) &&
-			file->read(header, sizeof(header)) == (Int)sizeof(header) &&
-			memcmp(header, "RIFF", 4) == 0 && memcmp(header + 8, "WAVE", 4) == 0;
-		if (wavHeader) {
+		// GeneralsX @performance Codex 05/11/2026 Preserve one read for normal
+		// WAV assets: archive-backed File::read performs a seek on each call.
+		// Other names get a bounded header probe before allocating or reading
+		// their payload. The suffix is only a performance hint; the decoder
+		// still validates the bytes and the existing FFmpeg fallback remains.
+		const char* name = strToFind.str();
+		const size_t length = strlen(name);
+		const bool wavName = length >= 4 && name[length - 4] == '.' &&
+			(name[length - 3] == 'w' || name[length - 3] == 'W') &&
+			(name[length - 2] == 'a' || name[length - 2] == 'A') &&
+			(name[length - 1] == 'v' || name[length - 1] == 'V');
+		if (wavName) {
 			std::vector<uint8_t> bytes(fileSize);
-			memcpy(bytes.data(), header, sizeof(header));
-			const Int remaining = (Int)(fileSize - sizeof(header));
-			if (remaining == 0 || file->read(bytes.data() + sizeof(header), remaining) == remaining)
+			if (fileSize > 0 && file->read(bytes.data(), (Int)fileSize) == (Int)fileSize)
 				decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+		} else {
+			uint8_t header[12];
+			const bool wavHeader = fileSize >= sizeof(header) &&
+				file->read(header, sizeof(header)) == (Int)sizeof(header) &&
+				memcmp(header, "RIFF", 4) == 0 && memcmp(header + 8, "WAVE", 4) == 0;
+			if (wavHeader) {
+				std::vector<uint8_t> bytes(fileSize);
+				memcpy(bytes.data(), header, sizeof(header));
+				const Int remaining = (Int)(fileSize - sizeof(header));
+				if (remaining == 0 || file->read(bytes.data() + sizeof(header), remaining) == remaining)
+					decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+			}
 		}
 	}
+
 	if (decodedNatively) {
 		++m_stats.nativeWav;
 		file->close();

@@ -15,12 +15,12 @@ code=r'''
 #include <algorithm>
 using Bool=bool; using UnsignedInt=unsigned; using Int=int;
 #define FALSE false
-struct File { enum { START }; std::vector<uint8_t> data; size_t pos=0,readBytes=0; int read(void* p,int n){size_t k=std::min<size_t>(n,data.size()-pos);memcpy(p,data.data()+pos,k);pos+=k;readBytes+=k;return k;} void seek(int n,int){pos=n;} };
+struct File { enum { START }; std::vector<uint8_t> data; size_t pos=0,readBytes=0,readCalls=0; int read(void* p,int n){++readCalls;size_t k=std::min<size_t>(n,data.size()-pos);memcpy(p,data.data()+pos,k);pos+=k;readBytes+=k;return k;} void seek(int n,int){pos=n;} };
 struct OpenAudioFile {};
-struct Tester { std::vector<uint8_t> expected; bool decodeWavNative(const uint8_t* p,size_t n,OpenAudioFile*){assert(n==expected.size() && !memcmp(p,expected.data(),n));return n>=12 && !memcmp(p,"RIFF",4) && !memcmp(p+8,"WAVE",4);} bool probe(File* file){unsigned fileSize=file->data.size();OpenAudioFile openedAudioFile;
+struct Tester { std::vector<uint8_t> expected; bool decodeWavNative(const uint8_t* p,size_t n,OpenAudioFile*){assert(n==expected.size() && !memcmp(p,expected.data(),n));return n>=12 && !memcmp(p,"RIFF",4) && !memcmp(p+8,"WAVE",4);} bool probe(File* file,const char* filename){struct Name {const char* value;const char* str(){return value;}} strToFind{filename}; (void)strToFind; unsigned fileSize=file->data.size();OpenAudioFile openedAudioFile;
 ''' + section + r'''
  return decodedNatively; }};
-int main(){Tester t;File mp3;mp3.data.assign(65536,42);assert(!t.probe(&mp3));assert(mp3.readBytes<=12);File wav;wav.data.resize(4096);for(size_t i=0;i<wav.data.size();++i)wav.data[i]=static_cast<uint8_t>((i*37)%251);memcpy(wav.data.data(),"RIFF",4);memcpy(wav.data.data()+8,"WAVE",4);t.expected=wav.data;assert(t.probe(&wav));assert(wav.readBytes==wav.data.size());File shortFile;shortFile.data.assign(4,0);assert(!t.probe(&shortFile));assert(shortFile.readBytes<=12);}
+int main(){Tester t;File mp3;mp3.data.assign(65536,42);assert(!t.probe(&mp3,"effect.mp3"));assert(mp3.readBytes<=12);File wav;wav.data.resize(4096);for(size_t i=0;i<wav.data.size();++i)wav.data[i]=static_cast<uint8_t>((i*37)%251);memcpy(wav.data.data(),"RIFF",4);memcpy(wav.data.data()+8,"WAVE",4);t.expected=wav.data;assert(t.probe(&wav,"effect.WAV"));assert(wav.readBytes==wav.data.size() && wav.readCalls==1);File alias;alias.data=wav.data;t.expected=alias.data;assert(t.probe(&alias,"effect.dat"));assert(alias.readBytes==alias.data.size() && alias.readCalls==2);File mislabeled;mislabeled.data=mp3.data;t.expected=mislabeled.data;assert(!t.probe(&mislabeled,"not-a-wave.wav"));assert(mislabeled.readBytes==mislabeled.data.size());File shortFile;shortFile.data.assign(4,0);assert(!t.probe(&shortFile,"short.mp3"));assert(shortFile.readBytes<=12);}
 '''
 with tempfile.TemporaryDirectory() as tmp:
  p=Path(tmp)/'test.cpp';p.write_text(code);exe=Path(tmp)/'test'
