@@ -83,7 +83,7 @@ for name in ['libdxvk_d3d8.so','libdxvk_d3d9.so']:
     assert sha(path) == baseline['native_libraries'][name]['sha256']
     report.setdefault('reused',{})[name] = {'path':str(path),'sha256':sha(path),'rebuilt':False}
 if build_requested:
-    for name in ['test-engine-runner-space.py','test-terrain-draw-batching.py','test-frame-rate-limit.py','test-module-factory-resolution.py','test-gles-program-bindings.py','test-shroud-classification.py','test-gles-context-lifecycle.py','test-gles-surface-restoration.py','test-sdl3-render-lifecycle.py',
+    for name in ['test-engine-budget-v2.py','test-offline-catchup.py','test-performance-release-gates.py','test-engine-runner-space.py','test-terrain-draw-batching.py','test-frame-rate-limit.py','test-module-factory-resolution.py','test-gles-program-bindings.py','test-shroud-classification.py','test-gles-context-lifecycle.py','test-gles-surface-restoration.py','test-sdl3-render-lifecycle.py',
                  'test-engine-incremental-state.py','test-engine-build-number.py','test-engine-packaging.py','test-engine-native-version.py',
                  'test-engine-3277-hotfix.py','test-save-map-safety.py','test-mod-localization.py','smoke/test-mod-localization.py',
                  'test-standalone-mod-overlay.py','test-mod-archive-loading.py',

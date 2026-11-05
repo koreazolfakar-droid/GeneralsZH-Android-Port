@@ -267,6 +267,7 @@ constexpr unsigned D3DUSAGE_DYNAMIC=1,GL_COPY_WRITE_BUFFER=1,GL_DYNAMIC_DRAW=2,G
 constexpr int GX_DRAWCAT_TERRAIN=4;
 static double s_gxTerrainCompareUs=0,s_gxTerrainAttemptBytes=0,s_gxTerrainAvoidedBytes=0;
 static unsigned s_gxTerrainCompared=0,s_gxTerrainUnchanged=0;
+static unsigned s_gxVBFullReasons[3]={},s_gxTerrainReuseMissReasons[6]={};
 static double gxNowUs(){return 0;}
 constexpr int GX_UPLOAD_IB_FULL=1,GX_UPLOAD_VB_FULL=2,GX_UPLOAD_IB_APPEND=3,GX_UPLOAD_VB_APPEND=4,GX_DRAWCAT_COUNT=7;
 static int s_gxDrawCategory=0;static unsigned s_gxSyncCallsByCategory[7]={};
@@ -335,9 +336,26 @@ int main(){
   before=uploads;unsigned syncBefore=p.m_perfSyncUploads;
   p.ensureVBUploaded(&b);assert(gpu==b.m_bits&&uploads==before+1&&p.m_perfSyncUploads==syncBefore+1);
   b.m_gl.markRange(0,b.m_bits.size());b.m_gl.pendingDiscard=true;before=uploads;
+  p.ensureVBUploaded(&b);assert(uploads==before&&gpu==b.m_bits); // identical DISCARD needs no transfer
+  for(int frame=0;frame<120;++frame){b.m_gl.markRange(0,b.m_bits.size());b.m_gl.pendingDiscard=true;p.ensureVBUploaded(&b);}
+  assert(uploads==before);
+  printf("PASS: 120 unchanged 128KiB terrain DISCARDs: 120 full transfers / 15728640 bytes -> zero (host fixture)\n");
+  // A changed byte outside the newly locked range still belongs to sorted draws.
+  b.m_bits[120000]^=1;b.m_gl.markRange(0,1);b.m_gl.pendingDiscard=true;before=uploads;
   p.ensureVBUploaded(&b);assert(uploads>before&&gpu==b.m_bits);
   p.m_opt.terrainReuse=false;b.m_gl.markRange(0,b.m_bits.size());b.m_gl.pendingSync=true;before=uploads;
   p.ensureVBUploaded(&b);assert(uploads>before&&gpu==b.m_bits);p.m_opt.terrainReuse=true;
+ }
+ {
+  WebGLVertexBuffer b;b.m_bits.assign(4096,0);b.m_gl.markRange(0,16);p.ensureVBUploaded(&b);
+  unsigned before=uploads;
+  b.m_gl.markRange(0,128);b.m_gl.pendingDiscard=true;p.ensureVBUploaded(&b);
+  assert(uploads>before); // matching zeros in a previously undefined tail must be initialized
+  before=uploads;
+  for(int frame=0;frame<120;++frame){b.m_gl.markRange(0,1);b.m_gl.pendingDiscard=true;p.ensureVBUploaded(&b);}
+  assert(uploads==before&&gpu==b.m_bits);
+  b.m_usage=D3DUSAGE_DYNAMIC;b.m_gl.markRange(0,1);b.m_gl.pendingDiscard=true;p.ensureVBUploaded(&b);
+  assert(uploads>before); // dynamic rename/fence behavior is unchanged
  }
  assert(GxBufferSnapshot::memoryBytes()==0);
  puts("PASS: production static VB/IB reuse, dynamic synchronized/NOOVERWRITE/DISCARD bytes and range accounting");

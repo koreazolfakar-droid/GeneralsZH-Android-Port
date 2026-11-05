@@ -71,12 +71,11 @@ double usSince(Clock::time_point start) {
 }
 std::mutex s_doneMutex;
 std::condition_variable s_doneCv;
-std::atomic<bool> s_mainWaiting{false};
 double s_producerWaitUsTotal=0;
 ''' + wake + wait + r'''
 int main() {
  double accum=0;
- for (int i=0;i<500;++i) {
+ for (int i=0;i<10000;++i) {
    std::atomic<bool> done{false};
    std::thread worker([&] {
      if (i%2==0) std::this_thread::yield();
