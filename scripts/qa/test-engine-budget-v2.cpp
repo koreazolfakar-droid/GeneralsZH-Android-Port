@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <initializer_list>
 int main() {
     using GXCatchUpBudget::remainingMs;
     assert(remainingMs(0.0, 30) == 8.0);
