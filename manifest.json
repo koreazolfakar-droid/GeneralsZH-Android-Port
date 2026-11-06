@@ -10,14 +10,14 @@
   "engine": {
     "files": {
       "libmain.so": {
-        "sha256": "8e4625bd46b0f8ba593d3bcc83f4da8c213cb10bbe80e6b5739c6702be65f16a",
-        "size": 42351856,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3679/libmain.so.gz"
+        "sha256": "f099230c2cdce96127b27fe226603f18a724857507757dd23150bcb42214b9c5",
+        "size": 42355968,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3687/libmain.so.gz"
       },
       "libmain60.so": {
-        "sha256": "599a84d7cfec9c6b70ec19f2e6f9c6f11e536393de8c077cde7c72d4d7379f7f",
-        "size": 42356160,
-        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3679/libmain60.so.gz"
+        "sha256": "87b769d6efc3a7784ff7ffe205252674c3ac4a08cda339ccbb22b6d71ad9456c",
+        "size": 42356176,
+        "url": "https://raw.githubusercontent.com/koreazolfakar-droid/GeneralsZH-Android-Port/updates/engine/3687/libmain60.so.gz"
       }
     },
     "requires_libs": {
@@ -37,11 +37,11 @@
       "libmain_hook.so": "21a208461e3f408d953bd7557bc7f0fc536d357827b7c06da71745d0f1835860",
       "libopenal.so": "3674bdca53dd3fe7bb1464e9ac73ba5445268e40b0d8513d595579c998d0ab2b"
     },
-    "seq": 3679,
-    "source_commit": "fb163bbb0ed998e41ecf3b7f0b7bed8426cac534"
+    "seq": 3687,
+    "source_commit": "28986238b1bdda2360ce3d901366af14b22fd083"
   },
-  "note": "Engine 3679 performance fixes: offline catch-up deadline safeguards, redundant static-terrain GPU upload elimination, and render-thread lost-wakeup synchronization fix. Full source/host/Android 30Hz and 60Hz CI validation passed; physical Samsung/Mali gameplay, Vanilla/TEOD, saves, replay, multiplayer and on-device FPS remain unverified. Engine-only OTA, NO APK; previous 3667 payloads preserved for rollback.",
-  "published": "2026-11-05",
+  "note": "Engine 3687 audio improvements: avoid redundant full non-WAV reads and retain WAV header during decoding, account for PCM cache and evictions, and record stopped-stream diagnostics. Host regression/sanitizer tests and AArch64 30/60Hz CI passed; physical device audio playback, mod music/SFX, streaming, saves/replays/multiplayer and actual A/B responsiveness remain unverified. Experimental engine-only OTA for sole tester; no APK, previous 3679 preserved for rollback.",
+  "published": "2026-11-06",
   "schema": 1,
-  "serial": 33
+  "serial": 34
 }
