@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Exercise the actual native-audio probe against an instrumented file."""
+from pathlib import Path
+import subprocess,tempfile
+root=Path(__file__).resolve().parents[2]
+s=(root/'Core/GameEngineDevice/Source/OpenALAudioDevice/OpenALAudioCache.cpp').read_text()
+a=s.index('\t// The built-in WAV reader first;')
+b=s.index('\n\tif (decodedNatively)',a)
+section=s[a:b]
+code=r'''
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <vector>
+#include <algorithm>
+using Bool=bool; using UnsignedInt=unsigned; using Int=int;
+#define FALSE false
+struct File { enum { START }; std::vector<uint8_t> data; size_t pos=0,readBytes=0,readCalls=0; int read(void* p,int n){++readCalls;size_t k=std::min<size_t>(n,data.size()-pos);memcpy(p,data.data()+pos,k);pos+=k;readBytes+=k;return k;} void seek(int n,int){pos=n;} };
+struct OpenAudioFile {};
+struct Tester { std::vector<uint8_t> expected; bool decodeWavNative(const uint8_t* p,size_t n,OpenAudioFile*){assert(n==expected.size() && !memcmp(p,expected.data(),n));return n>=12 && !memcmp(p,"RIFF",4) && !memcmp(p+8,"WAVE",4);} bool probe(File* file,const char* filename){struct Name {const char* value;const char* str(){return value;}} strToFind{filename}; (void)strToFind; unsigned fileSize=file->data.size();OpenAudioFile openedAudioFile;
+''' + section + r'''
+ return decodedNatively; }};
+int main(){Tester t;File mp3;mp3.data.assign(65536,42);assert(!t.probe(&mp3,"effect.mp3"));assert(mp3.readBytes<=12);File wav;wav.data.resize(4096);for(size_t i=0;i<wav.data.size();++i)wav.data[i]=static_cast<uint8_t>((i*37)%251);memcpy(wav.data.data(),"RIFF",4);memcpy(wav.data.data()+8,"WAVE",4);t.expected=wav.data;assert(t.probe(&wav,"effect.WAV"));assert(wav.readBytes==wav.data.size() && wav.readCalls==1);File alias;alias.data=wav.data;t.expected=alias.data;assert(t.probe(&alias,"effect.dat"));assert(alias.readBytes==alias.data.size() && alias.readCalls==2);File mislabeled;mislabeled.data=mp3.data;t.expected=mislabeled.data;assert(!t.probe(&mislabeled,"not-a-wave.wav"));assert(mislabeled.readBytes==mislabeled.data.size());File shortFile;shortFile.data.assign(4,0);assert(!t.probe(&shortFile,"short.mp3"));assert(shortFile.readBytes<=12);}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+ p=Path(tmp)/'test.cpp';p.write_text(code);exe=Path(tmp)/'test'
+ subprocess.run(['c++','-std=c++17','-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all',str(p),'-o',str(exe)],check=True)
+ subprocess.run([str(exe)],check=True)
+print('PASS: non-WAV probe bounded to header; WAV remains decoded; short files safe')

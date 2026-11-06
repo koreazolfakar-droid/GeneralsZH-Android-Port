@@ -28,6 +28,7 @@
 #include "OpenALAudioDevice/OpenALAudioManager.h"
 #include "VideoDevice/FFmpeg/FFmpegFile.h"
 
+#include <cstdint>
 #include <mutex>
 #include <unordered_map>
 
@@ -62,6 +63,7 @@ struct OpenAudioFile
 	FFmpegFile* m_ffmpegFile = NULL;
 	UnsignedInt m_openCount = 0;
 	UnsignedInt m_fileSize = 0;
+	uint64_t m_decodedBytes = 0; ///< PCM bytes submitted to OpenAL, not driver allocation
 	UnsignedInt m_channels = 0;
 	UnsignedInt m_bitsPerSample = 0;
 	UnsignedInt m_freq = 0;
@@ -85,6 +87,11 @@ struct OpenALAudioCacheStats
 	UnsignedInt evicted = 0;      ///< entries freed to make room
 	UnsignedInt dropped = 0;      ///< decoded but no room could be made: thrown away, sound not played
 	UnsignedInt nativeWav = 0;    ///< misses decoded by the built-in WAV reader rather than FFmpeg
+	// GeneralsX @performance Codex 05/11/2026 Distinguish failed lookups from FFmpeg work.
+	UnsignedInt missing = 0;
+	UnsignedInt ffmpegDecoded = 0;
+	UnsignedInt decodeFailed = 0;
+	UnsignedInt evictedActive = 0;
 };
 
 struct OpenFileInfo
@@ -124,6 +131,7 @@ public:
 	// outside the audio cache. They should be used as a rough estimate only.
 	UnsignedInt getCurrentlyUsedSize() const { return m_currentlyUsedSize; }
 	UnsignedInt getMaxSize() const { return m_maxSize; }
+	uint64_t getCurrentlyDecodedSize() const { return m_currentlyDecodedSize; }
 	UnsignedInt getEntryCount() const { return (UnsignedInt)m_openFiles.size(); }
 	OpenALAudioCacheStats &stats() { return m_stats; }
 
@@ -147,6 +155,7 @@ protected:
 
 	OpenFilesHash m_openFiles;
 	UnsignedInt m_currentlyUsedSize;
+	uint64_t m_currentlyDecodedSize = 0;
 	UnsignedInt m_maxSize;
 	UnsignedInt m_useClock = 0;
 	OpenALAudioCacheStats m_stats;

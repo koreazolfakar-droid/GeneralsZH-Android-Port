@@ -68,6 +68,9 @@ Bool OpenALAudioFileCache::decodeFFmpeg(OpenAudioFile* file)
 	while (file->m_ffmpegFile->decodePacket()) {
 	}
 
+	// GeneralsX @performance Codex 05/11/2026 Record submitted PCM bytes
+	// separately from the legacy encoded-file cache budget.
+	file->m_decodedBytes = audioData.size();
 	// Fill the buffer with the audio data
 	alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(file->m_ffmpegFile->getNumChannels(), file->m_ffmpegFile->getBytesPerSample() * 8),
 		audioData.data(), audioData.size(), file->m_ffmpegFile->getSampleRate());
@@ -191,12 +194,14 @@ Bool OpenALAudioFileCache::decodeWavNative(const uint8_t* data, size_t size, Ope
 	if (format == WAVE_FORMAT_PCM && (bits == 8 || bits == 16)) {
 		const size_t frameBytes = channels * (bits / 8);
 		samplesSize -= samplesSize % frameBytes;
+		file->m_decodedBytes = samplesSize;
 		alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(channels, bits), samples, (ALsizei)samplesSize, rate);
 		file->m_totalSamples = (int)(samplesSize / frameBytes);
 	} else if (format == WAVE_FORMAT_IMA_ADPCM && bits == 4 && blockAlign > 0) {
 		std::vector<int16_t> pcm;
 		if (!decodeImaAdpcm(samples, samplesSize, channels, blockAlign, pcm))
 			return FALSE;
+		file->m_decodedBytes = pcm.size() * sizeof(int16_t);
 		alBufferData(file->m_buffer, OpenALAudioManager::getALFormat(channels, 16), pcm.data(),
 			(ALsizei)(pcm.size() * sizeof(int16_t)), rate);
 		file->m_totalSamples = (int)(pcm.size() / channels);
@@ -292,6 +297,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	File* file = TheFileSystem->openFile(strToFind.str());
 	m_stats.openMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - missStart).count();
 	if (!file) {
+		++m_stats.missing;
 		DEBUG_ASSERTLOG(strToFind.isEmpty(), ("Missing Audio File: '%s'\n", strToFind.str()));
 		return 0;
 	}
@@ -305,11 +311,36 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	// The built-in WAV reader first; FFmpeg only for what it does not handle.
 	Bool decodedNatively = FALSE;
 	{
-		std::vector<uint8_t> bytes(fileSize);
-		if (fileSize > 0 && file->read(bytes.data(), (Int)fileSize) == (Int)fileSize) {
-			decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+		// GeneralsX @performance Codex 05/11/2026 Preserve one read for normal
+		// WAV assets: archive-backed File::read performs a seek on each call.
+		// Other names get a bounded header probe before allocating or reading
+		// their payload. The suffix is only a performance hint; the decoder
+		// still validates the bytes and the existing FFmpeg fallback remains.
+		const char* name = strToFind.str();
+		const size_t length = strlen(name);
+		const bool wavName = length >= 4 && name[length - 4] == '.' &&
+			(name[length - 3] == 'w' || name[length - 3] == 'W') &&
+			(name[length - 2] == 'a' || name[length - 2] == 'A') &&
+			(name[length - 1] == 'v' || name[length - 1] == 'V');
+		if (wavName) {
+			std::vector<uint8_t> bytes(fileSize);
+			if (fileSize > 0 && file->read(bytes.data(), (Int)fileSize) == (Int)fileSize)
+				decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+		} else {
+			uint8_t header[12];
+			const bool wavHeader = fileSize >= sizeof(header) &&
+				file->read(header, sizeof(header)) == (Int)sizeof(header) &&
+				memcmp(header, "RIFF", 4) == 0 && memcmp(header + 8, "WAVE", 4) == 0;
+			if (wavHeader) {
+				std::vector<uint8_t> bytes(fileSize);
+				memcpy(bytes.data(), header, sizeof(header));
+				const Int remaining = (Int)(fileSize - sizeof(header));
+				if (remaining == 0 || file->read(bytes.data() + sizeof(header), remaining) == remaining)
+					decodedNatively = decodeWavNative(bytes.data(), bytes.size(), &openedAudioFile);
+			}
 		}
 	}
+
 	if (decodedNatively) {
 		++m_stats.nativeWav;
 		file->close();
@@ -319,6 +350,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 
 		// This transfer ownership of file
 		if (!openedAudioFile.m_ffmpegFile->open(file)) {
+			++m_stats.decodeFailed;
 			releaseOpenAudioFile(&openedAudioFile);
 			return 0;
 		}
@@ -332,10 +364,12 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 		}
 
 		if (!decodeFFmpeg(&openedAudioFile)) {
+			++m_stats.decodeFailed;
 			releaseOpenAudioFile(&openedAudioFile);
 			return 0;
 		}
 
+		++m_stats.ffmpegDecoded;
 		openedAudioFile.m_ffmpegFile->close();
 	}
 
@@ -366,6 +400,7 @@ ALuint OpenALAudioFileCache::getBufferForFile(const OpenFileInfo &fileInfo)
 	openedAudioFile.m_openCount = 1;
 	openedAudioFile.m_lastUse = ++m_useClock;
 	m_openFiles[strToFind] = openedAudioFile;
+	m_currentlyDecodedSize += openedAudioFile.m_decodedBytes;
 	return openedAudioFile.m_buffer;
 }
 
@@ -500,6 +535,9 @@ Bool OpenALAudioFileCache::freeEnoughSpaceForSample(const OpenAudioFile& sampleT
 	for (ait = filesToClose.begin(); ait != filesToClose.end(); ++ait) {
 		OpenFilesHashIt itToErase = m_openFiles.find(*ait);
 		if (itToErase != m_openFiles.end()) {
+			if (itToErase->second.m_openCount > 0)
+				++m_stats.evictedActive;
+			m_currentlyDecodedSize -= itToErase->second.m_decodedBytes;
 			releaseOpenAudioFile(&itToErase->second);
 			m_currentlyUsedSize -= itToErase->second.m_fileSize;
 			m_openFiles.erase(itToErase);

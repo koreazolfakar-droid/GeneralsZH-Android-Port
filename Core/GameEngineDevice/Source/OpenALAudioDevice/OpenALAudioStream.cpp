@@ -2,8 +2,23 @@
 #include "GXTrace.h"
 #include "OpenALAudioDevice/OpenALAudioManager.h"
 #include <AL/alext.h>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
+
+// GeneralsX @performance Codex 05/11/2026 Count stopped streams with queued
+// data outside EOF/pause. This is a starvation observation, not proof of an
+// audible underrun. The manager drains it with the existing perf window.
+static std::atomic<unsigned> s_gxStreamStarved{0};
+static void gxObserveStreamStarvation(bool stoppedWithData, bool atEnd, bool paused)
+{
+    if (stoppedWithData && !atEnd && !paused && GXTrace::isPerfEnabled())
+        s_gxStreamStarved.fetch_add(1, std::memory_order_relaxed);
+}
+extern "C" unsigned gxAudioTakeStarvedObservations()
+{
+    return s_gxStreamStarved.exchange(0, std::memory_order_relaxed);
+}
 
 // GeneralsX @bugfix Android port 08/09/2026 Wall clock for the EOF probe below.
 static unsigned long gxNowMs()
@@ -225,6 +240,7 @@ void OpenALAudioStream::update()
     // fully-played queue, which the unqueue was supposed to have emptied -- but nothing said
     // what the unqueue and the refill actually did in between, so the reason is unknowable.
     const bool gxStarved = (sourceState == AL_STOPPED && num_queued > 0);
+    gxObserveStreamStarvation(gxStarved, m_endOfData, m_paused);
 
     ALint processedToUnqueue = processedBeforeUnqueue;
     ALint gxUnqueueFailures = 0;
