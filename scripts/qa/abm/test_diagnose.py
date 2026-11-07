@@ -53,7 +53,7 @@ class DiagnoseTests(unittest.TestCase):
             result = summarize(path)
             self.assertEqual(result["samples"]["gpuTimingAvailable"], 0)
             self.assertEqual(result["peaks"]["gpuMs"], [])
-            self.assertIsNone(result["peaks"]["swapMs"][0]["gpuMs"]) if result["peaks"]["swapMs"] else None
+            self.assertEqual(result["peaks"]["swapMs"], [])
 
 
 if __name__ == "__main__":
