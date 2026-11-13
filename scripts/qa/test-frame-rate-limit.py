@@ -122,6 +122,8 @@ static void cadence(unsigned hz) {
 int main() {
     cadence(30);
     cadence(60);
+    cadence(120);
+    cadence(144);
 
 #ifndef _WIN32
     FrameRateLimit pacer;
