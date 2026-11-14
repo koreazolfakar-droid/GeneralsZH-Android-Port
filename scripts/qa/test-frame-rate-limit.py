@@ -79,8 +79,18 @@ static void cadence(unsigned hz) {
     oversleepNs = 3000000; // wake late on every frame
     for (unsigned i = 0; i < hz; ++i) {
         nowNs += 1000000; // frame work
+#ifndef _WIN32
+        const int oldReads = reads;
+#endif
         const float delta = pacer.wait(hz);
         assert(delta > 0.0f);
+#ifndef _WIN32
+        // Deadline sleeping should not poll the clock throughout the last 0.2ms.
+        if (reads - oldReads > 8) {
+            std::fprintf(stderr, "FAIL: POSIX frame uses %d clock polls\n", reads - oldReads);
+            std::abort();
+        }
+#endif
     }
     const double elapsed = (nowNs - start) / 1e9;
     // One late wake is retained; repeated oversleep must not accumulate.
@@ -112,6 +122,8 @@ static void cadence(unsigned hz) {
 int main() {
     cadence(30);
     cadence(60);
+    cadence(120);
+    cadence(144);
 
 #ifndef _WIN32
     FrameRateLimit pacer;
@@ -119,10 +131,10 @@ int main() {
     const int before = sleeps, clocks = reads;
     pacer.wait(30);
     assert(sleeps-before >= 2); // Interrupted sleep must resume sleeping.
-    assert(reads-clocks < 100); // No multi-ms busy wait after a signal.
+    assert(reads-clocks < 12); // EINTR resumes sleeping without a hot spin.
 
 #endif
-    std::puts("PASS: production limiter cadence, stalls, uncapped, rate changes and POSIX EINTR");
+    std::puts("PASS: production limiter cadence, stalls, uncapped, rate changes, low-spin and POSIX EINTR");
 }
 '''
 

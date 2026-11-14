@@ -77,25 +77,28 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 	if (sleepSeconds > 0.0)
 		Sleep(static_cast<DWORD>(sleepSeconds * 1000));
 #else
-	// GeneralsX @performance Codex 04/11/2026 Leave only 0.2 ms to spin on
-	// high-resolution POSIX timers. Recompute after an interrupted sleep so a
-	// signal cannot turn the rest of a whole frame into a CPU-burning wait.
-	const Int64 spinTicks = m_freq / 5000;
-	while (deadline - tick > spinTicks)
+	// GeneralsX @performance Codex 13/11/2026 Sleep to the full deadline
+	// rather than burning the final 0.2 ms of every Android/POSIX frame in
+	// a tight clock polling loop. The scheduled deadline and oversleep debt
+	// remain unchanged; retry EINTR using the current monotonic clock.
+	while (tick < deadline)
 	{
-		const Int64 sleepTicks = deadline - tick - spinTicks;
+		const Int64 sleepTicks = deadline - tick;
 		struct timespec sleepTime;
 		sleepTime.tv_sec = static_cast<time_t>(sleepTicks / m_freq);
 		sleepTime.tv_nsec = static_cast<long>((sleepTicks % m_freq) * 1000000000 / m_freq);
 		const int result = nanosleep(&sleepTime, nullptr);
+		// Non-interruptible sleep errors must not result in a busy loop.
 		if (result != 0 && errno != EINTR)
 			break;
 		tick = frameRateLimitTick();
 	}
 #endif
 
+#ifdef _WIN32
 	while (tick < deadline)
 		tick = frameRateLimitTick();
+#endif
 
 	const Real elapsed = static_cast<Real>(static_cast<double>(tick - m_start) / m_freq);
 	m_start = tick;
